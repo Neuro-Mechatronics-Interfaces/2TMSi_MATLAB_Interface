@@ -1,0 +1,81 @@
+<deployment-project plugin="plugin.apptool" plugin-version="1.0">
+  <configuration build-checksum="3469532102" file="G:\Shared drives\NML_shared\CodeShare\Max\TMSi_SAGA\Serial\TMSi-Ripple Serial Interface.prj" location="G:\Shared drives\NML_shared\CodeShare\Max\TMSi_SAGA\Serial" name="TMSi-Ripple Serial Interface" target="target.mlapps" target-name="Package App">
+    <param.appname>TMSi-Ripple Serial Interface</param.appname>
+    <param.authnamewatermark>Max Murphy</param.authnamewatermark>
+    <param.email />
+    <param.company />
+    <param.icon />
+    <param.icons />
+    <param.summary>Interface to make communicating between computers running TMSi acquisition and Ripple stimulation circuit easier.</param.summary>
+    <param.description />
+    <param.screenshot>C:\Users\nml\AppData\Local\Temp\tp681c2359_4366_4538_bb4f_b32a358113d1.png</param.screenshot>
+    <param.version>1.2</param.version>
+    <param.products.name />
+    <param.products.id />
+    <param.products.version />
+    <param.platforms />
+    <param.output>${PROJECT_ROOT}</param.output>
+    <param.guid>558b35ac-04f6-44a8-b843-4f1d985d7c38</param.guid>
+    <unset>
+      <param.email />
+      <param.company />
+      <param.icon />
+      <param.icons />
+      <param.description />
+      <param.products.name />
+      <param.products.id />
+      <param.products.version />
+      <param.platforms />
+      <param.output />
+    </unset>
+    <fileset.main>
+      <file>${PROJECT_ROOT}\TMSi_Ripple_Interface.mlapp</file>
+    </fileset.main>
+    <fileset.depfun>
+      <file>${PROJECT_ROOT}\+db\print_error_message.m</file>
+      <file>${PROJECT_ROOT}\+default\now.m</file>
+      <file>${PROJECT_ROOT}\baseline_file_upload_black_24dp.png</file>
+      <file>${PROJECT_ROOT}\baseline_power_black_24dp.png</file>
+      <file>${PROJECT_ROOT}\baseline_power_off_black_24dp.png</file>
+      <file>${PROJECT_ROOT}\cmu_tartans_logo.jpg</file>
+      <file>${PROJECT_ROOT}\ConnectionEventData.m</file>
+      <file>${PROJECT_ROOT}\MetaEventData.m</file>
+      <file>${PROJECT_ROOT}\Microcontroller.m</file>
+      <file>${PROJECT_ROOT}\ParameterEventData.m</file>
+      <file>${PROJECT_ROOT}\RecordingEventData.m</file>
+      <file>${PROJECT_ROOT}\StimEventData.m</file>
+    </fileset.depfun>
+    <fileset.resources />
+    <fileset.package />
+    <build-deliverables>
+      <file location="G:\Shared drives\NML_shared\CodeShare\Max\TMSi_SAGA" name="Serial" optional="false">G:\Shared drives\NML_shared\CodeShare\Max\TMSi_SAGA\Serial</file>
+    </build-deliverables>
+    <workflow />
+    <matlab>
+      <root>C:\Program Files\MATLAB\R2021a</root>
+      <toolboxes>
+        <toolbox name="matlabcoder" />
+      </toolboxes>
+      <toolbox>
+        <matlabcoder>
+          <enabled>true</enabled>
+        </matlabcoder>
+      </toolbox>
+    </matlab>
+    <platform>
+      <unix>false</unix>
+      <mac>false</mac>
+      <windows>true</windows>
+      <win2k>false</win2k>
+      <winxp>false</winxp>
+      <vista>false</vista>
+      <linux>false</linux>
+      <solaris>false</solaris>
+      <osver>10.0</osver>
+      <os32>false</os32>
+      <os64>true</os64>
+      <arch>win64</arch>
+      <matlab>true</matlab>
+    </platform>
+  </configuration>
+</deployment-project>
