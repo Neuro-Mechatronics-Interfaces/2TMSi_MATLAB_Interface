@@ -1,3 +1,6 @@
 [submodule "+io"]
 	path = +io
 	url = git@github.com:m053m716/-io.git
+[submodule "+TMSiSAGA"]
+	path = +TMSiSAGA
+	url = git@github.com:Neuro-Mechatronics-Interfaces/TMSi_SAGA.git
