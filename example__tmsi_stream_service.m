@@ -30,6 +30,8 @@ SERVER_PORT_START = 5000; % Server port
 SN = [1005210029; 1005210028];
 TAG = ["B"; "A"];
 N_CLIENT = numel(TAG);
+DEFAULT_DATA_SHARE = "R:\NMLShare\raw_data\primate";
+DEFAULT_SUBJ = "Test";
 
 %% Setup device configurations.
 config_device = struct('Dividers', {{'uni', 0; 'bip', 0}}, ...
@@ -121,17 +123,27 @@ if exist('server', 'var')~=0
 end
 server = tcpserver(SERVER_ADDRESS, SERVER_PORT_START, ...
     "ConnectionChangedFcn", @server__CON_connection_changed_cb);
-server.UserData = struct('run', false, 'record', false, 'folder', DEFAULT_REC_LOC, );
-configureCallback(server, "byte", 7688, @(src, evt)server__CON_read_data_cb(src, evt));
+% Set the server properties that we care about, here:
+tank = string(sprintf("%s_%04d_%02d_%02d", DEFAULT_SUBJ, year(today), month(today), day(today)));
+server.UserData = struct(...
+    'state', "idle", ...
+    'datashare', DEFAULT_DATA_SHARE, ...
+    'tank', tank, ...
+    'block', "0", ...
+    'file', fullfile(DEFAULT_SUBJ, tank, sprintf("%s_0", tank)));
+configureCallback(server, "terminator", @(src, evt)server__CON_read_data_cb(src, evt));
 
 %%
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     start(device);
-    while true
-        [samples, num_sets] = device.sample();
-        
-        pause(0.25); % Wait 250-ms then go again.
+    while ~strcmpi(server.UserData.state, "quit")
+        while true
+            [samples, num_sets] = device.sample();
+
+            pause(0.25); % Wait 250-ms then go again.
+        end
     end
+    stop(device);
 catch
     % Disconnect both devices.
     disconnect(device);     
