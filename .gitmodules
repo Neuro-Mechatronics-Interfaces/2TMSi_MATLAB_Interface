@@ -4,3 +4,6 @@
 [submodule "+TMSiSAGA"]
 	path = +TMSiSAGA
 	url = git@github.com:Neuro-Mechatronics-Interfaces/TMSi_SAGA.git
+[submodule "+default"]
+	path = +default
+	url = git@github.com:m053m716/Matlab-Defaults
