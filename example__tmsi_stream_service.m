@@ -5,7 +5,7 @@
 %% Handle some basic startup stuff.
 clc;
 if exist('server', 'var')~=0
-    delete(server);
+    delete(dev_server);
 end
 
 if exist('device', 'var')~=0
@@ -29,9 +29,7 @@ SERVER_PORT_START = 5000; % Server port
 
 SN = [1005210029; 1005210028];
 TAG = ["B"; "A"];
-
-N_CLIENT = 6;
-SAGA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+N_CLIENT = numel(TAG);
 
 %% Setup device configurations.
 config_device = struct('Dividers', {{'uni', 0; 'bip', 0}}, ...
@@ -78,46 +76,53 @@ catch e
     rethrow(e);
 end
 
-%% Create server
+%% Create TMSi device server(s)
 devtag = cellfun(@(c)c.tag, info); % Get the actual indexed assignments.
 [~,hostname] = system('hostname');
 hostname = string(strtrim(hostname));
 fprintf(1, 'Starting server on <strong>%s</strong> at <strong>%s</strong>\n\n', ...
     hostname, SERVER_ADDRESS);
+if exist('dev_server', 'var')~=0
+    if ~iscell(dev_server)
+        delete(dev_server);
+    end
+    clear server;
+end
+dev_server = cell(N_CLIENT, 1);
+
+port = nan(N_CLIENT, 1);
+for ii = 1:N_CLIENT
+    
+    port(ii) = SERVER_PORT_START + ii;
+    dev_server{ii} = tcpserver(SERVER_ADDRESS, port(ii), ...
+        "ConnectionChangedFcn", @server__DEV_connection_changed_cb);
+    dev_server{ii}.UserData = struct(...
+        'name', sprintf("SAGA-%s", SAGA(ii)), ...
+        'tag', SAGA(ii), ...
+        'k', -1, ...
+        'samples', zeros(31, 31), ...
+        'index', 1);
+    
+    configureCallback(dev_server{ii}, "byte", 7688, @(src, evt)server__DEV_read_data_cb(src, evt));
+    fprintf(1, "\t\t->\tServer created and running at <strong>%s:%d</strong>\n", ...
+        dev_server{ii}.ServerAddress, dev_server{ii}.ServerPort);
+    pause(0.25);
+end
+pause(0.75);
+dev_server = vertcat(dev_server{:});
+fprintf(1, "\t->\tServer objects created and running at <strong>%s:%d</strong>\n", dev_server.ServerAddress, dev_server.ServerPort);
+
+%% Create TMSi CONTROLLER server
 if exist('server', 'var')~=0
     if ~iscell(server)
         delete(server);
     end
     clear server;
 end
-server = cell(N_CLIENT, 1);
-
-port = nan(N_CLIENT, 1);
-saga = repelem(SAGA, 1, numel(GROUP));
-grp = repmat(GROUP, 1, numel(SAGA));
-for ii = 1:N_CLIENT
-    
-    port(ii) = SERVER_PORT_START - 1 + ii;
-    server{ii} = tcpserver(SERVER_ADDRESS, port(ii), ...
-        "ConnectionChangedFcn", @server__connection_changed_cb);
-    server{ii}.UserData = struct(...
-        'name', sprintf("SAGA-%s-%s", saga(ii), grp(ii)), ...
-        'tag', saga(ii), ...
-        'grp', grp(ii), ...
-        'k', -1, ...
-        'samples', zeros(31, 31), ...
-        'index', 1);
-    
-    configureCallback(server{ii}, "byte", 7688, @(src, evt)test__readDataFcn(src, evt));
-    fprintf(1, "\t\t->\tServer created and running at <strong>%s:%d</strong>\n", ...
-        server{ii}.ServerAddress, server{ii}.ServerPort);
-
-    fprintf(1, "\t\t->\tClient running on port <strong>%d</strong>\n", client{ii}.Port);
-    pause(0.25);
-end
-pause(0.75);
-server = vertcat(server{:});
-fprintf(1, "\t->\tServer objects created and running at <strong>%s:%d</strong>\n", server.ServerAddress, server.ServerPort);
+server = tcpserver(SERVER_ADDRESS, SERVER_PORT_START, ...
+    "ConnectionChangedFcn", @server__CON_connection_changed_cb);
+server.UserData = struct('run', false, 'record', false, 'folder', DEFAULT_REC_LOC, );
+configureCallback(server, "byte", 7688, @(src, evt)server__CON_read_data_cb(src, evt));
 
 %%
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
