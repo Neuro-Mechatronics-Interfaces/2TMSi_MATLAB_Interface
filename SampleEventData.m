@@ -2,7 +2,7 @@ classdef (ConstructOnLoad) SampleEventData < event.EventData
     %SAMPLEEVENTDATA  Issued when the data frame fills up.
     
     properties
-        data    DataBuffer
+        data    StreamBuffer
         array   string        % "A" | "B" depending on which SAGA device it is
     end
     

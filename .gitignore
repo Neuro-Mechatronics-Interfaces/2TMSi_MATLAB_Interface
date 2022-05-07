@@ -3,3 +3,6 @@ testing/
 .deprecated/
 .messages/
 *.bak
+*.asv
+
+example__tcp_ip_comms.m
