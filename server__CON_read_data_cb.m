@@ -39,6 +39,45 @@ function server__CON_read_data_cb(src, ~)
 
 data = readline(src);
 info = strsplit(data, '.');
-src.UserData.(lower(info{1})) = info{2};
-
+switch string(lower(info{1}))
+    case "set"
+        f = strtrim(string(lower(info{2})));
+        if ismember(class(src.UserData.(f)), ["string", "char"])
+            val = string(strtrim(info{3}));
+            src.UserData.(f) = val;
+            switch f
+                case "state"  % Then broadcast the state change.
+                    src.UserData.udp.write([char(src.UserData.state) 10], ...
+                        "string", src.UserData.address, src.UserData.port.state);
+                case "file"
+                    src.UserData.udp.write([char(fullfile(src.UserData.datashare, sprintf("%s.mat",src.UserData.file))) 10], ...
+                        "string", src.UserData.address, src.UserData.port.name);
+                otherwise
+                    src.UserData.udp.write([char(sprintf("%s.%s", info{2}, info{3})) 10], ...
+                        "string", src.UserData.address, src.UserData.port.extra); 
+            end
+            fprintf(1, "CONTROLLER::SET::%s=%s\n", f, val);
+        else
+            fprintf(1, "CONTROLLER::SET::INVALID=%s\n", data);
+            return;
+        end
+    case "get"
+        switch string(strtrim(lower(info{2})))
+            case "prop"
+                f = strtrim(string(lower(info{3})));
+                if ismember(class(src.UserData.(f)), ["string", "char"])
+                    writeline(src, src.UserData.(f));
+                else
+                    fprintf(1, "CONTROLLER::GET::INVALID=%s\n", data);
+                    return;
+                end
+            case "recv"
+                
+            otherwise
+                fprintf(1, "CONTROLLER::GET::INVALID=%s\n", data);
+                return;
+        end
+    otherwise
+        error("Bad syntax on server request.");
+end
 end

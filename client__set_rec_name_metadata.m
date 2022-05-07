@@ -9,7 +9,7 @@ function client__set_rec_name_metadata(client, SUBJ, YYYY, MM, DD, BLOCK)
 if isnumeric(BLOCK)
     BLOCK = string(BLOCK);    
 end
-id_expr = string(sprintf('block.%s', BLOCK)); 
+id_expr = sprintf('set.block.%s', BLOCK); 
 writeline(client, id_expr);
 
 if isnumeric(YYYY)
@@ -21,11 +21,11 @@ end
 if isnumeric(DD)
     DD = string(sprintf('%02d', DD)); 
 end
-tank = string(sprintf("%s_%s_%s_%s", SUBJ, YYYY, MM, DD));
-tank_expr = string(sprintf("tank.%s", tank));
+tank = sprintf('%s_%s_%s_%s', SUBJ, YYYY, MM, DD);
+tank_expr = sprintf('set.tank.%s', tank);
 writeline(client, tank_expr);
 
-fname = sprintf("%s_%s.mat", tank, BLOCK);
-file_expr = string(sprintf("file.%s", fullfile(SUBJ, tank, fname)));
+fname = sprintf('%s_%s.mat', tank, BLOCK);
+file_expr = sprintf('set.file.%s', fullfile(SUBJ, tank, fname));
 writeline(client, file_expr);
 end
