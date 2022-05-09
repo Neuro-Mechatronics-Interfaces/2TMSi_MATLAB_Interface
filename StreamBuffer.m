@@ -6,12 +6,11 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
     end
     
     properties (GetAccess = public, SetAccess = protected)
-        array       string             % "A" or "B"
+        array       string ="A"        % "A" or "B"
         counter     double = 0         % Total number of samples (rolling)
         index       double             % The integer index that increments by 1 for each sample, denoting ordering of samples (columns)
         n           struct             % Struct describing size of data samples array.
         start       double = 1         % Starting index (rolling).
-        udp                            % UDP port object
         wrapping    double
     end
     
@@ -25,17 +24,16 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
     end
     
     methods
-        function obj = StreamBuffer(array, nChannels, nSamples, port)
+        function obj = StreamBuffer(nChannels, nSamples, array)
             %STREAMBUFFER  Implements a buffer for streamed data.
             %
             % Syntax:
-            %   obj = StreamBuffer(array, nChannels, nSamples, port);
+            %   obj = StreamBuffer(nChannels, nSamples, port, array);
             %
             % Inputs:
-            %   array     - "A" or "B"
             %   nChannels - Number of channels (optional; default = 64)
             %   nSamples  - Number of samples (optional; default = 32768)
-            %   port      - Port number (optional; default = 9090)
+            %   array     - Port number (optional; default = "A")
             %
             % Output:
             %   obj - StreamBuffer object
@@ -43,23 +41,29 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             % See also: Contents, StreamBuffer
             
             switch nargin
-                case 1
+                case 0
                     obj.n = struct('channels', 64, 'samples', 32768);
-                case 2
+                case 1
                     obj.n = struct('channels', nChannels, 'samples', 32768);
+                case 2
+                    obj.n = struct('channels', nChannels, 'samples', nSamples);
                 case 3
                     obj.n = struct('channels', nChannels, 'samples', nSamples);
-                case 4
-                    obj.n = struct('channels', nChannels, 'samples', nSamples);
-                    obj.port = port;
+                    obj.array = string(array);
                 otherwise
                     error("Invalid number of input arguments (%d).", nargin);
             end
-            obj.array = array;
+            switch obj.array
+                case "A"
+                    port = 5020;
+                case "B"
+                    port = 5021;
+                otherwise
+                    error("Not configured to handle data from SAGA-%s", obj.array);
+            end
             obj.samples = zeros(obj.n.channels, obj.n.samples);
             obj.index = 1:obj.n.samples;
             obj.wrapping = 1:obj.n.samples;
-            obj.udp = udpport();
             obj.init = true;
         end
         
@@ -85,13 +89,22 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             end
             ns = min(size(value, 2), obj.n.samples);
             obj.index(obj.wrapping(1:ns)) = obj.start : (obj.start + ns - 1);
-            obj.samples(:, obj.wrapping(1:ns)) = value;
+            obj.samples(:, obj.wrapping(1:ns)) = value(:, 1:ns);
             obj.wrapping = circshift(obj.wrapping, -ns);
             obj.start = obj.start + ns;
             obj.counter = obj.counter + ns;
+            
+            % If we filled up, then send data samples.
+            
             if obj.counter >= obj.n.samples
                 obj.counter = 0;
                 notify(obj, "FrameFilledEvent");       
+            end
+            
+            % If we "overflowed" then do this again until we have nothing
+            % left to append.
+            if ns < size(value, 2)
+                obj.append(value(:, (ns+1):end));
             end
         end
         
@@ -190,6 +203,48 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             obj.wrapping = 1:obj.n.samples;
             obj.index = 1:obj.n.samples;
             obj.samples = zeros(obj.n.channels, obj.n.samples);
+        end
+        
+        function save(obj, fname)
+            %SAVE  Save data buffered in .samples to variable 'samples' in fname (file)
+            %
+            % Syntax:
+            %   obj.save(fname);
+            %
+            % Inputs:
+            %   fname - Name of file to save to. Note that if this is
+            %           located in a directory that doesn't exist, the
+            %           folder will be created for it.
+            if numel(obj) > 1
+                for ii = 1:numel(obj)
+                    obj(ii).save(fname);
+                end
+                return;
+            end
+            
+            [p, f, e] = fileparts(fname);
+            if isempty(e)
+                f = strcat(f, ".mat");
+            else
+                f = strcat(f, e);
+            end
+            if contains(f, "%s")
+                f = sprintf(f, obj.array);
+            end
+            if isempty(p)
+                fname = f;
+            else
+                if exist(p, 'dir') == 0
+                    try %#ok<TRYNC>
+                        mkdir(p);
+                        fprintf(1,'Created save folder:\n\t<strong>%s</strong>\n\n', p);
+                    end
+                end
+                fname = fullfile(p, f);
+            end
+            ns = min(obj.counter, obj.n.samples); % Truncate unassigned samples (only save what was actually appended).
+            samples = obj.samples(:, 1:ns); %#ok<PROPLC>
+            save(fname, 'samples', '-v7.3');
         end
         
         function set_channel_count(obj, n)

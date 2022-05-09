@@ -25,7 +25,7 @@ tank = sprintf('%s_%s_%s_%s', SUBJ, YYYY, MM, DD);
 tank_expr = sprintf('set.tank.%s', tank);
 writeline(client, tank_expr);
 
-fname = sprintf('%s_%s.mat', tank, BLOCK);
+fname = sprintf('%s_%%s_%s', tank, BLOCK);
 file_expr = sprintf('set.file.%s', fullfile(SUBJ, tank, fname));
 writeline(client, file_expr);
 end

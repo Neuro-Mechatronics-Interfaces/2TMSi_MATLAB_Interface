@@ -6,3 +6,5 @@ testing/
 *.asv
 
 example__tcp_ip_comms.m
+
+*.mat
