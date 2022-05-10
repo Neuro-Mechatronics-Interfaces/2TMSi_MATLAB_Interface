@@ -12,6 +12,7 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
         index       double             % The integer index that increments by 1 for each sample, denoting ordering of samples (columns)
         n           struct             % Struct describing size of data samples array.
         start       double = 1         % Starting index (rolling).
+        sample_rate double = 4000      % Data in buffer was sampled at this rate (Hz)
         wrapping    double
     end
     
@@ -25,7 +26,7 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
     end
     
     methods
-        function obj = StreamBuffer(channels, nSamples, array)
+        function obj = StreamBuffer(channels, nSamples, array, sample_rate)
             %STREAMBUFFER  Implements a buffer for streamed data.
             %
             % Syntax:
@@ -35,6 +36,7 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             %   nChannels - Number of channels (optional; default = 64)
             %   nSamples  - Number of samples (optional; default = 32768)
             %   array     - Port number (optional; default = "A")
+            %   sample_rate - Sampling rate, Hz (optional; default = 4000)
             %
             % Output:
             %   obj - StreamBuffer object
@@ -50,6 +52,10 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
                 case 3
                     obj.n = struct('channels', numel(channels), 'samples', nSamples);
                     obj.array = string(array);
+                case 4
+                    obj.n = struct('channels', numel(channels), 'samples', nSamples);
+                    obj.array = string(array);
+                    obj.sample_rate = sample_rate;
                 otherwise
                     error("Invalid number of input arguments (%d).", nargin);
             end
@@ -245,8 +251,9 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             end
             ns = min(obj.counter, obj.n.samples); % Truncate unassigned samples (only save what was actually appended).
             samples = obj.samples(:, 1:ns); %#ok<PROPLC>
-            channels = obj.channels; %#ok<PROPLC>
-            save(fname, 'samples', 'channels', '-v7.3');
+            channels = num2cell(obj.channels); %#ok<PROPLC>
+            sample_rate = obj.sample_rate;
+            save(fname, 'samples', 'channels', 'sample_rate', '-v7.3');
         end
         
         function set_channel_count(obj, n)
