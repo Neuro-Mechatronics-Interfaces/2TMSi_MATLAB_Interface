@@ -173,7 +173,7 @@ end
 
 %% SET PARAMETERS
 BROADCAST_ADDRESS = "10.0.0.255";
-SERVER_ADDRESS = "10.0.0.128";
+SERVER_ADDRESS = "10.0.0.81";
 UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
 UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
 UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
@@ -269,7 +269,6 @@ buffer_event_listener = [ ...
     addlistener(buffer(2), "FrameFilledEvent", @(src, evt)evt__frame_filled_cb(src, evt, client(2))) ...
     ];
 ch = device.getActiveChannels();
-ch = horzcat(ch{:});
 
 %%
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
@@ -294,8 +293,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if ~recording
                         fprintf(1, "Buffer created, recording in process...");
                         rec_buffer = [ ...
-                            StreamBuffer(channels.(device(1).tag).n.channels, N_SAMPLES_RECORD_MAX, device(1).tag), ...
-                            StreamBuffer(channels.(device(2).tag).n.channels, N_SAMPLES_RECORD_MAX, device(2).tag) ...
+                            StreamBuffer(ch{1}, N_SAMPLES_RECORD_MAX, device(1).tag), ...
+                            StreamBuffer(ch{2}, N_SAMPLES_RECORD_MAX, device(2).tag) ...
                         ];
                     end
                     recording = true;
@@ -338,11 +337,13 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     stop(device);
     state = "idle";
     recording = false;
-%     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
+    disconnect(device);
+    lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     
 catch me
     % Stop both devices.
     stop(device);
+%     disconnect(device);
     warning(me.message);
 %     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     fprintf(1, '\n\n-->\tTMSi stream stopped at %s\t<--\n\n', ...

@@ -7,6 +7,7 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
     
     properties (GetAccess = public, SetAccess = protected)
         array       string ="A"        % "A" or "B"
+        channels                       % Cell array of channels
         counter     double = 0         % Total number of samples (rolling)
         index       double             % The integer index that increments by 1 for each sample, denoting ordering of samples (columns)
         n           struct             % Struct describing size of data samples array.
@@ -24,11 +25,11 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
     end
     
     methods
-        function obj = StreamBuffer(nChannels, nSamples, array)
+        function obj = StreamBuffer(channels, nSamples, array)
             %STREAMBUFFER  Implements a buffer for streamed data.
             %
             % Syntax:
-            %   obj = StreamBuffer(nChannels, nSamples, port, array);
+            %   obj = StreamBuffer(channels, nSamples, port, array);
             %
             % Inputs:
             %   nChannels - Number of channels (optional; default = 64)
@@ -39,20 +40,20 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             %   obj - StreamBuffer object
             %
             % See also: Contents, StreamBuffer
-            
             switch nargin
                 case 0
-                    obj.n = struct('channels', 64, 'samples', 32768);
+                    error("Must pass `channels` argument at least.");
                 case 1
-                    obj.n = struct('channels', nChannels, 'samples', 32768);
+                    obj.n = struct('channels', numel(channels), 'samples', 32768);
                 case 2
-                    obj.n = struct('channels', nChannels, 'samples', nSamples);
+                    obj.n = struct('channels', numel(channels), 'samples', nSamples);
                 case 3
-                    obj.n = struct('channels', nChannels, 'samples', nSamples);
+                    obj.n = struct('channels', numel(channels), 'samples', nSamples);
                     obj.array = string(array);
                 otherwise
                     error("Invalid number of input arguments (%d).", nargin);
             end
+            obj.channels = channels;
             switch obj.array
                 case "A"
                     port = 5020;
@@ -244,7 +245,8 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             end
             ns = min(obj.counter, obj.n.samples); % Truncate unassigned samples (only save what was actually appended).
             samples = obj.samples(:, 1:ns); %#ok<PROPLC>
-            save(fname, 'samples', '-v7.3');
+            channels = obj.channels; %#ok<PROPLC>
+            save(fname, 'samples', 'channels', '-v7.3');
         end
         
         function set_channel_count(obj, n)

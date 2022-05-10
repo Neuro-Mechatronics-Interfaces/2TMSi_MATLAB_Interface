@@ -56,6 +56,7 @@ TRIGGER_CHANNEL = struct('A', 70, 'B', 70); % In `example__tmsi_stream_service` 
 %   That should give you the channel index (first thing returned in that
 %   array).
 TRIGGER_BIT = struct('A', 9, 'B', 9);
+N_SAMPLES_LOOP_BUFFER = 16384;
 N_TRIGGERS_RMS = 5; % Number of triggers to average on
 RMS_SAMPLE_EPOCH = round(([12.5, 50]).*4); % milliseconds, with 4 kHz sample rate 
 FIGURE_POSITION = struct(...
