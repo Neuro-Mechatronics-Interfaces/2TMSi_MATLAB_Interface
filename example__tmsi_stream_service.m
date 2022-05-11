@@ -174,6 +174,7 @@ end
 %% SET PARAMETERS
 BROADCAST_ADDRESS = "10.0.0.255";
 SERVER_ADDRESS = "10.0.0.81";
+WORKER_ADDRESS = "128.2.244.29";    % Max desktop processing
 UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
 UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
 UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
@@ -183,6 +184,9 @@ SERVER_PORT_CONTROLLER = 5000;           % Server port for CONTROLLER
 SERVER_PORT_DATA = struct;
 SERVER_PORT_DATA.A    = 5020;           % Server port for DATA from SAGA-A
 SERVER_PORT_DATA.B    = 5021;           % Server port for DATA from SAGA-B
+SERVER_PORT_WORKER = struct;
+SERVER_PORT_WORKER.A = 4000;
+SERVER_PORT_WORKER.B = 4001;
 DEFAULT_DATA_SHARE = "R:\NMLShare\raw_data\primate";
 DEFAULT_SUBJ = "Test";
 N_SAMPLES_LOOP_BUFFER = 16384;
@@ -261,6 +265,10 @@ client = [ ...
         tcpclient(SERVER_ADDRESS, SERVER_PORT_DATA.(device(1).tag)); ...
         tcpclient(SERVER_ADDRESS, SERVER_PORT_DATA.(device(2).tag))  ...
         ];
+worker = [ ...
+    tcpclient(WORKER_ADDRESS, SERVER_PORT_WORKER.(device(1).tag)); ...
+    tcpclient(WORKER_ADDRESS, SERVER_PORT_WORKER.(device(2).tag))
+    ];
 buffer = [ ...
         StreamBuffer(ch{1}, channels.(device(1).tag).n.samples, device(1).tag, device(1).sample_rate), ...
         StreamBuffer(ch{2}, channels.(device(2).tag).n.samples, device(2).tag, device(2).sample_rate) ...
@@ -268,7 +276,7 @@ buffer = [ ...
 buffer_event_listener = [ ...
     addlistener(buffer(1), "FrameFilledEvent", @(src, evt)evt__frame_filled_cb(src, evt, client(1))); ...
     addlistener(buffer(2), "FrameFilledEvent", @(src, evt)evt__frame_filled_cb(src, evt, client(2))) ...
-    ];
+    ]; %#ok<NASGU>
 
 
 %%
@@ -286,8 +294,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
         while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit"))
             [samples, num_sets] = device.sample();
             buffer.append(samples);
-
-%             pause(0.05);
             if udp_state_receiver.NumBytesAvailable > 0
                 state = readline(udp_state_receiver);
                 if strcmpi(state, "rec")
@@ -319,8 +325,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 if ~recording
                     fprintf(1, "Buffer created, recording in process...");
                     rec_buffer = [ ...
-                        StreamBuffer(channels.(device(1).tag).n.channels, N_SAMPLES_RECORD_MAX, device(1).tag, device(1).sample_rate), ...
-                        StreamBuffer(channels.(device(2).tag).n.channels, N_SAMPLES_RECORD_MAX, device(2).tag, device(2).sample_rate) ...
+                        StreamBuffer(ch{1}, N_SAMPLES_RECORD_MAX, device(1).tag, device(1).sample_rate), ...
+                        StreamBuffer(ch{2}, N_SAMPLES_RECORD_MAX, device(2).tag, device(2).sample_rate) ...
                     ];
                 end
                 recording = true;
@@ -330,6 +336,17 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     rec_buffer.save(fname);
                     delete(rec_buffer);
                     clear rec_buffer;
+                    [~, finfo, ~] = fileparts(fname);
+                    args = strsplit(finfo, "_");
+                    for iWorker = 1:numel(worker)
+                        worker(iWorker).writeline(...
+                            string(sprintf('%s.%d.%d.%d.%s', ...
+                                args{1}, ...
+                                str2double(args{2}), ...
+                                str2double(args{3}), ...
+                                str2double(args{4}), ...
+                                args{6}))); 
+                    end
                 end
                 recording = false; 
             end
@@ -339,14 +356,16 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     state = "idle";
     recording = false;
     disconnect(device);
+    clear client worker buffer buffer_event_listener udp_state_receiver udp_name_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     
 catch me
     % Stop both devices.
     stop(device);
-%     disconnect(device);
+    disconnect(device);
     warning(me.message);
-%     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
+    clear client worker buffer buffer_event_listener udp_state_receiver udp_name_receiver
+    lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     fprintf(1, '\n\n-->\tTMSi stream stopped at %s\t<--\n\n', ...
         string(datetime('now')));
 end

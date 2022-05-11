@@ -426,6 +426,7 @@ classdef MetaDataHandler < handle
             self.subj = SUBJ;
             fname = fullfile(self.def_raw_data_folder, SUBJ, "metadata.xlsx");
             point_to_new_metadata_file(self, fname);
+            self.block = 0;
             self.set_current_metadata_values(self.block);
         end
     end

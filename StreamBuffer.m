@@ -62,9 +62,9 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             obj.channels = channels;
             switch obj.array
                 case "A"
-                    port = 5020;
+                    port = 4000;
                 case "B"
-                    port = 5021;
+                    port = 4001;
                 otherwise
                     error("Not configured to handle data from SAGA-%s", obj.array);
             end
@@ -212,19 +212,29 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             obj.samples = zeros(obj.n.channels, obj.n.samples);
         end
         
-        function save(obj, fname)
+        function fname = save(obj, fname)
             %SAVE  Save data buffered in .samples to variable 'samples' in fname (file)
             %
             % Syntax:
-            %   obj.save(fname);
+            %   fname = obj.save(fname);
             %
             % Inputs:
             %   fname - Name of file to save to. Note that if this is
             %           located in a directory that doesn't exist, the
             %           folder will be created for it.
+            %
+            % Output:
+            %   fname - Version of input fname that was used.
+            %
+            % See also: Contents
+            
             if numel(obj) > 1
+                fname = string(fname);
+                if numel(fname) == 1
+                    fname = repmat(fname, size(obj));
+                end
                 for ii = 1:numel(obj)
-                    obj(ii).save(fname);
+                    fname(ii) = obj(ii).save(fname(ii));
                 end
                 return;
             end
@@ -252,8 +262,9 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             ns = min(obj.counter, obj.n.samples); % Truncate unassigned samples (only save what was actually appended).
             samples = obj.samples(:, 1:ns); %#ok<PROPLC>
             channels = num2cell(obj.channels); %#ok<PROPLC>
-            sample_rate = obj.sample_rate;
-            save(fname, 'samples', 'channels', 'sample_rate', '-v7.3');
+            sample_rate = obj.sample_rate; %#ok<PROPLC>
+            time = datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS');
+            save(fname, 'samples', 'channels', 'sample_rate', 'time', '-v7.3');
         end
         
         function set_channel_count(obj, n)

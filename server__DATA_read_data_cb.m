@@ -18,7 +18,7 @@ end
 
 x = src.UserData.data(e(1):e(2), src.UserData.channels.UNI);
 q = sqrt(sum(((x - mean(x, 1)).^2), 1)./(e(2) - e(1))); % RMS
-q = q + 0.1*randn(size(q)); % For visualizing changes
+% q = q + 0.1*randn(size(q)); % For visualizing changes
 src.UserData.rms.evoked(:, :, src.UserData.rms.index) = reshape(q, 8, 8);
 mu = mean(src.UserData.rms.evoked, 3);
 set(src.UserData.contour, 'ZData', mu);
