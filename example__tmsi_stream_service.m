@@ -281,10 +281,13 @@ buffer_event_listener = [ ...
 
 %%
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
-    start(device);
+    
     state = "idle";
     fname = "default_%s.mat";  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
     recording = false;
+    running = false;
+    fprintf(1, "\n<strong>>>\t\t%s::SAGA LOOP BEGIN</strong>\n\n", ...
+        string(datetime('now')));
     
     while ~strcmpi(state, "quit")
         if udp_name_receiver.NumBytesAvailable > 0
@@ -305,12 +308,26 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         ];
                     end
                     recording = true;
-                else
+                    running = true;
+                elseif ~strcmpi(state, "run")
+                    running = false;
+                    stop(device);
                     if recording
                         fprintf(1, "complete\n\t->\t(%s)\n", fname);
                         rec_buffer.save(fname);
                         delete(rec_buffer);
                         clear rec_buffer;
+                        [~, finfo, ~] = fileparts(fname);
+                        args = strsplit(finfo, "_");
+                        for iWorker = 1:numel(worker)
+                            worker(iWorker).writeline(...
+                                string(sprintf('%s.%d.%d.%d.%s', ...
+                                    args{1}, ...
+                                    str2double(args{2}), ...
+                                    str2double(args{3}), ...
+                                    str2double(args{4}), ...
+                                    args{6}))); 
+                        end
                     end
                     recording = false; 
                 end
@@ -330,6 +347,15 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     ];
                 end
                 recording = true;
+                if ~running
+                    start(device);
+                    running = true;
+                end
+            elseif strcmpi(state, "run")
+                if ~running
+                    start(device);
+                    running = true;
+                end
             else
                 if recording
                     fprintf(1, "complete\n\t->\t(%s)\n", fname);
@@ -348,13 +374,18 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                                 args{6}))); 
                     end
                 end
+                if running
+                    stop(device); 
+                end
                 recording = false; 
+                running = false;
             end
         end
     end
     stop(device);
     state = "idle";
     recording = false;
+    running = false;
     disconnect(device);
     clear client worker buffer buffer_event_listener udp_state_receiver udp_name_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %

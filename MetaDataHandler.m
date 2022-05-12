@@ -26,9 +26,9 @@ classdef MetaDataHandler < handle
         T       table                   % The full metadata table
         var_types       cell            % Actual variable types from table
         def_var_values  cell = { ...    % Default values for each variable type
-            "", "poly5", "", "N3_Patch", [], "Channelization", "Jsafety_20_x0um_y-433um.txt", "Contralateral M1", ...
+            "", "poly5", "", "N3_MeNT", [], "Channelization", "Jsafety_20_x0um_y-433um.txt", "Contralateral M1", ...
             6600, 3.0, 0.25, 10.0, 0, 1.0, 6.5, 3, 333.0, "Biphasic_Cathodal", ...
-            "", false, false, false, "HP_20_mod", "Ripple", "Patch", "MM", "", []};
+            "", false, false, false, "ICMS_0", "AM4100", "Electrical", "MM", "", []};
     end
     
     properties (Constant)  % Default values go here
@@ -103,8 +103,8 @@ classdef MetaDataHandler < handle
             if ~ismember(name, self.M.Properties.VariableNames)
                 error("MetaDataHandler:Data:MissingVariable", "Invalid table variable: %s", name);
             end
-            if iscell(value) && numel(value) == size(self.M, 1)
-                for iM = 1:numel(tags)
+            if iscell(value) && (numel(value) == size(self.M, 1))
+                for iM = 1:numel(value)
                     self.M{iM, name} = value{iM};  
                 end
             else
