@@ -6,7 +6,8 @@ src.UserData.data = reshape(read(src, n_data, "double"), ...
     src.UserData.n.samples, src.UserData.n.channels);
 src.UserData.lab.String = sprintf(src.UserData.lab_expr, ...
     string(evt.AbsoluteTime));
-sync_data = ~(bitand(src.UserData.data(:, src.UserData.sync.ch), 2^src.UserData.sync.bit) == 2^src.UserData.sync.bit);
+sync_word = sum(2.^src.UserData.sync.bit);
+sync_data = ~(bitand(src.UserData.data(:, src.UserData.sync.ch), sync_word) == sync_word);
 if sum(sync_data) == 0
     return;
 end

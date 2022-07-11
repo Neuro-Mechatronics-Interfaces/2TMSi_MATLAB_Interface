@@ -40,8 +40,8 @@
 %       of nested blocking loops which handle sampling from those devices
 %       and querying the control server state. 
 close all force;
-BROADCAST_ADDRESS = "10.0.0.255";
-SERVER_ADDRESS = "10.0.0.81";
+BROADCAST_ADDRESS = "192.168.1.255";
+SERVER_ADDRESS = "128.2.244.60";
 UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
 UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
 UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
