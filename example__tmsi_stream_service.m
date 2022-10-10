@@ -1,6 +1,4 @@
-%EXAMPLE__TMSI_STREAM_SERVICE
-% Script that enables sampling from multiple devices, and streams data from
-% those devices to a server continuously.
+%EXAMPLE__TMSI_STREAM_SERVICE - Script that enables sampling from multiple devices, and streams data from those devices to a server continuously.
 %
 % --- The README.MD should now be most-current (5/8/22) -----
 %

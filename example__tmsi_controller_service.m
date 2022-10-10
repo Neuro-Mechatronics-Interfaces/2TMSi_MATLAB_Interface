@@ -1,6 +1,4 @@
-%EXAMPLE__TMSI_CONTROLLER_SERVICE
-%
-% Starts up the TMSi controller server AND the TMSi data server.
+%EXAMPLE__TMSI_CONTROLLER_SERVICE - Starts up the TMSi controller server AND the TMSi data server.
 %
 % NOTE: ORDER OF OPERATIONS MATTERS FOR THESE SCRIPTS! Each of these steps
 %       should be started in a separate MATLAB session, possibly using

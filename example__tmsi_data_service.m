@@ -1,5 +1,9 @@
 %EXAMPLE__TMSI_DATA_SERVICE  Create and run the data server.
-
+%
+% (The "data server" is like the online data visualization or "realtime"
+%  processing, potentially run on a second machine that is not hosting the
+%  TMSiSAGA devices--or in Max's case, on the desktop machine in his office
+%  provided that the CNBC IT police don't shut down the connection).
 
 BROADCAST_ADDRESS = "192.168.1.255";
 SERVER_ADDRESS = "128.2.244.60";
