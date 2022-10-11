@@ -65,6 +65,7 @@ I might just be really bad at IT but I had a hell of a time getting that part to
 #### Ports ####
 I've been opening the following UDP ports:
 ```(matlab)
+UDP_CONTROLLER_IP = "0.0.0.0";      % This creates the udpport on controller device, listening on any network.
 UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
 UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
 UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
