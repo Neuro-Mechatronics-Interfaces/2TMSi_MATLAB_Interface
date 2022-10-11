@@ -13,6 +13,7 @@
 %
 % Test Scripts and Callbacks
 %   example__tcp_ip_comms              - From MATLAB builtin documentation.
+%   example__udp_comms                 - Test UDP setup for online interaction with wrist task interface.
 %   test__client_readDataFcn           - Calls read to read BytesAvailableFcnCount number of bytes of data.
 %   test__connectionFcn                - Indicates that the connection was accepted.
 %   test__frame_filled_cb              - Test callback for FrameFilledEvent from StreamBuffer class.
@@ -21,11 +22,6 @@
 % Event Callback Functions
 %   bytesAvailableCB_tcpserver__UNI    - Calls read to reshape the unipolar HD-EMG array into server format.
 %   evt__frame_filled_cb               - Callback for FrameFilledEvent from StreamBuffer class.
-%
-% Example Scripts Used in First Working Experiments (Screamy MeNTs)
-%   example__tmsi_controller_service   - Starts up the TMSi controller server AND the TMSi data server.
-%   example__tmsi_data_service         - Create and run the data server.
-%   example__tmsi_stream_service       - Script that enables sampling from multiple devices, and streams data from those devices to a server continuously.
 %
 % Server-Side Callback Functions
 %   server__CON_connection_changed_cb  - For handling connection changes (CONTROLLER server).
@@ -42,5 +38,6 @@
 %   client__set_saga_state             - Set SAGA controller/device state.
 %
 % Main Data Stream Deployment Script
-%   deploy__tmsi_tcp_servers           - Script that enables sampling from multiple devices, and streams data from those devices to a server continuously.
+%   deploy__tmsi_stream_service       - Script that enables sampling from multiple devices, and streams data from those devices to a server continuously.
+%   deploy__tmsi_tcp_servers           - Create and run the TCP data (online visualization) server AND the UDP controller server.
 

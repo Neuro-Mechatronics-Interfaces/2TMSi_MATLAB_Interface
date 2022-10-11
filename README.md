@@ -80,7 +80,7 @@ Each of these steps should be started in a separate MATLAB session, possibly usi
       "3025-01-02"). 
 
   2. Once the TMSi control/data servers are running, next start
-      another MATLAB session and run the `example__tmsi_stream_service.m`
+      another MATLAB session and run the `deploy__tmsi_stream_service.m`
       to open communication with the TMSi SAGA device(s). 
       
           This runs a set of nested blocking loops which handle sampling 

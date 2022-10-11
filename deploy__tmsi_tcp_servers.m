@@ -1,44 +1,8 @@
 %DEPLOY__TMSI_TCP_SERVERS
 %
 % Starts up the TMSi controller server AND the TMSi data server.
-%
-% --- The README.MD should now be most-current (5/8/22) -----
-%
-% NOTE: ORDER OF OPERATIONS MATTERS FOR THESE SCRIPTS! Each of these steps
-%       should be started in a separate MATLAB session, possibly using
-%       different machines on the same network switch.
-%
-%   1. On a local network computer (probably the one running TMSiSAGA
-%       devices), you will first run `deploy__tmsi_tcp_servers.m` (this
-%       script).
-%
-%       This will start the control server. The control server broadcasts
-%       to UDP ports 3030 ("state"), 3031 ("name"), and 3032 ("extra").
-%       -> Technically there is also a `data` UDP at 3033, but that is not
-%           a 
-%
-%       The "state" port allows you to move the state machine between:
-%       "idle", "run", "record", and "quit" states (as of 5/7/22). 
-%
-%       The "name" port broadcasts the current filename to any udp 
-%       receivers listening on that port within the local network. 
-%
-%           For example, a common local network is "10.0.0.x" for devices 
-%           network, or "192.168.1.x" or "192.168.0.x" for devices 
-%           connected to a network router or switch respectively. The 
-%           broadcast address for a network is "a.b.c.255" network device
-%           "a.b.c.x".
-%
-%       The "extra" port is just a loopback that broadcasts whatever was
-%       sent to the control server as a string as it was received (e.g.
-%       "set.tank.random/random_3025_01_02" for subject "random" and date
-%       "3025-01-02"). 
-%
-%   2. Once the TMSi control/data servers are running, next start
-%       another MATLAB session and run the `example__tmsi_stream_service.m`
-%       to open communication with the TMSi SAGA device(s) then run a set
-%       of nested blocking loops which handle sampling from those devices
-%       and querying the control server state. 
+% See details in README.MD
+
 close all force;
 % BROADCAST_ADDRESS = "192.168.1.255";
 % SERVER_ADDRESS = "128.2.244.60";
