@@ -26,26 +26,30 @@ classdef gui__tmsi_client < matlab.apps.AppBase
 
     properties (Hidden, Access = public)
         client    % TCPclient connected to server
-        task_port % UDPPort listening to task messages (Potentially)
+        task_port = udpport("byte", "LocalPort", 3033, "EnablePortSharing", true) % UDPPort listening to task messages (Potentially)
+    end
+
+    properties (Constant, Access = public)
+        STREAM_HOST_IP = "128.2.244.60";
+        UDP_STATE_BROADCAST_PORT = 3030;
     end
     
     methods (Access = public)
         function task__read_data_cb(app, src, ~)
-            %TASK_DATA_CB  Callback when line terminator for udp port is detected.
+            %TASK__READ_DATA_CB  Callback when line terminator for udp port is detected.
 
-            % TODO: ADD IN SWITCH CASE FOR DIFFERENT EXPECTED TASK DATA
-            % MESSAGE STRUCTURES HERE..
             data = string(readline(src));
             route = strsplit(data, '.');
             switch lower(route(1))
-                case "r" % recording state data
-
                 case "t" % task state data
-                    
+                    % TODO: Add in handling for sync data message.
                 case "p" % parameter data
                     switch lower(route(2))
                         case "n" % name data
-
+                            src.write([char(sprintf("%s_%%s_%d", route(3), app.BlockSpinner.Value)) 10], "string", ...
+                                app.STREAM_HOST_IP,  ...
+                                app.UDP_STATE_BROADCAST_PORT);
+                            app.BlockSpinner.Value = app.BlockSpinner.Value + 1;
                         otherwise
                             fprintf(1,'<strong>Received unhandled parameter-message</strong>: %s\n', data);
                     end
