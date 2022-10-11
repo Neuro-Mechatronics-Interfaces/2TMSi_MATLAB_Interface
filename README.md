@@ -55,6 +55,8 @@ Make sure that the tags and serial numbers and ordering matches up so that eleme
 _NOTE: ORDER OF OPERATIONS MATTERS FOR THESE SCRIPTS!  
 Each of these steps should be started in a separate MATLAB session, possibly using different machines on the same network switch._
 
+  0. **TURN ON SAGA DEVICES AND ENSURE EVERYTHING IS PLUGGED IN!**
+
   1. On a local network computer (probably the one running TMSiSAGA
       devices), you will first run `deploy__tmsi_tcp_servers.m`.
 	  

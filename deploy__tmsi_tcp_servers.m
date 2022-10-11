@@ -40,8 +40,10 @@
 %       of nested blocking loops which handle sampling from those devices
 %       and querying the control server state. 
 close all force;
-BROADCAST_ADDRESS = "192.168.1.255";
-SERVER_ADDRESS = "128.2.244.60";
+% BROADCAST_ADDRESS = "192.168.1.255";
+% SERVER_ADDRESS = "128.2.244.60";
+BROADCAST_ADDRESS = "127.0.0.255";
+SERVER_ADDRESS = "127.0.0.1";
 UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
 UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
 UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
@@ -100,8 +102,8 @@ serv__controller.UserData.udp.EnableBroadcast = true;
 configureCallback(serv__controller, "terminator", @(src, evt)server__CON_read_data_cb(src, evt));
 
 %% Channels configuration struct
-channels = struct('A', struct('CREF', 1,  'UNI', 2:65, 'BIP', 66:69, 'TRIG', TRIGGER_CHANNEL.A, 'STAT', 71, 'COUNT', 72, 'n', struct('channels', 72, 'samples', N_SAMPLES_LOOP_BUFFER)), ...
-                  'B', struct('CREF', 1,  'UNI', 2:65, 'BIP', 66:69, 'TRIG', TRIGGER_CHANNEL.B, 'STAT', 71, 'COUNT', 72, 'n', struct('channels', 72, 'samples', N_SAMPLES_LOOP_BUFFER)));
+channels = struct('A', struct('CREF', 1,  'UNI', 2:65, 'BIP', 66:69, 'AUX', 70:71, 'TRIG', TRIGGER_CHANNEL.A, 'STAT', 72, 'COUNT', 73, 'n', struct('channels', 73, 'samples', N_SAMPLES_LOOP_BUFFER)), ...
+                  'B', struct('CREF', 1,  'UNI', 2:65, 'BIP', 66:69, 'TRIG', TRIGGER_CHANNEL.B, 'STAT', 70, 'COUNT', 71, 'n', struct('channels', 71, 'samples', N_SAMPLES_LOOP_BUFFER)));
 
 %% Create TMSi DATA server for SAGA-<TAG>
 if exist('serv__data', 'var')~=0
