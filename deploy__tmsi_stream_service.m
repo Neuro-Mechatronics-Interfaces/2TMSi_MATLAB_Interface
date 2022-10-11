@@ -25,9 +25,9 @@ else
 end
 
 %% SET PARAMETERS
-BROADCAST_ADDRESS = "192.168.1.255";
-SERVER_ADDRESS = "128.2.244.60";
-WORKER_ADDRESS = "128.2.244.29";    % Max desktop processing
+BROADCAST_ADDRESS = "192.168.1.255";    % Broadcast address for local ethernet switch (may be deprecated)
+SERVER_ADDRESS = "128.2.244.60";        % Host machine for TMSiSAGA ("Stream Server")
+WORKER_ADDRESS = "128.2.244.29";        % Max desktop processing ("Data Server")
 UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
 UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
 UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra

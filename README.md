@@ -1,6 +1,15 @@
 # 2TMSi_MATLAB_Interface #
 This repo contains code to run multiple TMSi SAGAs on the same device (or network) using MATLAB.
 
+## Contents ##
+* [Using Git](#git-basics)
+* [Overview](#instructions)
+* [Serial Numbers](#serial-numbers)
+* [Network Firewall](#firewall)
+  + [Ports I Used](#ports)
+* [Usage](#usage)
+  + Note that this is application-specific, and the example deployment is geared towards online data visualization from one particular experiment with two TMSiSAGA where I wanted to see stim-evoked activity on two arrays as a contour.
+
 ## Git Basics ##  
 _I'm trying to put these on every repo now._
 
@@ -44,14 +53,33 @@ As such, you need to get:
 * Open the TCP/IP ports 5000-5050 for MATLAB on Inbound/Outbound rules
   + Note that for both these changes, consider only allowing these to be open for specific IP addresses you intend to use on your device network. I don't actually know if that helps from a security standpoint but I hope it does.
 
-#### Serial Numbers ####
+### Serial Numbers ###
 You will need to assign each serial number to a corresponding tag (I use "A", "B", ... etc.). 
 Make sure that the tags and serial numbers and ordering matches up so that elements are matched. 
 
-#### Firewall ####
- I might just be really bad at IT but I had a hell of a time getting that part to work and then magically walked in the next day and it all worked without me ever changing the code so either we have gremlins (like the good kind?) or it might require a computer restart and then some quiet contemplation of your life's choices (waiting) until the network gods decide to let you use their ports. Anyways, consider yourself warned.
+### Firewall ###
+I might just be really bad at IT but I had a hell of a time getting that part to work and then magically walked in the next day and it all worked without me ever changing the code so either we have gremlins (like the good kind?) or it might require a computer restart and then some quiet contemplation of your life's choices (waiting) until the network gods decide to let you use their ports. Anyways, consider yourself warned.
+* Note that I strongly recommend getting a local ethernet network switch and keeping devices off the CMU public ethernet, which seems to cause issues if you leave ports open for too long. 
+* If you do have a local network switch, then I had success setting things up as local network devices using `10.x.y.z` network.
 
-### Use ###
+#### Ports ####
+I've been opening the following UDP ports:
+```(matlab)
+UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
+UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
+UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
+UDP_DATA_BROADCAST_PORT  = 3034;    % UDP port: data
+UDP_CONTROLLER_RECV_PORT = 3035;    % UDP port: receiver (controller)
+```  
+
+For TCP, I used the following ports and addresses (which probably change according to your experimental setup):
+```(matlab)
+BROADCAST_ADDRESS = "192.168.1.255";    % Broadcast address for local ethernet switch (may be deprecated)
+SERVER_ADDRESS = "128.2.244.60";        % Host machine for TMSiSAGA ("Stream Server")
+WORKER_ADDRESS = "128.2.244.29";        % Max desktop processing ("Data Server")
+```
+
+## Usage ##
 _NOTE: ORDER OF OPERATIONS MATTERS FOR THESE SCRIPTS!  
 Each of these steps should be started in a separate MATLAB session, possibly using different machines on the same network switch._
 

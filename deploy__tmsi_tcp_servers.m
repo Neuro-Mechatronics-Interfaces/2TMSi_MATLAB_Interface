@@ -1,6 +1,6 @@
 %DEPLOY__TMSI_TCP_SERVERS
 %
-% Starts up the TMSi controller server AND the TMSi data server.
+% Starts up the TMSi online data visualization server.
 % See details in README.MD
 
 close all force;

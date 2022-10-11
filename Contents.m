@@ -1,5 +1,10 @@
 %2TMSI_MATLAB_INTERFACE - Contains code used to make the "real-time" online interface for running two (or more) TMSiSAGA devices off a single host machine.
 %
+% Please, start by looking at README.MD; documentation in comments
+% elsewhere *could* be helpful, but may be deprecated and most-likely the
+% best place to find the correct documentation is a combination of here
+% (Contents.m) and in README.MD. -Max
+%
 % Data Handler Classes
 %   MetaDataHandler                    - Handle metadata.xlsx appending
 %   StreamBuffer                       - Implements a buffer for streamed data.
@@ -38,6 +43,6 @@
 %   client__set_saga_state             - Set SAGA controller/device state.
 %
 % Main Data Stream Deployment Script
-%   deploy__tmsi_stream_service       - Script that enables sampling from multiple devices, and streams data from those devices to a server continuously.
-%   deploy__tmsi_tcp_servers           - Create and run the TCP data (online visualization) server AND the UDP controller server.
+%   deploy__tmsi_stream_service        - Script that enables sampling from multiple devices, and streams data from those devices to a server continuously AND starts the UDP controller server.
+%   deploy__tmsi_tcp_servers           - Create and run the TCP data (online visualization) server.
 
