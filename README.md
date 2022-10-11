@@ -69,6 +69,7 @@ UDP_CONTROLLER_IP = "0.0.0.0";      % This creates the udpport on controller dev
 UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
 UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
 UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
+UDP_TASK_BROADCAST_PORT  = 3033;    % UDP port: task
 UDP_DATA_BROADCAST_PORT  = 3034;    % UDP port: data
 UDP_CONTROLLER_RECV_PORT = 3035;    % UDP port: receiver (controller)
 ```  
@@ -78,6 +79,8 @@ For TCP, I used the following ports and addresses (which probably change accordi
 BROADCAST_ADDRESS = "192.168.1.255";    % Broadcast address for local ethernet switch (may be deprecated)
 SERVER_ADDRESS = "128.2.244.60";        % Host machine for TMSiSAGA ("Stream Server")
 WORKER_ADDRESS = "128.2.244.29";        % Max desktop processing ("Data Server")
+SERVER_PORT_CONTROLLER = 5000;                   % Server port for CONTROLLER
+SERVER_PORT_DATA = struct('A', 5020, 'B', 5021); % Ports for DATA servers. % Assign by TMSiSAGA tag ('A', 'B', .. etc)
 ```
 
 ## Usage ##

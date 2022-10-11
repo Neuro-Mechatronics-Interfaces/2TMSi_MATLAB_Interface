@@ -31,6 +31,7 @@ WORKER_ADDRESS = "128.2.244.29";        % Max desktop processing ("Data Server")
 UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
 UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
 UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
+UDP_TASK_BROADCAST_PORT  = 3033;    % UDP port: task
 UDP_DATA_BROADCAST_PORT  = 3034;    % UDP port: data
 UDP_CONTROLLER_RECV_PORT = 3035;    % UDP port: receiver (controller)
 SERVER_PORT_CONTROLLER = 5000;           % Server port for CONTROLLER
@@ -40,7 +41,7 @@ SERVER_PORT_DATA.B    = 5021;           % Server port for DATA from SAGA-B
 SERVER_PORT_WORKER = struct;
 SERVER_PORT_WORKER.A = 4000;
 SERVER_PORT_WORKER.B = 4001;
-DEFAULT_DATA_SHARE = "R:\NMLShare\raw_data\primate";
+DEFAULT_DATA_SHARE = strrep("R:\NMLShare\raw_data\primate", "\", "/");
 DEFAULT_SUBJ = "Test";
 N_SAMPLES_LOOP_BUFFER = 16384;
 
@@ -136,7 +137,7 @@ buffer_event_listener = [ ...
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     
     state = "idle";
-    fname = "default_%s.mat";  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
+    fname = strrep(fullfile(DEFAULT_DATA_SHARE,"default","default_%s.mat"), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
     recording = false;
     running = false;
     fprintf(1, "\n<strong>>>\t\t%s::SAGA LOOP BEGIN</strong>\n\n", ...
@@ -144,7 +145,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     
     while ~strcmpi(state, "quit")
         if udp_name_receiver.NumBytesAvailable > 0
-            fname = udp_name_receiver.readline(); 
+            tmp = udp_name_receiver.readline();
+            if startsWith(tmp, DEFAULT_DATA_SHARE)
+                fname = tmp;
+            else
+                fname = strrep(fullfile(DEFAULT_DATA_SHARE, tmp), "\", "/"); 
+            end
             fprintf(1, "File name updated: <strong>%s</strong>\n", fname);
         end
         while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit"))
