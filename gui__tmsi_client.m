@@ -164,7 +164,7 @@ classdef gui__tmsi_client < matlab.apps.AppBase
             % Create TMSiClientUIFigure and hide until all components are created
             app.TMSiClientUIFigure = uifigure('Visible', 'off');
             app.TMSiClientUIFigure.Color = [1 1 1];
-            app.TMSiClientUIFigure.Position = [100 800 680 520];
+            app.TMSiClientUIFigure.Position = [100 100 800 350];
             app.TMSiClientUIFigure.Name = 'TMSi Client';
             app.TMSiClientUIFigure.Icon = 'cmu_tartans_logo.jpg';
             app.TMSiClientUIFigure.CloseRequestFcn = createCallbackFcn(app, @TMSiClientUIFigureCloseRequest, true);
@@ -317,6 +317,7 @@ classdef gui__tmsi_client < matlab.apps.AppBase
             app.RunButton = uitogglebutton(app.TMSiStateButtonGroup);
             app.RunButton.Icon = 'outline_live_tv_black_24dp.png';
             app.RunButton.Text = 'Run';
+            app.RunButton.Tag = 'run';
             app.RunButton.FontName = 'Tahoma';
             app.RunButton.Position = [129 14 206 23];
 
@@ -325,7 +326,7 @@ classdef gui__tmsi_client < matlab.apps.AppBase
             app.RecordButton.Icon = 'baseline_radio_button_checked_black_24dp.png';
             app.RecordButton.Text = 'Record';
             app.RecordButton.FontName = 'Tahoma';
-            
+            app.RecordButton.Tag = 'rec';
             app.RecordButton.Position = [360 14 85 23];
 
             % Create QuitButton
@@ -333,7 +334,10 @@ classdef gui__tmsi_client < matlab.apps.AppBase
             app.QuitButton.Icon = 'baseline_power_off_black_24dp.png';
             app.QuitButton.Text = 'Quit';
             app.QuitButton.FontName = 'Tahoma';
+            app.QuitButton.Tag = 'quit';
             app.QuitButton.Position = [455 14 63 23];
+
+            app.TMSiStateButtonGroup.SelectedObject = app.IdleButton;
 
             % Show the figure after all components are created
             app.TMSiClientUIFigure.Visible = 'on';

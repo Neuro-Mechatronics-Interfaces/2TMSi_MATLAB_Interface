@@ -6,7 +6,7 @@
 %% Handle some basic startup stuff.
 clc;
 if exist('server', 'var')~=0
-    delete(dev_server);
+    delete(server);
 end
 
 if exist('device', 'var')~=0
@@ -57,10 +57,23 @@ N_SAMPLES_RECORD_MAX = 4000 * 60 * 10; % (sample rate) * (seconds/min) * (max. d
 % auto-saves if the buffer overflows, maybe using a flag on the buffer
 % object to do this or subclassing to a new buffer class that is
 % specifically meant for saving stream records.
-SN = [1005210029; 1005210028];
-TAG = ["B"; "A"];
-N_CLIENT = numel(TAG);
 
+% SN = [1005210029; 1005210028]; % NHP-B; NHP-A | docking stations / bottom
+% TAG = ["B"; "A"];
+
+% SN = [1005210038]; % SAGA-3 (wean | docking station / bottom half)
+% TAG = "S3"; 
+
+% SN = [1000210046]; % SAGA-3 (wean | data recorder / top half)
+% TAG = "S3";
+
+% SN = [1005220030; 1005220009]; % SAGA-4; SAGA-5 (wean | docking stations / bottom half)
+% TAG = ["S4"; "S5"];
+
+SN = [1000220037; 1000220035];
+TAG = ["A"; "B"]; % Arbitrary  - "A" is SAGA-4 and "B" is SAGA-5
+
+N_CLIENT = numel(TAG);
 
 %% Setup device configurations.
 config_device = struct('Dividers', {{'uni', 0; 'bip', 0}}, ...
@@ -86,7 +99,7 @@ lib = TMSiSAGA.Library();
 try
     % Code within the try-catch to ensure that all devices are stopped and 
     % closed properly in case of a failure.
-    device = lib.getDevices({'usb'}, {'optical'});  
+    device = lib.getDevices({'usb'}, {'electrical'}, 4, 4);  
     connect(device); 
 catch e
     % In case of an error close all still active devices and clean up
