@@ -45,13 +45,13 @@ classdef gui__tmsi_client < matlab.apps.AppBase
                 case "t" % task state data
                     switch lower(route(2))
                         case "r" % recording state
-                            app.TMSiStateButtonGroup.SelectedObject = findobj(app.TMSiStateButtonGroup.Buttons, 'Text', route(3));
-                            if app.TMSiStateButtonGroup.Enable
-                                app.TMSiStateButtonGroupSelectionChanged();
+                            app.TMSiStateButtonGroup.SelectedObject = findobj(app.TMSiStateButtonGroup.Buttons, 'Tag', route(3));
+                            if app.TMSiStateButtonGroup.Enable == matlab.lang.OnOffSwitchState('on')
+                                client__set_saga_state(app.client, route(3));
                             end
                             if strcmpi(route(3), "run")
                                 app.BlockSpinner.Value = app.BlockSpinner.Value + 1;
-                                app.UpdateNameButtonPushed();
+                                updateRecordingName(app);
                             end
                             fprintf(1,'%s -> TMSi State -> %s\n', string(datetime("now")), str2double(route(3)));
                         case "s"
@@ -66,7 +66,7 @@ classdef gui__tmsi_client < matlab.apps.AppBase
                                 app.STREAM_HOST_IP,  ...
                                 app.UDP_NAME_BROADCAST_PORT);
                             app.BlockSpinner.Value = app.BlockSpinner.Value + 1;
-                            app.UpdateNameButtonPushed();
+                            updateRecordingName(app);
                         otherwise
                             fprintf(1,'<strong>Received unhandled parameter-message</strong>: %s\n', data);
                     end
@@ -105,7 +105,13 @@ classdef gui__tmsi_client < matlab.apps.AppBase
             app.UpdateNameButton.Enable = 'off';
         end
         
-        
+        function updateRecordingName(app)
+            t = app.StartDatePicker.Value;
+            YYYY = year(t);
+            MM = month(t);
+            DD = day(t);
+            client__set_rec_name_metadata(app.client, app.SubjectEditField.Value, YYYY, MM, DD, app.BlockSpinner.Value);
+        end
     end
     
 
@@ -140,25 +146,12 @@ classdef gui__tmsi_client < matlab.apps.AppBase
         % Selection changed function: TMSiStateButtonGroup
         function TMSiStateButtonGroupSelectionChanged(app, ~)
             selectedButton = app.TMSiStateButtonGroup.SelectedObject;
-            switch selectedButton.Text
-                case "Idle"
-                    client__set_saga_state(app.client, "idle");
-                case "Run"
-                    client__set_saga_state(app.client, "run");
-                case "Record"
-                    client__set_saga_state(app.client, "rec");
-                case "Quit"
-                    client__set_saga_state(app.client, "quit");
-            end
+            client__set_saga_state(app.client, selectedButton.Tag);
         end
 
         % Button pushed function: UpdateNameButton
         function UpdateNameButtonPushed(app, ~)
-            t = app.StartDatePicker.Value;
-            YYYY = year(t);
-            MM = month(t);
-            DD = day(t);
-            client__set_rec_name_metadata(app.client, app.SubjectEditField.Value, YYYY, MM, DD, app.BlockSpinner.Value);
+            updateRecordingName(app);
         end
     end
 
@@ -315,6 +308,7 @@ classdef gui__tmsi_client < matlab.apps.AppBase
             app.IdleButton = uitogglebutton(app.TMSiStateButtonGroup);
             app.IdleButton.Icon = 'baseline_stop_black_24dp.png';
             app.IdleButton.Text = 'Idle';
+            app.IdleButton.Tag = 'idle';
             app.IdleButton.FontName = 'Tahoma';
             app.IdleButton.Position = [33 14 65 23];
             app.IdleButton.Value = true;
