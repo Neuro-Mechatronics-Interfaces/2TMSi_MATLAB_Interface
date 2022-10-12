@@ -25,9 +25,8 @@ else
 end
 
 %% SET PARAMETERS
-BROADCAST_ADDRESS = "192.168.1.255";    % Broadcast address for local ethernet switch (may be deprecated)
-SERVER_ADDRESS = "128.2.244.60";        % Host machine for TMSiSAGA ("Stream Server")
-WORKER_ADDRESS = "128.2.244.29";        % Max desktop processing ("Data Server")
+SERVER_ADDRESS = "127.0.0.1";        % Host machine for TMSiSAGA ("Stream Server"; most-likely "localhost")
+WORKER_ADDRESS = "127.0.0.1";        % Can be Max desktop processing ("Data Server"), but more-likely ("localhost")
 UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
 UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
 UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
@@ -87,7 +86,7 @@ lib = TMSiSAGA.Library();
 try
     % Code within the try-catch to ensure that all devices are stopped and 
     % closed properly in case of a failure.
-    device = lib.getDevices({'usb'}, {'electrical'});  
+    device = lib.getDevices({'usb'}, {'optical'});  
     connect(device); 
 catch e
     % In case of an error close all still active devices and clean up

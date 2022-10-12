@@ -32,6 +32,7 @@ classdef gui__tmsi_client < matlab.apps.AppBase
     properties (Constant, Access = public)
         STREAM_HOST_IP = "128.2.244.60";
         UDP_STATE_BROADCAST_PORT = 3030;
+        UDP_NAME_BROADCAST_PORT = 3031;
     end
     
     methods (Access = public)
@@ -42,13 +43,21 @@ classdef gui__tmsi_client < matlab.apps.AppBase
             route = strsplit(data, '.');
             switch lower(route(1))
                 case "t" % task state data
-                    % TODO: Add in handling for sync data message.
+                    switch lower(route(2))
+                        case "r" % recording state
+                            fprintf(1,'Received rec state message: <strong>%s</strong> on port %d but should go to port %d instead!\n', ...
+                                data, app.task_port.LocalPort, app.UDP_STATE_BROADCAST_PORT);
+                        case "s"
+                            fprintf(1,'%s -> Task State == %d\n', string(datetime("now")), str2double(route(3)));
+                        otherwise
+                            fprintf(1,'<strong>Received unhandled task-message</strong>: %s\n', data);
+                    end
                 case "p" % parameter data
                     switch lower(route(2))
                         case "n" % name data
                             src.write([char(sprintf("%s_%%s_%d", route(3), app.BlockSpinner.Value)) 10], "string", ...
                                 app.STREAM_HOST_IP,  ...
-                                app.UDP_STATE_BROADCAST_PORT);
+                                app.UDP_NAME_BROADCAST_PORT);
                             app.BlockSpinner.Value = app.BlockSpinner.Value + 1;
                         otherwise
                             fprintf(1,'<strong>Received unhandled parameter-message</strong>: %s\n', data);

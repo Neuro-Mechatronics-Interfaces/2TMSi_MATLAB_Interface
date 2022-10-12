@@ -9,12 +9,12 @@ close all force;
 BROADCAST_ADDRESS = "127.0.0.255";
 SERVER_ADDRESS = "127.0.0.1";
 UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
-UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
+UDP_NAME_BROADCAST_PORT  = 3031;    % UDP port: name
 UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
 UDP_TASK_BROADCAST_PORT  = 3033;    % UDP port: task
 UDP_DATA_BROADCAST_PORT  = 3034;    % UDP port: data
 UDP_CONTROLLER_RECV_PORT = 3035;    % UDP port: receiver (controller)
-SERVER_PORT_CONTROLLER = 5000;      % Server port for CONTROLLER
+SERVER_PORT_CONTROLLER   = 5000;    % Server port for CONTROLLER
 SERVER_PORT_DATA = struct('A', 5020, 'B', 5021); % Ports for DATA servers. % Assign by TMSiSAGA tag ('A', 'B', .. etc)
 DEFAULT_DATA_SHARE = "R:\NMLShare\raw_data\primate";
 DEFAULT_SUBJ = "Test";
@@ -103,7 +103,7 @@ for ii = 1:numel(my_tags)
         'YLim', [0.5 8.5], 'XTickLabel', 1:8:57);
     [~, con.(tag)] = contourf(ax_hd.(tag), 1:8, 1:8, randn(8, 8));
     title(ax_hd.(tag), "HD-EMG Grid", ...
-        "FontName", 'Tahoma', 'Color', [0.6 0.6 0.6])
+        "FontName", 'Tahoma', 'Color', [0.6 0.6 0.6]);
     lab.(tag) = title(L.(tag), sprintf("SAGA-%s::x", tag), ...
         "FontName", 'Tahoma', "Color", 'k', 'FontWeight', 'bold');
     ax_line.(tag) = nexttile(L.(tag), 3, [2 1]);

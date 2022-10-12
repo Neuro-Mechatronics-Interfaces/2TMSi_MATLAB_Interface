@@ -24,6 +24,10 @@
 %   test__frame_filled_cb              - Test callback for FrameFilledEvent from StreamBuffer class.
 %   test__readDataFcn                  - Calls read to read BytesAvailableFcnCount number of bytes of data.
 %
+% Batch Script Targets
+%   deploy__nhp_tmsi_tcp_servers       - For use with windows batch script executable.
+%   deploy__tmsi_saga_controller       - Script that runs GUI application for execution by Windows .bat executable. 
+%
 % Event Callback Functions
 %   bytesAvailableCB_tcpserver__UNI    - Calls read to reshape the unipolar HD-EMG array into server format.
 %   evt__frame_filled_cb               - Callback for FrameFilledEvent from StreamBuffer class.
