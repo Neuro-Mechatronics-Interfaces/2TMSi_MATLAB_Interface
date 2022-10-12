@@ -45,10 +45,17 @@ classdef gui__tmsi_client < matlab.apps.AppBase
                 case "t" % task state data
                     switch lower(route(2))
                         case "r" % recording state
-                            fprintf(1,'Received rec state message: <strong>%s</strong> on port %d but should go to port %d instead!\n', ...
-                                data, app.task_port.LocalPort, app.UDP_STATE_BROADCAST_PORT);
+                            app.TMSiStateButtonGroup.SelectedObject = findobj(app.TMSiStateButtonGroup.Buttons, 'Text', route(3));
+                            if app.TMSiStateButtonGroup.Enable
+                                app.TMSiStateButtonGroupSelectionChanged();
+                            end
+                            if strcmpi(route(3), "run")
+                                app.BlockSpinner.Value = app.BlockSpinner.Value + 1;
+                                app.UpdateNameButtonPushed();
+                            end
+                            fprintf(1,'%s -> TMSi State -> %s\n', string(datetime("now")), str2double(route(3)));
                         case "s"
-                            fprintf(1,'%s -> Task State == %d\n', string(datetime("now")), str2double(route(3)));
+                            fprintf(1,'%s -> Task State -> %d\n', string(datetime("now")), str2double(route(3)));
                         otherwise
                             fprintf(1,'<strong>Received unhandled task-message</strong>: %s\n', data);
                     end
@@ -59,6 +66,7 @@ classdef gui__tmsi_client < matlab.apps.AppBase
                                 app.STREAM_HOST_IP,  ...
                                 app.UDP_NAME_BROADCAST_PORT);
                             app.BlockSpinner.Value = app.BlockSpinner.Value + 1;
+                            app.UpdateNameButtonPushed();
                         otherwise
                             fprintf(1,'<strong>Received unhandled parameter-message</strong>: %s\n', data);
                     end
@@ -72,7 +80,15 @@ classdef gui__tmsi_client < matlab.apps.AppBase
             try %#ok<TRYNC> 
                 delete(app.client);
             end
-            app.client = tcpclient(IP, PORT);
+            try
+                app.client = tcpclient(IP, PORT);
+            catch
+                fprintf(1,'Unable to connect to TCP Server ( %s:%d )\n', IP, PORT);
+                app.Lamp.Color = [0.8 0.4 0.1];
+                app.ConnectButton.Text = "(Re-)Connect";
+                app.ConnectButton.Value = 0;
+                return;
+            end
             app.Lamp.Color = [0.1 0.8 0.1];
             app.ConnectButton.Text = "Disconnect";
             app.TMSiStateButtonGroup.Enable = 'on';
@@ -83,7 +99,7 @@ classdef gui__tmsi_client < matlab.apps.AppBase
             try %#ok<TRYNC> 
                 delete(app.client);
             end
-            app.Lamp.Color = [0.9 0.9 0.9];
+            app.Lamp.Color = [0.1 0.1 0.8];
             app.ConnectButton.Text = "Connect";
             app.TMSiStateButtonGroup.Enable = 'off';
             app.UpdateNameButton.Enable = 'off';
@@ -155,7 +171,7 @@ classdef gui__tmsi_client < matlab.apps.AppBase
             % Create TMSiClientUIFigure and hide until all components are created
             app.TMSiClientUIFigure = uifigure('Visible', 'off');
             app.TMSiClientUIFigure.Color = [1 1 1];
-            app.TMSiClientUIFigure.Position = [100 800 560 264];
+            app.TMSiClientUIFigure.Position = [100 800 680 520];
             app.TMSiClientUIFigure.Name = 'TMSi Client';
             app.TMSiClientUIFigure.Icon = 'cmu_tartans_logo.jpg';
             app.TMSiClientUIFigure.CloseRequestFcn = createCallbackFcn(app, @TMSiClientUIFigureCloseRequest, true);
@@ -315,6 +331,7 @@ classdef gui__tmsi_client < matlab.apps.AppBase
             app.RecordButton.Icon = 'baseline_radio_button_checked_black_24dp.png';
             app.RecordButton.Text = 'Record';
             app.RecordButton.FontName = 'Tahoma';
+            
             app.RecordButton.Position = [360 14 85 23];
 
             % Create QuitButton
