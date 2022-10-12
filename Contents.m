@@ -26,6 +26,7 @@
 %
 % Batch Script Targets
 %   deploy__nhp_tmsi_tcp_servers       - For use with windows batch script executable.
+%   deploy__nhp_tmsi_sagas             - For use with windows batch script executable to deploy the TMSi SAGA device streams.
 %   deploy__tmsi_saga_controller       - Script that runs GUI application for execution by Windows .bat executable. 
 %
 % Event Callback Functions

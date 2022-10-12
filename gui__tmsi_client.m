@@ -30,7 +30,7 @@ classdef gui__tmsi_client < matlab.apps.AppBase
     end
 
     properties (Constant, Access = public)
-        STREAM_HOST_IP = "128.2.244.60";
+        STREAM_HOST_IP = "127.0.0.1";
         UDP_STATE_BROADCAST_PORT = 3030;
         UDP_NAME_BROADCAST_PORT = 3031;
     end
@@ -183,7 +183,7 @@ classdef gui__tmsi_client < matlab.apps.AppBase
             app.ServerIPEditField.FontSize = 18;
             app.ServerIPEditField.Layout.Row = 1;
             app.ServerIPEditField.Layout.Column = 2;
-            app.ServerIPEditField.Value = '10.0.0.81';
+            app.ServerIPEditField.Value = '127.0.0.1';
 
             % Create ConnectButton
             app.ConnectButton = uibutton(app.GridLayout, 'state');
