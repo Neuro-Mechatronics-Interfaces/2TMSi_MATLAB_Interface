@@ -16,7 +16,7 @@ UDP_DATA_BROADCAST_PORT  = 3034;    % UDP port: data
 UDP_CONTROLLER_RECV_PORT = 3035;    % UDP port: receiver (controller)
 SERVER_PORT_CONTROLLER   = 5000;    % Server port for CONTROLLER
 SERVER_PORT_DATA = struct('A', 5020, 'B', 5021); % Ports for DATA servers. % Assign by TMSiSAGA tag ('A', 'B', .. etc)
-DEFAULT_DATA_SHARE = "R:\NMLShare\raw_data\primate";
+DEFAULT_DATA_SHARE = strrep("R:\NMLShare\raw_data\human", "\", "/");
 DEFAULT_SUBJ = "Test";
 TRIGGER_CHANNEL = struct('A', 70, 'B', 70); % In `example__tmsi_stream_service` session, you can do:
 % >> find(ch.isTrigger);   
