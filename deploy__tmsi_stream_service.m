@@ -100,7 +100,7 @@ lib = TMSiSAGA.Library();
 try
     % Code within the try-catch to ensure that all devices are stopped and 
     % closed properly in case of a failure.
-    device = lib.getDevices({'usb'}, {'electrical'});  
+    device = lib.getDevices('usb', 'electrical', 2, 2);  
     connect(device); 
 catch e
     % In case of an error close all still active devices and clean up
