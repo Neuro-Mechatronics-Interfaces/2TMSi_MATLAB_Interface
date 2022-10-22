@@ -7,3 +7,6 @@
 [submodule "+default"]
 	path = +default
 	url = git@github.com:m053m716/Matlab-Defaults
+[submodule "+cm"]
+	path = +cm
+	url = git@github.com:m053m716/cm.git
