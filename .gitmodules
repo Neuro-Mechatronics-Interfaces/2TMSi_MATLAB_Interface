@@ -13,3 +13,12 @@
 [submodule "+callback"]
 	path = +callback
 	url = git@github.com:m053m716/-callback
+[submodule "+plot"]
+	path = +plot
+	url = git@github.com:Neuro-Mechatronics-Interfaces/MATLAB_Data_Plots.git
+[submodule "+utils"]
+	path = +utils
+	url = git@github.com:Neuro-Mechatronics-Interfaces/NHP_MATLAB_Utilities.git
+[submodule "+transform"]
+	path = +transform
+	url = git@github.com:Neuro-Mechatronics-Interfaces/matlab_package__transform.git
