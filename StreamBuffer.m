@@ -46,28 +46,20 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
                 case 0
                     error("Must pass `channels` argument at least.");
                 case 1
-                    obj.n = struct('channels', numel(channels), 'samples', 32768);
+                    obj.n = struct('channels', numel(channels), 'samples', 32768, 'samples_per_frame', 16384);
                 case 2
-                    obj.n = struct('channels', numel(channels), 'samples', nSamples);
+                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'samples_per_frame', floor(nSamples/2));
                 case 3
-                    obj.n = struct('channels', numel(channels), 'samples', nSamples);
+                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'samples_per_frame', floor(nSamples/2));
                     obj.array = string(array);
                 case 4
-                    obj.n = struct('channels', numel(channels), 'samples', nSamples);
+                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'samples_per_frame', floor(nSamples/2));
                     obj.array = string(array);
                     obj.sample_rate = sample_rate;
                 otherwise
                     error("Invalid number of input arguments (%d).", nargin);
             end
             obj.channels = channels;
-            switch obj.array
-                case "A"
-                    port = 4000;
-                case "B"
-                    port = 4001;
-                otherwise
-                    error("Not configured to handle data from SAGA-%s", obj.array);
-            end
             obj.samples = zeros(obj.n.channels, obj.n.samples);
             obj.index = 1:obj.n.samples;
             obj.wrapping = 1:obj.n.samples;
@@ -103,7 +95,7 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             
             % If we filled up, then send data samples.
             
-            if obj.counter >= obj.n.samples
+            if obj.counter >= obj.n.samples_per_frame
                 obj.counter = 0;
                 notify(obj, "FrameFilledEvent");       
             end

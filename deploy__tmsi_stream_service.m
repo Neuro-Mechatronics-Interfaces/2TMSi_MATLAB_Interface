@@ -40,7 +40,7 @@ SERVER_PORT_DATA.B    = 5021;           % Server port for DATA from SAGA-B
 SERVER_PORT_WORKER = struct;
 SERVER_PORT_WORKER.A = 4000;
 SERVER_PORT_WORKER.B = 4001;
-USE_WORKER = false; % Set to true if the worker will actually be deployed (MUST BE DEPLOYED BEFORE RUNNING THIS SCRIPT IF SET TO TRUE).
+USE_WORKER = true; % Set to true if the worker will actually be deployed (MUST BE DEPLOYED BEFORE RUNNING THIS SCRIPT IF SET TO TRUE).
 DEFAULT_DATA_SHARE = string(parameters('raw_data_folder'));
 DEFAULT_SUBJ = "Max";
 N_SAMPLES_LOOP_BUFFER = 16384;
@@ -73,11 +73,12 @@ N_SAMPLES_RECORD_MAX = 4000 * 60 * 10; % (sample rate) * (seconds/min) * (max. d
 % SN = [1005220030; 1005220009]; % SAGA-4; SAGA-5 (wean | docking stations / bottom half)
 % TAG = ["S4"; "S5"];
 
-SN = [1000220037; 1000220035];
-TAG = ["A"; "B"]; % Arbitrary  - "A" is SAGA-4 and "B" is SAGA-5
+% SN = [1000220037; 1000220035];
+% TAG = ["A"; "B"]; % Arbitrary  - "A" is SAGA-4 and "B" is SAGA-5
 
-N_CLIENT = numel(TAG);
-
+fprintf(1, "Loading configuration file (config.yaml, in main repo folder)...\n");
+[config, TAG, SN, N_CLIENT] = parse_main_config('config.yaml');
+pause(1.5);
 %% Setup device configurations.
 config_device_impedance = struct('ImpedanceMode', true, ... 
                           'ReferenceMethod', 'common', ...
@@ -134,25 +135,29 @@ end
 udp_state_receiver = udpport("byte", "LocalPort", UDP_STATE_BROADCAST_PORT, "EnablePortSharing", true);
 udp_name_receiver = udpport("byte", "LocalPort", UDP_NAME_BROADCAST_PORT, "EnablePortSharing", true);
 ch = device.getActiveChannels();
-client = [ ...
-        tcpclient(SERVER_ADDRESS, SERVER_PORT_DATA.(device(1).tag)); ...
-        tcpclient(SERVER_ADDRESS, SERVER_PORT_DATA.(device(2).tag))  ...
-        ];
-if USE_WORKER
-    worker = [ ...
-        tcpclient(WORKER_ADDRESS, SERVER_PORT_WORKER.(device(1).tag)); ...
-        tcpclient(WORKER_ADDRESS, SERVER_PORT_WORKER.(device(2).tag))
-        ];
+client = cell(1, N_CLIENT);
+for ii = 1:N_CLIENT
+    client{ii} = tcpclient(SERVER_ADDRESS, SERVER_PORT_DATA.(device(ii).tag));
 end
-buffer = [ ...
-        StreamBuffer(ch{1}, channels.(device(1).tag).n.samples, device(1).tag, device(1).sample_rate), ...
-        StreamBuffer(ch{2}, channels.(device(2).tag).n.samples, device(2).tag, device(2).sample_rate) ...
-        ];
-buffer_event_listener = [ ...
-    addlistener(buffer(1), "FrameFilledEvent", @(src, evt)evt__frame_filled_cb(src, evt, client(1))); ...
-    addlistener(buffer(2), "FrameFilledEvent", @(src, evt)evt__frame_filled_cb(src, evt, client(2))) ...
-    ]; %#ok<NASGU>
+client = vertcat(client{:});
+if USE_WORKER
+    worker = cell(1, N_CLIENT);
+    for ii = 1:N_CLIENT
+        worker{ii} = tcpclient(WORKER_ADDRESS, SERVER_PORT_WORKER.(device(ii).tag));
+    end
+    worker = vertcat(worker{:});
+end
+buffer = cell(1, N_CLIENT); StreamBuffer(ch{1}, channels.(device(1).tag).n.samples, device(1).tag, device(1).sample_rate);
+for ii = 1:N_CLIENT
+    buffer{ii} = StreamBuffer(ch{ii}, channels.(device(ii).tag).n.samples, device(ii).tag, device(ii).sample_rate);
+end
+buffer = vertcat(buffer{:});
 
+buffer_event_listener = cell(1, N_CLIENT);
+for ii = 1:N_CLIENT
+    addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)evt__frame_filled_cb(src, evt, client(ii)));
+end
+buffer_event_listener = vertcat(buffer_event_listener{:}); %#ok<NASGU>
 
 %%
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
