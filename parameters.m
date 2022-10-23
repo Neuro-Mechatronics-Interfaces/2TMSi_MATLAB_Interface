@@ -21,9 +21,12 @@ function varargout = parameters(varargin)
 pars = struct;
 
 % % % Trying to pull the "relevant" ones to the top ... % % % 
-pars.generated_data_folder =  'R:\NMLShare\generated_data\human\DARPA_N3'; % Setting this to human or primate, temporary hard code
-pars.preliminary_output_folder = fullfile(pars.generated_data_folder, '.preliminary'); % . prefix defaults to "Hidden" on Windows
-pars.raw_data_folder = 'R:\NMLShare\raw_data\human';
+pars.generated_data_folder =  strrep('R:\NMLShare\generated_data\human\DARPA_N3', '\', '/'); % Setting this to human or primate, temporary hard code
+pars.preliminary_output_folder = strrep(fullfile(pars.generated_data_folder, '.preliminary'), '\', '/'); % . prefix defaults to "Hidden" on Windows
+pars.raw_data_folder = strrep('R:\NMLShare\raw_data\human', '\', '/');
+
+
+
 pars.default_training_log_file = 'G:\Shared drives\NML_NHP\Monkey Training Records\Training.xlsx';
 pars.default_metadata_file = fullfile(pars.raw_data_folder, "Forrest", 'metadata.xlsx');
 pars.local_pat_log_folder = "D:\__Assets__\Data\20220503 actual";

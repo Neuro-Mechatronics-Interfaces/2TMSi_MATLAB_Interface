@@ -44,6 +44,8 @@ USE_WORKER = false; % Set to true if the worker will actually be deployed (MUST 
 DEFAULT_DATA_SHARE = string(parameters('raw_data_folder'));
 DEFAULT_SUBJ = "Max";
 N_SAMPLES_LOOP_BUFFER = 16384;
+IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
+                              186 430 1482 787]; % B
 
 % Set this to LONGER than you think your recording should be, otherwise it
 % will loop back on itself! %
@@ -77,6 +79,10 @@ TAG = ["A"; "B"]; % Arbitrary  - "A" is SAGA-4 and "B" is SAGA-5
 N_CLIENT = numel(TAG);
 
 %% Setup device configurations.
+config_device_impedance = struct('ImpedanceMode', true, ... 
+                          'ReferenceMethod', 'common', ...
+                          'Triggers', false);
+config_channel_impedance = struct('uni',1:64);
 config_device = struct('Dividers', {{'uni', 0; 'bip', 0}}, ...
                         'Triggers', true, ...
                         'BaseSampleRate', 4000, ...
@@ -152,11 +158,10 @@ buffer_event_listener = [ ...
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     
     state = "idle";
-    fname = strrep(fullfile(DEFAULT_DATA_SHARE,"default","default_%s.mat"), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
+    fname = strrep(fullfile(DEFAULT_DATA_SHARE,DEFAULT_SUBJ,sprintf("%s_%%s_%%d.mat", DEFAULT_SUBJ)), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
     recording = false;
     running = false;
-    fprintf(1, "\n<strong>>>\t\t%s::SAGA LOOP BEGIN</strong>\n\n", ...
-        string(datetime('now')));
+    fprintf(1, "\n%s::SAGA LOOP BEGIN\n\n",string(datetime('now')));
     
     while ~strcmpi(state, "quit")
         if udp_name_receiver.NumBytesAvailable > 0
@@ -168,7 +173,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             end
             fprintf(1, "File name updated: <strong>%s</strong>\n", fname);
         end
-        while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit"))
+        while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit")) && (~strcmpi(state, "imp"))
             [samples, num_sets] = device.sample();
             buffer.append(samples);
             if udp_state_receiver.NumBytesAvailable > 0
@@ -257,6 +262,44 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 end
                 recording = false; 
                 running = false;
+            end
+            % If we are in impedance mode, change device config and show
+            % impedances for each device, sequentially.
+            if strcmpi(state, "imp")
+                device.setDeviceConfig( config_device_impedance );
+                device.setChannelConfig( config_channel_impedance );
+                start(device);
+                
+                fig = gobjects(1, numel(device));
+                iPlot = cell(size(fig));
+                for ii = 1:numel(device)
+                    channel_names = getName(getActiveChannels(device(ii)));
+                    fig(ii) = figure(...
+                        'Name', sprintf('Impedance Plot: SAGA-%s', device(ii).tag), ...
+                        'Color', 'w', ...
+                        'Posiiton', IMPEDANCE_FIGURE_POSITION(ii,:));
+                    iPlot{1,ii} = TMSiSAGA.ImpedancePlot(fig(ii), config_channel_impedance.uni, channel_names);
+                end
+                s = cell(size(device));
+                while any(isvalid(fig))
+                    for ii = 1:numel(device)
+                        if isvalid(fig(ii))
+                            [samples, num_sets] = device(ii).sample();
+                            % Append samples to the plot and redraw
+                            if num_sets > 0
+                                s{ii} = samples ./ 10^6; % need to divide by 10^6
+                                iPlot{ii}.grid_layout(s{ii});
+                                drawnow;
+                            end  
+                        end
+                    end
+                end
+                device.setDeviceConfig(config_device);
+                device.setChannelConfig(config_channels);
+                state = "idle";
+                for ii = 1:numel(device)
+                    impedance_saver_helper(fname, device(ii).tag, s{ii});
+                end
             end
         end
     end
