@@ -46,14 +46,14 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
                 case 0
                     error("Must pass `channels` argument at least.");
                 case 1
-                    obj.n = struct('channels', numel(channels), 'samples', 32768, 'samples_per_frame', 16384);
+                    obj.n = struct('channels', numel(channels), 'samples', 16384, 'samples_per_frame', 16384);
                 case 2
-                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'samples_per_frame', floor(nSamples/2));
+                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'samples_per_frame', nSamples);
                 case 3
-                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'samples_per_frame', floor(nSamples/2));
+                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'samples_per_frame', nSamples);
                     obj.array = string(array);
                 case 4
-                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'samples_per_frame', floor(nSamples/2));
+                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'samples_per_frame', nSamples);
                     obj.array = string(array);
                     obj.sample_rate = sample_rate;
                 otherwise

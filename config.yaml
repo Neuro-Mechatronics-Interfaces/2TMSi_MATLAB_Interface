@@ -45,7 +45,7 @@ SAGA:
     COUNT: 73
     n: 
      channels: 73
-     samples: 32768
+     samples: 16384
  B: 
    Enable: true
    Unit: "SAGA5"
@@ -60,7 +60,7 @@ SAGA:
     COUNT: 71
     n: 
      channels: 71
-     samples: 32768
+     samples: 16384
 Default:
  Folder: "R:/NMLShare/raw_data/human"
  Subject: "Test"
@@ -78,9 +78,11 @@ Server:
   A:
    Worker: 4000
    Viewer: 5020
+   Parameters: 5010
   B:
    Worker: 4001
    Viewer: 5021
+   Parameters: 5011
  UDP:
   state: 3030
   name: 3031

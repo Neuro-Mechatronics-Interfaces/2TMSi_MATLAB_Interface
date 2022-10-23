@@ -132,18 +132,29 @@ catch e
 end
 
 %% Create TMSi stream client + udpport
-udp_state_receiver = udpport("byte", "LocalPort", UDP_STATE_BROADCAST_PORT, "EnablePortSharing", true);
-udp_name_receiver = udpport("byte", "LocalPort", UDP_NAME_BROADCAST_PORT, "EnablePortSharing", true);
+udp_state_receiver = udpport("byte", "LocalPort", config.Server.UDP.state, "EnablePortSharing", true);
+udp_name_receiver = udpport("byte", "LocalPort", config.Server.UDP.name, "EnablePortSharing", true);
+udp_mode_receiver = udpport("byte", "LocalPort", config.Server.UDP.extra, "EnablePortSharing", true);
+% "mode" codes (see tab 'Tag' properties in SAGA_Data_Visualizer app):
+%   "US" - Unipolar Stream
+%   "BS" - Bipolar Stream
+%   "UA" - Unipolar Average
+%   "BA" - Bipolar Average
+%   "UR" - Unipolar Raster
+%   "IR" - ICA Raster
+%   "RC" - RMS Contour
+packet_mode = 'US';
+
 ch = device.getActiveChannels();
-client = cell(1, N_CLIENT);
+visualizer = cell(1, N_CLIENT);
 for ii = 1:N_CLIENT
-    client{ii} = tcpclient(SERVER_ADDRESS, SERVER_PORT_DATA.(device(ii).tag));
+    visualizer{ii} = tcpclient(config.Server.Address.TCP, config.Server.(device(ii).tag).Viewer);
 end
-client = vertcat(client{:});
+visualizer = vertcat(visualizer{:});
 if USE_WORKER
     worker = cell(1, N_CLIENT);
     for ii = 1:N_CLIENT
-        worker{ii} = tcpclient(WORKER_ADDRESS, SERVER_PORT_WORKER.(device(ii).tag));
+        worker{ii} = tcpclient(config.Server.Address.TCP, config.Server.(device(ii).tag).Worker);
     end
     worker = vertcat(worker{:});
 end
@@ -155,7 +166,7 @@ buffer = vertcat(buffer{:});
 
 buffer_event_listener = cell(1, N_CLIENT);
 for ii = 1:N_CLIENT
-    addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)evt__frame_filled_cb(src, evt, client(ii)));
+    addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer(ii)));
 end
 buffer_event_listener = vertcat(buffer_event_listener{:}); %#ok<NASGU>
 
@@ -178,6 +189,59 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             end
             fprintf(1, "File name updated: <strong>%s</strong>\n", fname);
         end
+        if udp_mode_receiver.NumBytesAvailable > 0
+            tmp = udp_mode_receiver.readline();
+            if ~strcmpi(tmp, packet_mode)
+                fprintf(1, "Detected switch in packet mode from '%s' to --> '%s' <--\n", packet_mode, tmp);
+                packet_mode = tmp;
+                for ii = 1:N_CLIENT
+                    delete(buffer_event_listener(ii)); 
+                end
+                buffer_event_listener = cell(1, N_CLIENT);
+                switch packet_mode
+                    case 'US'
+                        for ii = 1:N_CLIENT
+                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer(ii)));
+                        end
+                        fprintf(1, "Configured for unipolar stream data.\n");
+                    case 'BS'
+                        for ii = 1:N_CLIENT
+                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BS(src, evt, visualizer(ii)));
+                        end
+                        fprintf(1, "Configured for bipolar stream data.\n");
+                    case 'UA'
+                        for ii = 1:N_CLIENT
+                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UA(src, evt, visualizer(ii)));
+                        end
+                        fprintf(1, "Configured for unipolar averaging data.\n");
+                    case 'BA'
+                        for ii = 1:N_CLIENT
+                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BA(src, evt, visualizer(ii)));
+                        end
+                        fprintf(1, "Configured for bipolar averaging data.\n");
+                    case 'UR'
+                        for ii = 1:N_CLIENT
+                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UR(src, evt, visualizer(ii)));
+                        end
+                        fprintf(1, "Configured for unipolar raster data.\n");
+                    case 'IR'
+                        for ii = 1:N_CLIENT
+                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__IR(src, evt, visualizer(ii)));
+                        end
+                        fprintf(1, "Configured for ICA raster data.\n");
+                    case 'RC'
+                        for ii = 1:N_CLIENT
+                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__RC(src, evt, visualizer(ii)));
+                        end
+                        fprintf(1, "Configured for RMS contour data.\n");
+                    otherwise
+                        fprintf(1,"Unrecognized requested packet mode: %s", packet_mode);
+                end
+                buffer_event_listener = vertcat(buffer_event_listener{:});        
+                
+            end
+        end
+        
         while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit")) && (~strcmpi(state, "imp"))
             [samples, num_sets] = device.sample();
             buffer.append(samples);
