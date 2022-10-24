@@ -148,13 +148,13 @@ packet_mode = 'US';
 ch = device.getActiveChannels();
 visualizer = cell(1, N_CLIENT);
 for ii = 1:N_CLIENT
-    visualizer{ii} = tcpclient(config.Server.Address.TCP, config.Server.(device(ii).tag).Viewer);
+    visualizer{ii} = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Viewer);
 end
 visualizer = vertcat(visualizer{:});
 if USE_WORKER
     worker = cell(1, N_CLIENT);
     for ii = 1:N_CLIENT
-        worker{ii} = tcpclient(config.Server.Address.TCP, config.Server.(device(ii).tag).Worker);
+        worker{ii} = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Worker);
     end
     worker = vertcat(worker{:});
 end
@@ -166,7 +166,7 @@ buffer = vertcat(buffer{:});
 
 buffer_event_listener = cell(1, N_CLIENT);
 for ii = 1:N_CLIENT
-    addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer(ii)));
+    addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer(ii), (1:64)'));
 end
 buffer_event_listener = vertcat(buffer_event_listener{:}); %#ok<NASGU>
 
@@ -191,32 +191,37 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
         end
         if udp_mode_receiver.NumBytesAvailable > 0
             tmp = udp_mode_receiver.readline();
-            if ~strcmpi(tmp, packet_mode)
+            info = strsplit(tmp, '.');
+            if ~strcmpi(info{1}, packet_mode)
                 fprintf(1, "Detected switch in packet mode from '%s' to --> '%s' <--\n", packet_mode, tmp);
-                packet_mode = tmp;
+                packet_mode = info{1};
                 for ii = 1:N_CLIENT
                     delete(buffer_event_listener(ii)); 
                 end
                 buffer_event_listener = cell(1, N_CLIENT);
                 switch packet_mode
                     case 'US'
+                        i_subset = double(info{2}) - 96;
                         for ii = 1:N_CLIENT
-                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer(ii)));
+                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer(ii), i_subset));
                         end
                         fprintf(1, "Configured for unipolar stream data.\n");
                     case 'BS'
+                        i_subset = double(info{2}) - 96;
                         for ii = 1:N_CLIENT
-                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BS(src, evt, visualizer(ii)));
+                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BS(src, evt, visualizer(ii), i_subset));
                         end
                         fprintf(1, "Configured for bipolar stream data.\n");
                     case 'UA'
+                        i_subset = double(info{2}) - 96;
                         for ii = 1:N_CLIENT
-                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UA(src, evt, visualizer(ii)));
+                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UA(src, evt, visualizer(ii), i_subset));
                         end
                         fprintf(1, "Configured for unipolar averaging data.\n");
                     case 'BA'
+                        i_subset = double(info{2}) - 96;
                         for ii = 1:N_CLIENT
-                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BA(src, evt, visualizer(ii)));
+                            addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BA(src, evt, visualizer(ii), i_subset));
                         end
                         fprintf(1, "Configured for bipolar averaging data.\n");
                     case 'UR'
