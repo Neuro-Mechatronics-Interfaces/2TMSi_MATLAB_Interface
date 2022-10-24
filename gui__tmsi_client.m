@@ -49,7 +49,7 @@ classdef gui__tmsi_client < matlab.apps.AppBase
                             if app.TMSiStateButtonGroup.Enable == matlab.lang.OnOffSwitchState('on')
                                 client__set_saga_state(app.client, route(3));
                             end
-                            if strcmpi(route(3), "run")
+                            if strcmpi(route(3), "run") || strcmpi(route(3), "idle")
                                 app.BlockSpinner.Value = app.BlockSpinner.Value + 1;
                                 updateRecordingName(app);
                             end

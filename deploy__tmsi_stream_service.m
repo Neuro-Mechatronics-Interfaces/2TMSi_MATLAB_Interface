@@ -25,6 +25,7 @@ else
 end
 
 %% SET PARAMETERS
+INTERFACE = 'optical'; % Can be: 'electrical', 'optical'
 SERVER_ADDRESS = "127.0.0.1";        % Host machine for TMSiSAGA ("Stream Server"; most-likely "localhost")
 WORKER_ADDRESS = "172.26.32.199";        % Can be Max desktop ("128.2.244.29") or Backyard Brains ("172.26.32.199")
 UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
@@ -63,6 +64,9 @@ N_SAMPLES_RECORD_MAX = 4000 * 60 * 10; % (sample rate) * (seconds/min) * (max. d
 
 % SN = [1005210029; 1005210028]; % NHP-B; NHP-A | docking stations / bottom
 % TAG = ["B"; "A"];
+
+SN = [1000210036; 1000210037]; % NHP-B; NHP-A | data recorders / bottom
+TAG = ["B"; "A"];
 
 % SN = [1005210038]; % SAGA-3 (wean | docking station / bottom half)
 % TAG = "S3"; 

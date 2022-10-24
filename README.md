@@ -55,12 +55,24 @@ As such, you need to get:
 
 ### Serial Numbers ###
 You will need to assign each serial number to a corresponding tag (I use "A", "B", ... etc.). 
-Make sure that the tags and serial numbers and ordering matches up so that elements are matched. 
+Make sure that the tags and serial numbers and ordering matches up so that elements are matched.  
+
+#### NML Devices ####
+A more comprehensive and hopefully current version of this table is kept on the `NML_share` drive in `Equipment Manuals and Software` in the `Equipment tracking.gsheet` file.  
+| Unit Name | General Home | Data Recorder SN (Top) | Docking Station SN (Bottom) | Tag (Max Interface) |
+| --------- | ------------ | ---------------------- | --------------------------- | ------------------- |
+| SAGA-1    | Wean 4120    | 1000190062             | 1005190054                  | S1                  |
+| SAGA-2    | Wean 4120    | 1000190076             | 1005190062                  | S2                  |
+| SAGA-3    | Wean 4120    | 1000210046             | 1005210038                  | S3                  |
+| SAGA-4    | Wean 4120    | 1000220037             | 1005220030                  | S4                  |
+| SAGA-5    | Wean 4120    | 1000220035             | 1005220009                  | S5                  |
+| SAGA-A    | Mellon 125k  | 1000210037             | 1005210028                  | A                   |
+| SAGA-B    | Mellon 125k  | 1000210036             | 1005210029                  | B                   |
 
 ### Firewall ###
 I might just be really bad at IT but I had a hell of a time getting that part to work and then magically walked in the next day and it all worked without me ever changing the code so either we have gremlins (like the good kind?) or it might require a computer restart and then some quiet contemplation of your life's choices (waiting) until the network gods decide to let you use their ports. Anyways, consider yourself warned.
 * Note that I strongly recommend getting a local ethernet network switch and keeping devices off the CMU public ethernet, which seems to cause issues if you leave ports open for too long. 
-* If you do have a local network switch, then I had success setting things up as local network devices using `10.x.y.z` network.
+* If you do have a local network switch, then I had success setting things up as local network devices using `10.x.y.z` network. 
 
 #### Ports ####
 I've been opening the following UDP ports:
@@ -86,6 +98,9 @@ SERVER_PORT_DATA = struct('A', 5020, 'B', 5021); % Ports for DATA servers. % Ass
 ## Usage ##
 _NOTE: ORDER OF OPERATIONS MATTERS FOR THESE SCRIPTS!  
 Each of these steps should be started in a separate MATLAB session, possibly using different machines on the same network switch._
+
+_NOTE 2: DEPENDING ON WHICH SAGA DEVICES ARE IN USE, YOU NEED TO ADJUST THE SERIAL NUMBERS IN `deploy__tmsi_stream_service.m` ACCORDINGLY. 
+Please refer to the table in the [NML Devices](#nml-devices) section and use the `Data Recorder` column values corresponding to your machine._
 
   0. **TURN ON SAGA DEVICES AND ENSURE EVERYTHING IS PLUGGED IN!**
 
