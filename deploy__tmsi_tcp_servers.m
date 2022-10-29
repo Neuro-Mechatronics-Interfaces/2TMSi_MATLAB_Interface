@@ -205,6 +205,7 @@ cfg__worker = struct(...
 serv__worker = deploy__postprocessing_worker_server(cfg__worker);
 fprintf(1,'complete\n');
 
+%% Keep application running
 fprintf(1,'Running all servers until application windows are closed.\n');
 for ii = 1:numel(TAG)
     waitfor(serv__visualizer.(TAG{ii}).UserData.app); 
