@@ -33,6 +33,7 @@ SAGA:
  A: 
    Enable: true
    Unit: "SAGA4"
+   FileType: ".mat"
    Trigger:
     Channel: 70
     Bit: 0
@@ -48,6 +49,7 @@ SAGA:
      samples: 16384
  B: 
    Enable: true
+   FileType: ".mat"
    Unit: "SAGA5"
    Trigger:
     Channel: 70

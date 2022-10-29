@@ -42,8 +42,7 @@ SERVER_PORT_WORKER = struct;
 SERVER_PORT_WORKER.A = 4000;
 SERVER_PORT_WORKER.B = 4001;
 USE_WORKER = true; % Set to true if the worker will actually be deployed (MUST BE DEPLOYED BEFORE RUNNING THIS SCRIPT IF SET TO TRUE).
-DEFAULT_DATA_SHARE = string(parameters('raw_data_folder'));
-DEFAULT_SUBJ = "Max";
+
 N_SAMPLES_LOOP_BUFFER = 16384;
 IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
                               186 430 1482 787]; % B
@@ -65,8 +64,8 @@ N_SAMPLES_RECORD_MAX = 4000 * 60 * 10; % (sample rate) * (seconds/min) * (max. d
 % SN = [1005210029; 1005210028]; % NHP-B; NHP-A | docking stations / bottom
 % TAG = ["B"; "A"];
 
-SN = [1000210036; 1000210037]; % NHP-B; NHP-A | data recorders / bottom
-TAG = ["B"; "A"];
+% SN = [1000210036; 1000210037]; % NHP-B; NHP-A | data recorders / bottom
+% TAG = ["B"; "A"];
 
 % SN = [1005210038]; % SAGA-3 (wean | docking station / bottom half)
 % TAG = "S3"; 
@@ -82,6 +81,9 @@ TAG = ["B"; "A"];
 
 fprintf(1, "Loading configuration file (config.yaml, in main repo folder)...\n");
 [config, TAG, SN, N_CLIENT] = parse_main_config('config.yaml');
+DEFAULT_DATA_SHARE = config.Default.Folder;
+DEFAULT_SUBJ = config.Default.Subject;
+
 pause(1.5);
 %% Setup device configurations.
 config_device_impedance = struct('ImpedanceMode', true, ... 
