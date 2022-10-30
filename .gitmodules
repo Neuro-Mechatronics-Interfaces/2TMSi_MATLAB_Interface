@@ -25,3 +25,6 @@
 [submodule "+grid"]
 	path = +grid
 	url = git@github.com:m053m716/grid.git
+[submodule "+math"]
+	path = +math
+	url = git@github.com:m053m716/-math
