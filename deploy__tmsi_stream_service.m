@@ -25,24 +25,24 @@ else
 end
 
 %% SET PARAMETERS
-SERVER_ADDRESS = "127.0.0.1";        % Host machine for TMSiSAGA ("Stream Server"; most-likely "localhost")
-WORKER_ADDRESS = "127.0.0.1";        % Can be Max desktop ("128.2.244.29") or Backyard Brains ("172.26.32.199")
-UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
-UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
-UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
-UDP_TASK_BROADCAST_PORT  = 3033;    % UDP port: task
-UDP_DATA_BROADCAST_PORT  = 3034;    % UDP port: data
-UDP_CONTROLLER_RECV_PORT = 3035;    % UDP port: receiver (controller)
-SERVER_PORT_CONTROLLER = 5000;          % Server port for CONTROLLER
-SERVER_PORT_DATA = struct;
-SERVER_PORT_DATA.A    = 5020;           % Server port for DATA from SAGA-A
-SERVER_PORT_DATA.B    = 5021;           % Server port for DATA from SAGA-B
-SERVER_PORT_WORKER = struct;
-SERVER_PORT_WORKER.A = 4000;
-SERVER_PORT_WORKER.B = 4001;
-USE_PARAM_SERVER = false;
-USE_WORKER = true; % Set to true if the worker will actually be deployed (MUST BE DEPLOYED BEFORE RUNNING THIS SCRIPT IF SET TO TRUE).
-N_SAMPLES_LOOP_BUFFER = 16384;
+% SERVER_ADDRESS = "127.0.0.1";        % Host machine for TMSiSAGA ("Stream Server"; most-likely "localhost")
+% WORKER_ADDRESS = "127.0.0.1";        % Can be Max desktop ("128.2.244.29") or Backyard Brains ("172.26.32.199")
+% UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
+% UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
+% UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
+% UDP_TASK_BROADCAST_PORT  = 3033;    % UDP port: task
+% UDP_DATA_BROADCAST_PORT  = 3034;    % UDP port: data
+% UDP_CONTROLLER_RECV_PORT = 3035;    % UDP port: receiver (controller)
+% SERVER_PORT_CONTROLLER = 5000;          % Server port for CONTROLLER
+% SERVER_PORT_DATA = struct;
+% SERVER_PORT_DATA.A    = 5020;           % Server port for DATA from SAGA-A
+% SERVER_PORT_DATA.B    = 5021;           % Server port for DATA from SAGA-B
+% SERVER_PORT_WORKER = struct;
+% SERVER_PORT_WORKER.A = 4000;
+% SERVER_PORT_WORKER.B = 4001;
+% USE_PARAM_SERVER = false;
+% USE_WORKER = true; % Set to true if the worker will actually be deployed (MUST BE DEPLOYED BEFORE RUNNING THIS SCRIPT IF SET TO TRUE).
+% N_SAMPLES_LOOP_BUFFER = 16384;
 IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
                               186 430 1482 787]; % B
 
@@ -134,11 +134,11 @@ catch e
 end
 
 %% Create TMSi stream client + udpport
-% udp_state_receiver = udpport("byte", "LocalPort", config.Server.UDP.state, "EnablePortSharing", true);
-% udp_name_receiver = udpport("byte", "LocalPort", config.Server.UDP.name, "EnablePortSharing", true);
-% if USE_PARAM_SERVER
-%     udp_mode_receiver = udpport("byte", "LocalPort", config.Server.UDP.extra, "EnablePortSharing", true);
-% end
+udp_state_receiver = udpport("byte", "LocalPort", config.Server.UDP.state, "EnablePortSharing", true);
+udp_name_receiver = udpport("byte", "LocalPort", config.Server.UDP.name, "EnablePortSharing", true);
+if config.Default.Use_Param_Server
+    udp_mode_receiver = udpport("byte", "LocalPort", config.Server.UDP.extra, "EnablePortSharing", true);
+end
 % "mode" codes (see tab 'Tag' properties in SAGA_Data_Visualizer app):
 %   "US" - Unipolar Stream
 %   "BS" - Bipolar Stream
@@ -147,7 +147,7 @@ end
 %   "UR" - Unipolar Raster
 %   "IR" - ICA Raster
 %   "RC" - RMS Contour
-% packet_mode = 'US';
+packet_mode = 'US';
 
 
 visualizer = cell(1, N_CLIENT);
@@ -155,7 +155,7 @@ for ii = 1:N_CLIENT
     visualizer{ii} = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Viewer);
 end
 visualizer = vertcat(visualizer{:});
-if USE_WORKER
+if config.Default.Use_Worker_Server
     worker = cell(1, N_CLIENT);
     for ii = 1:N_CLIENT
         worker{ii} = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Worker);
@@ -188,7 +188,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     running = false;
     fprintf(1, "\n%s::SAGA LOOP BEGIN\n\n",string(datetime('now')));
     
-    while ~strcmpi(fsm.state.device, "quit")
+    while ~strcmpi(state, "quit")
 %         fname = fsm.check_for_name_update();
 %         fsm.check_for_parameter_update();
         
@@ -201,7 +201,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             end
             fprintf(1, "File name updated: <strong>%s</strong>\n", fname);
         end        
-        if USE_PARAM_SERVER
+        if config.Default.Use_Param_Server
             if udp_mode_receiver.NumBytesAvailable > 0 %#ok<*UNRCH>
                 tmp = udp_mode_receiver.readline();
                 info = strsplit(tmp, '.');
@@ -291,7 +291,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         rec_buffer.save(fname);
                         delete(rec_buffer);
                         clear rec_buffer;
-                        if USE_WORKER
+                        if config.Default.Use_Worker_Server
                             [~, finfo, ~] = fileparts(fname);
                             args = strsplit(finfo, "_");
                             for iWorker = 1:numel(worker)
@@ -337,7 +337,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     rec_buffer.save(fname);
                     delete(rec_buffer);
                     clear rec_buffer;
-                    if USE_WORKER
+                    if config.Default.Use_Worker_Server
                         [~, finfo, ~] = fileparts(fname);
                         args = strsplit(finfo, "_");
                         for iWorker = 1:numel(worker)
@@ -358,7 +358,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     rec_buffer.save(fname);
                     delete(rec_buffer);
                     clear rec_buffer;
-                    if USE_WORKER
+                    if config.Default.Use_Worker_Server
                         [~, finfo, ~] = fileparts(fname);
                         args = strsplit(finfo, "_");
                         for iWorker = 1:numel(worker)

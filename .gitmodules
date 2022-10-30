@@ -22,3 +22,6 @@
 [submodule "+transform"]
 	path = +transform
 	url = git@github.com:Neuro-Mechatronics-Interfaces/matlab_package__transform.git
+[submodule "+grid"]
+	path = +grid
+	url = git@github.com:m053m716/grid.git
