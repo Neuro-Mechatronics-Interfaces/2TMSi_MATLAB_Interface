@@ -25,9 +25,8 @@ else
 end
 
 %% SET PARAMETERS
-% INTERFACE = 'optical'; % Can be: 'electrical', 'optical'
-SERVER_ADDRESS = "128.2.244.60";        % Host machine for TMSiSAGA ("Stream Server"; most-likely "localhost")
-WORKER_ADDRESS = "172.26.32.199";        % Can be Max desktop ("128.2.244.29") or Backyard Brains ("172.26.32.199")
+SERVER_ADDRESS = "127.0.0.1";        % Host machine for TMSiSAGA ("Stream Server"; most-likely "localhost")
+WORKER_ADDRESS = "127.0.0.1";        % Can be Max desktop ("128.2.244.29") or Backyard Brains ("172.26.32.199")
 UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
 UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
 UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
@@ -81,9 +80,6 @@ N_SAMPLES_RECORD_MAX = 4000 * 60 * 10; % (sample rate) * (seconds/min) * (max. d
 
 fprintf(1, "Loading configuration file (config.yaml, in main repo folder)...\n");
 [config, TAG, SN, N_CLIENT] = parse_main_config('config.yaml');
-INTERFACE = config.Default.Interface;
-DEFAULT_DATA_SHARE = config.Default.Folder;
-DEFAULT_SUBJ = config.Default.Subject;
 pause(1.5);
 %% Setup device configurations.
 config_device_impedance = struct('ImpedanceMode', true, ... 
@@ -103,8 +99,8 @@ config_channels = struct('uni', 1:64, ...
                          'bip', 1:4, ...
                          'dig', 0, ...
                          'acc', 0);
-channels = struct('A', struct('CREF', 1,  'UNI', 2:65, 'BIP', 66:69, 'AUX', 70:71, 'TRIG', 72, 'STAT', 73, 'COUNT', 74, 'n', struct('channels', 74, 'samples', N_SAMPLES_LOOP_BUFFER)), ...
-                  'B', struct('CREF', 1,  'UNI', 2:65, 'BIP', 66:69, 'TRIG', 70, 'STAT', 71, 'COUNT', 72, 'n', struct('channels', 72, 'samples', N_SAMPLES_LOOP_BUFFER)));
+channels = struct('A', config.SAGA.A.Channels, ...
+                  'B', config.SAGA.B.Channels);
 
 
 %% Open device connections
@@ -113,7 +109,7 @@ lib = TMSiSAGA.Library();
 try
     % Code within the try-catch to ensure that all devices are stopped and 
     % closed properly in case of a failure.
-    device = lib.getDevices('usb', INTERFACE, 2, 2);  
+    device = lib.getDevices('usb', config.Default.Interface, 2, 2);  
     connect(device); 
 catch e
     % In case of an error close all still active devices and clean up
@@ -138,11 +134,11 @@ catch e
 end
 
 %% Create TMSi stream client + udpport
-udp_state_receiver = udpport("byte", "LocalPort", config.Server.UDP.state, "EnablePortSharing", true);
-udp_name_receiver = udpport("byte", "LocalPort", config.Server.UDP.name, "EnablePortSharing", true);
-if USE_PARAM_SERVER
-    udp_mode_receiver = udpport("byte", "LocalPort", config.Server.UDP.extra, "EnablePortSharing", true);
-end
+% udp_state_receiver = udpport("byte", "LocalPort", config.Server.UDP.state, "EnablePortSharing", true);
+% udp_name_receiver = udpport("byte", "LocalPort", config.Server.UDP.name, "EnablePortSharing", true);
+% if USE_PARAM_SERVER
+%     udp_mode_receiver = udpport("byte", "LocalPort", config.Server.UDP.extra, "EnablePortSharing", true);
+% end
 % "mode" codes (see tab 'Tag' properties in SAGA_Data_Visualizer app):
 %   "US" - Unipolar Stream
 %   "BS" - Bipolar Stream
@@ -151,9 +147,9 @@ end
 %   "UR" - Unipolar Raster
 %   "IR" - ICA Raster
 %   "RC" - RMS Contour
-packet_mode = 'US';
+% packet_mode = 'US';
 
-ch = device.getActiveChannels();
+
 visualizer = cell(1, N_CLIENT);
 for ii = 1:N_CLIENT
     visualizer{ii} = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Viewer);
@@ -166,7 +162,12 @@ if USE_WORKER
     end
     worker = vertcat(worker{:});
 end
-buffer = cell(1, N_CLIENT); StreamBuffer(ch{1}, channels.(device(1).tag).n.samples, device(1).tag, device(1).sample_rate);
+
+
+ch = device.getActiveChannels();
+% fsm = SAGA_State_Machine(config, ch, TAG);
+
+buffer = cell(1, N_CLIENT); 
 for ii = 1:N_CLIENT
     buffer{ii} = StreamBuffer(ch{ii}, channels.(device(ii).tag).n.samples, device(ii).tag, device(ii).sample_rate);
 end
@@ -174,7 +175,7 @@ buffer = vertcat(buffer{:});
 
 buffer_event_listener = cell(1, N_CLIENT);
 for ii = 1:N_CLIENT
-    addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer(ii), (1:64)'));
+    buffer_event_listener{ii} = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer(ii), (1:64)'));
 end
 buffer_event_listener = vertcat(buffer_event_listener{:}); %#ok<NASGU>
 
@@ -182,23 +183,26 @@ buffer_event_listener = vertcat(buffer_event_listener{:}); %#ok<NASGU>
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     
     state = "idle";
-    fname = strrep(fullfile(DEFAULT_DATA_SHARE,DEFAULT_SUBJ,sprintf("%s_%%s_%%d.mat", DEFAULT_SUBJ)), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
+    fname = strrep(fullfile(config.Default.Folder,config.Default.Subject,sprintf("%s_%%s_%%d.mat", config.Default.Subject)), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
     recording = false;
     running = false;
     fprintf(1, "\n%s::SAGA LOOP BEGIN\n\n",string(datetime('now')));
     
-    while ~strcmpi(state, "quit")
+    while ~strcmpi(fsm.state.device, "quit")
+%         fname = fsm.check_for_name_update();
+%         fsm.check_for_parameter_update();
+        
         if udp_name_receiver.NumBytesAvailable > 0
             tmp = udp_name_receiver.readline();
-            if startsWith(strrep(tmp, "\", "/"), DEFAULT_DATA_SHARE)
+            if startsWith(strrep(tmp, "\", "/"), config.Default.Folder)
                 fname = tmp;
             else
-                fname = strrep(fullfile(DEFAULT_DATA_SHARE, tmp), "\", "/"); 
+                fname = strrep(fullfile(config.Default.Folder, tmp), "\", "/"); 
             end
             fprintf(1, "File name updated: <strong>%s</strong>\n", fname);
-        end
+        end        
         if USE_PARAM_SERVER
-            if udp_mode_receiver.NumBytesAvailable > 0
+            if udp_mode_receiver.NumBytesAvailable > 0 %#ok<*UNRCH>
                 tmp = udp_mode_receiver.readline();
                 info = strsplit(tmp, '.');
                 if ~strcmpi(info{1}, packet_mode)
@@ -212,40 +216,46 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         case 'US'
                             i_subset = double(info{2}) - 96;
                             for ii = 1:N_CLIENT
-                                addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer(ii), i_subset));
+                                buffer_event_listener{ii} = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer(ii), i_subset));
                             end
                             fprintf(1, "Configured for unipolar stream data.\n");
                         case 'BS'
                             i_subset = double(info{2}) - 96;
                             for ii = 1:N_CLIENT
-                                addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BS(src, evt, visualizer(ii), i_subset));
+                                buffer_event_listener{ii} = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BS(src, evt, visualizer(ii), i_subset));
                             end
                             fprintf(1, "Configured for bipolar stream data.\n");
                         case 'UA'
                             i_subset = double(info{2}) - 96;
                             for ii = 1:N_CLIENT
-                                addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UA(src, evt, visualizer(ii), i_subset));
+                                buffer_event_listener{ii} = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UA(src, evt, visualizer(ii), i_subset));
                             end
                             fprintf(1, "Configured for unipolar averaging data.\n");
                         case 'BA'
                             i_subset = double(info{2}) - 96;
                             for ii = 1:N_CLIENT
-                                addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BA(src, evt, visualizer(ii), i_subset));
+                                buffer_event_listener{ii} = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BA(src, evt, visualizer(ii), i_subset));
                             end
                             fprintf(1, "Configured for bipolar averaging data.\n");
                         case 'UR'
                             for ii = 1:N_CLIENT
-                                addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UR(src, evt, visualizer(ii)));
+                                buffer_event_listener{ii} = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UR(src, evt, visualizer(ii)));
                             end
                             fprintf(1, "Configured for unipolar raster data.\n");
                         case 'IR'
                             for ii = 1:N_CLIENT
-                                addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__IR(src, evt, visualizer(ii)));
+                                buffer_event_listener{ii} = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__IR(src, evt, visualizer(ii)));
                             end
                             fprintf(1, "Configured for ICA raster data.\n");
+                        case 'IS'
+                            i_subset = double(info{2}) - 96;
+                            for ii = 1:N_CLIENT
+                                buffer_event_listener{ii} = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__IS(src, evt, visualizer(ii), i_subset));
+                            end
+                            fprintf(1, "Configured for bipolar averaging data.\n");
                         case 'RC'
                             for ii = 1:N_CLIENT
-                                addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__RC(src, evt, visualizer(ii)));
+                                buffer_event_listener{ii} = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__RC(src, evt, visualizer(ii)));
                             end
                             fprintf(1, "Configured for RMS contour data.\n");
                         otherwise
@@ -265,10 +275,11 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 if strcmpi(state, "rec")
                     if ~recording
                         fprintf(1, "Buffer created, recording in process...");
-                        rec_buffer = [ ...
-                            StreamBuffer(ch{1}, N_SAMPLES_RECORD_MAX, device(1).tag), ...
-                            StreamBuffer(ch{2}, N_SAMPLES_RECORD_MAX, device(2).tag) ...
-                        ];
+                        rec_buffer = cell(1, N_CLIENT); 
+                        for ii = 1:N_CLIENT
+                            rec_buffer{ii} = StreamBuffer(ch{ii}, channels.(device(ii).tag).n.samples, device(ii).tag, device(ii).sample_rate);
+                        end
+                        rec_buffer = vertcat(rec_buffer{:});
                     end
                     recording = true;
                     running = true;
@@ -306,10 +317,11 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             if strcmpi(state, "rec")
                 if ~recording
                     fprintf(1, "Buffer created, recording in process...");
-                    rec_buffer = [ ...
-                        StreamBuffer(ch{1}, N_SAMPLES_RECORD_MAX, device(1).tag, device(1).sample_rate), ...
-                        StreamBuffer(ch{2}, N_SAMPLES_RECORD_MAX, device(2).tag, device(2).sample_rate) ...
-                    ];
+                    rec_buffer = cell(1, N_CLIENT); 
+                    for ii = 1:N_CLIENT
+                        rec_buffer{ii} = StreamBuffer(ch{ii}, channels.(device(ii).tag).n.samples, device(ii).tag, device(ii).sample_rate);
+                    end
+                    rec_buffer = vertcat(rec_buffer{:});
                 end
                 recording = true;
                 if ~running
@@ -320,6 +332,25 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 if ~running
                     start(device);
                     running = true;
+                elseif recording
+                    fprintf(1, "complete\n\t->\t(%s)\n", fname);
+                    rec_buffer.save(fname);
+                    delete(rec_buffer);
+                    clear rec_buffer;
+                    if USE_WORKER
+                        [~, finfo, ~] = fileparts(fname);
+                        args = strsplit(finfo, "_");
+                        for iWorker = 1:numel(worker)
+                            worker(iWorker).writeline(...
+                                string(sprintf('%s.%d.%d.%d.%s', ...
+                                    args{1}, ...
+                                    str2double(args{2}), ...
+                                    str2double(args{3}), ...
+                                    str2double(args{4}), ...
+                                    args{6}))); 
+                        end
+                    end
+                    recording = false;
                 end
             else
                 if recording
