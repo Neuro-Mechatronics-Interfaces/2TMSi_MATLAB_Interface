@@ -25,6 +25,7 @@ pars = struct;
 pars.config = strrep(fullfile(pwd, 'Local_Testing_config.yaml'), '\', '/');
 
 % % % Trying to pull the "relevant" ones to the top ... % % % 
+pars.config = "config_125k.yaml";
 % pars.generated_data_folder =  strrep('C:\Users\NML\Box\N3_SharpFocus\Phase 3 experiments\generated_data', '\', '/'); % Setting this to human or primate, temporary hard code
 % pars.raw_data_folder = strrep('C:\Users\NML\Box\N3_SharpFocus\Phase 3 experiments\raw_data', '\', '/');
 % pars.generated_data_folder =  strrep('R:\NMLShare\generated_data\human\DARPA_N3', '\', '/'); % Setting this to human or primate, temporary hard code

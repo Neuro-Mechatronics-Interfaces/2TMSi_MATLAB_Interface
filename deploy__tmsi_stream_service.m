@@ -25,28 +25,9 @@ else
 end
 
 %% SET PARAMETERS
-% SERVER_ADDRESS = "127.0.0.1";        % Host machine for TMSiSAGA ("Stream Server"; most-likely "localhost")
-% WORKER_ADDRESS = "127.0.0.1";        % Can be Max desktop ("128.2.244.29") or Backyard Brains ("172.26.32.199")
-% UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
-% UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
-% UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
-% UDP_TASK_BROADCAST_PORT  = 3033;    % UDP port: task
-% UDP_DATA_BROADCAST_PORT  = 3034;    % UDP port: data
-% UDP_CONTROLLER_RECV_PORT = 3035;    % UDP port: receiver (controller)
-% SERVER_PORT_CONTROLLER = 5000;          % Server port for CONTROLLER
-% SERVER_PORT_DATA = struct;
-% SERVER_PORT_DATA.A    = 5020;           % Server port for DATA from SAGA-A
-% SERVER_PORT_DATA.B    = 5021;           % Server port for DATA from SAGA-B
-% SERVER_PORT_WORKER = struct;
-% SERVER_PORT_WORKER.A = 4000;
-% SERVER_PORT_WORKER.B = 4001;
-% USE_PARAM_SERVER = false;
-% USE_WORKER = true; % Set to true if the worker will actually be deployed (MUST BE DEPLOYED BEFORE RUNNING THIS SCRIPT IF SET TO TRUE).
-% N_SAMPLES_LOOP_BUFFER = 16384;
-% IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
-%                               186 430 1482 787]; % B
-IMPEDANCE_FIGURE_POSITION = [1100 1100 650 400; ... % A (DELL TMSI CART)
-                             1100 575  650 400];    % B (DELL TMSI CART)
+IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
+                              186 430 1482 787]; % B
+
 % Set this to LONGER than you think your recording should be, otherwise it
 % will loop back on itself! %
 N_SAMPLES_RECORD_MAX = 4000 * 60 * 10; % (sample rate) * (seconds/min) * (max. desired minutes to record)
@@ -60,24 +41,6 @@ N_SAMPLES_RECORD_MAX = 4000 * 60 * 10; % (sample rate) * (seconds/min) * (max. d
 % auto-saves if the buffer overflows, maybe using a flag on the buffer
 % object to do this or subclassing to a new buffer class that is
 % specifically meant for saving stream records.
-
-% SN = [1005210029; 1005210028]; % NHP-B; NHP-A | docking stations / bottom
-% TAG = ["B"; "A"];
-
-% SN = [1000210036; 1000210037]; % NHP-B; NHP-A | data recorders / bottom
-% TAG = ["B"; "A"];
-
-% SN = [1005210038]; % SAGA-3 (wean | docking station / bottom half)
-% TAG = "S3"; 
-
-% SN = [1000210046]; % SAGA-3 (wean | data recorder / top half)
-% TAG = "S3";
-
-% SN = [1005220030; 1005220009]; % SAGA-4; SAGA-5 (wean | docking stations / bottom half)
-% TAG = ["S4"; "S5"];
-
-% SN = [1000220037; 1000220035];
-% TAG = ["A"; "B"]; % Arbitrary  - "A" is SAGA-4 and "B" is SAGA-5
 
 fprintf(1, "Loading configuration file (config.yaml, in main repo folder)...\n");
 [config, TAG, SN, N_CLIENT] = parse_main_config(parameters('config'));
@@ -278,6 +241,15 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
         while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit")) && (~strcmpi(state, "imp"))
             [samples, num_sets] = device.sample();
             buffer.append(samples);
+            if udp_name_receiver.NumBytesAvailable > 0
+                tmp = udp_name_receiver.readline();
+                if startsWith(strrep(tmp, "\", "/"), config.Default.Folder)
+                    fname = tmp;
+                else
+                    fname = strrep(fullfile(config.Default.Folder, tmp), "\", "/"); 
+                end
+                fprintf(1, "File name updated: <strong>%s</strong>\n", fname);
+            end    
             if udp_state_receiver.NumBytesAvailable > 0
                 state = readline(udp_state_receiver);
                 if strcmpi(state, "rec")
