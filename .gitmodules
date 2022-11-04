@@ -28,3 +28,6 @@
 [submodule "+math"]
 	path = +math
 	url = git@github.com:m053m716/-math
+[submodule "+enum"]
+	path = +enum
+	url = git@github.com:Neuro-Mechatronics-Interfaces/matlab_package__enum
