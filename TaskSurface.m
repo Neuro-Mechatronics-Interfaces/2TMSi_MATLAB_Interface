@@ -7,17 +7,24 @@ classdef TaskSurface < matlab.graphics.chartcontainer.ChartContainer
     %   1 "primary" target that appears first
     %   1 "secondary" target that appears after some arbitrary hold
     %       duration
-    %
+    
     events
-        Enter_T1
-        Exit_T1
-        Enter_T2
-        Exit_T2
+        enter_t1
+        exit_t1
+        enter_t2
+        exit_t2
+        enter_ring
+        exit_ring
+        enter_idle
+        exit_idle
     end
     properties(Access = public)
+        transitions struct % State transitions struct array
+        In_Idle (1,1) logical = false
         In_T1 (1,1) logical = true
         In_T2 (1,1) logical = false
-        Direction (1,1) logical = true % True -> Center-Out | False -> Out-Center
+        In_Ring (1,1) logical = true
+        Direction (1,1) double = 1 % 1 -> Center-Out | 0 -> Out-Center
         X (1,1) double = 0.00  % Cursor X-Center
         Y (1,1) double = 0.00  % Cursor Y-Center
         R (1,1) double = 0.15  % Cursor radius
@@ -39,15 +46,16 @@ classdef TaskSurface < matlab.graphics.chartcontainer.ChartContainer
         T2EdgeColor (:, 3) double = [1.0 1.0 1.0] % Sets color of T2 target perimeter
     end
     properties(Access = protected)
-        AllParameters_ = {'alpha', 'n_pts', 'cursor_size', 'cursor_color', 'target_size', 'target_edge_color', 'target_fill_color', 'outer_ring_radius', 'x_lim', 'y_lim'};
+        AllParameters_ = {'alpha', 'cursor_size', 'cursor_color', 'n_pts', 'n_overshoots_allowed', 'outer_ring_radius', 'targets', 'target_size', 'target_edge_color', 'target_fill_color',  'x_lim', 'y_lim'};
         Alpha_ (1,1) double = 0.30;     % EMA Alpha (current sample weight)
         Beta_  (1,1) double = 0.70;     % EMA Beta (past samples weight)
-        T1_    (:,4) double = [0.0, 0.0, 0.50, 1] % [Xc, Yc, R] for T1
-        T2_    (:,4) double = [3.0, 0.0, 0.50, 0] % [Xc, Yc, R] for T2
+        T1_    (:,4) double = [0.0, 0.0, 0.50, 1] % [Xc, Yc, R, Visible] for T1
+        T2_    (:,4) double = [3.0, 0.0, 0.50, 0] % [Xc, Yc, R, Visible] for T2
         Outer_Ring_Radius_ (1,1) double = 3.0  % Radius of outer-ring
         Outer_Ring_Thetas_ (1,:) double = linspace(0, 7*pi/4, 8); % Angles for each outer target
         Outer_Ring_Target_ (1,1) double = 1     % Target index of outer target
         N_     (1,1) double = 180              % Number of points in Patch edges
+        N_Overshoots_Allowed_ (1,1) double = 2 % Maximum number of allowed overshoots
         Theta_ (:,1) double = linspace(0, 2*pi, 180)' % Points used to compute Patch edges
         Node_ (1,1)
         PositionSubscriber_ (1,1)
@@ -59,11 +67,8 @@ classdef TaskSurface < matlab.graphics.chartcontainer.ChartContainer
         function self = TaskSurface(varargin)
             %TASKSURFACE  Constructor for TaskSurface chart object.
             if numel(varargin) == 0
-                fig = uifigure( 'Name', 'Center-Out Task Surface', ...
-                        'Color', [0.65 0.65 0.65], ...
-                        'Position', [240 240 960 720], ...
-                        'Icon', 'baseline_radio_button_unchecked_black_24dp.png', ...
-                        'HandleVisibility', 'on');
+                fig = uifigure();
+                set(fig, 'HandleVisibility', 'on');
                 L = tiledlayout(fig,5,8, 'Padding', 'tight');
                 figure(fig);
                 ax = nexttile(L, 1, [5, 7]);
@@ -74,11 +79,7 @@ classdef TaskSurface < matlab.graphics.chartcontainer.ChartContainer
             else
                 if isa(varargin{1}, 'matlab.ui.Figure')
                     fig = varargin{1};
-                    set(fig, 'Name', 'Center-Out Task Surface', ...
-                        'HandleVisibility', 'on', ...
-                        'Icon', 'baseline_radio_button_unchecked_black_24dp.png', ...
-                        'Position', [240 240 960 720], ...
-                        'Color', [0.65 0.65 0.65]);
+                    set(fig, 'HandleVisibility', 'on');
                     L = tiledlayout(fig,5,8, 'Padding', 'tight');
                     figure(fig);
                     ax = nexttile(L, 1, [5, 7]);
@@ -91,21 +92,34 @@ classdef TaskSurface < matlab.graphics.chartcontainer.ChartContainer
                     while ~isa(g, 'matlab.ui.Figure')
                         g = g.Parent;
                     end
-                    set(g, 'Name', 'Center-Out Task Surface', ...
-                        'Position', [240 240 960 720], ...
-                        'Icon', 'baseline_radio_button_unchecked_black_24dp.png', ...
-                        'HandleVisibility', 'on', ...
-                        'Color', [0.65 0.65 0.65]);
-                    L = tiledlayout(g,5,8, 'Padding', 'tight');
-                    figure(g);
+                    fig = g;
+                    set(fig, 'HandleVisibility', 'on');
+                    L = tiledlayout(fig,5,8, 'Padding', 'tight');
+                    figure(fig);
                     ax = nexttile(L, 1, [5, 7]);
                     set(ax, 'Color', 'k', ...
                         'XColor', 'none', 'YColor', 'none', ...
                         'XLim', [-5 5], 'YLim', [-5 5]);
                     varargin(1) = [];
+                else
+                    fig = uifigure();
+                    set(fig, 'HandleVisibility', 'on');
+                    L = tiledlayout(fig,5,8, 'Padding', 'tight');
+                    figure(fig);
+                    ax = nexttile(L, 1, [5, 7]);
+                    set(ax, 'Color', 'k', ...
+                        'XColor', 'none', 'YColor', 'none', ...
+                        'XLim', [-5 5], 'YLim', [-5 5]);
+                    axes(ax);
                 end
             end
             self@matlab.graphics.chartcontainer.ChartContainer(varargin{:});
+            set(fig,...
+                'Name', 'Center-Out Task Surface', ...
+                'Position', [240 240 960 720], ...
+                'Icon', 'baseline_radio_button_unchecked_black_24dp.png', ...
+                'Color', [0.65 0.65 0.65], ...
+                'WindowKeyReleaseFcn', @(~,evt)self.handleKeyboardShortcuts(evt));
             self.resetROS2();
             pause(2); 
             self.getParameter(self.AllParameters_);
@@ -127,6 +141,36 @@ classdef TaskSurface < matlab.graphics.chartcontainer.ChartContainer
             try
                 delete(self.ParameterRequester_);
             end
+            try
+                g = getAxes(self);
+                while ~isa(g, 'matlab.ui.Figure')
+                    g = g.Parent;
+                end
+                delete(g);
+            end
+        end
+
+        function handleKeyboardShortcuts(self, evt)
+            switch evt.Key
+                case 'space'
+                    if self.In_Idle
+                        self.setIdle(0);
+                        notify(self, "exit_idle");
+                    else
+                        self.setIdle(1);
+                        notify(self, "enter_idle"); % NOTE: NOTIFY IS ONLY CALLED DIRECTLY FROM POINTS WHERE NOTIFY SHOULD HAPPEN (NOT SETIDLE)
+                    end
+                case 'escape'
+                    fprintf(1,'%s::<strong>%s</strong>\n\n',...
+                        string(datetime('now','TimeZone','local','Format','HH:mm:ss.SSS')), ...
+                        "Center-Out task GUI closed (escape pressed).");
+                    delete(self);
+                case 'h'
+                    disp("Press <strong>spacebar</strong> to pause/unpause the task.");
+                    disp("Press <strong>escape</strong> to close the task.");
+                otherwise
+                    fprintf(1, '\t\t->\t<strong>%s</strong> button released.\n', evt.Key);
+            end
         end
 
         function resetROS2(self)
@@ -146,9 +190,9 @@ classdef TaskSurface < matlab.graphics.chartcontainer.ChartContainer
                 delete(self.ParameterRequester_);
             end
             setenv("ROS_DOMAIN_ID", "42");
-            self.Node_ = ros2node("wrist");
-            self.PositionSubscriber_ = ros2subscriber(self.Node_, ...
-                "wrist/pos", ...
+            self.Node_ = ros2node("wrist"); % 
+            self.PositionSubscriber_ = ros2subscriber(self.Node_, ... % ROS2 Node
+                "wrist/pos", ... % Topic name
                 @(msg)self.setPosition(msg.x, msg.y));
             self.StatePublisher_ = ros2publisher(self.Node_, ...
                 "wrist/state", ...
@@ -158,7 +202,7 @@ classdef TaskSurface < matlab.graphics.chartcontainer.ChartContainer
                 "std_msgs/String");
             self.ParameterSubscriber_ = ros2subscriber(self.Node_, ...
                 "wrist/pres", ...
-                @(msg)self.setParameter(msg.Name, msg.Value));
+                @(msg)self.setParameter(msg.name, msg.value));
         end
 
         function setEMA(self, alpha)
@@ -176,6 +220,24 @@ classdef TaskSurface < matlab.graphics.chartcontainer.ChartContainer
             self.Beta_ = 1 - alpha;
         end
 
+        function setIdle(self, idle_state)
+            %SETIDLE  Sets the "IDLE" state (1 -> "IDLE" | 0 -> "NOT IDLE")
+            ax = getAxes(self);
+            if idle_state == 1
+                self.hideT2();
+                self.hideT1();
+                self.hideCursor();
+                self.In_Idle = true;
+                ax.Color = [0.35 0.35 0.35];
+            else
+                self.showT2();
+                self.showT1();
+                self.showCursor();
+                self.In_Idle = false;
+                ax.Color = [0.00 0.00 0.00];
+            end
+        end
+
         function getParameter(self, name)
             %GETPARAMETER Request a wrist/parameter from the ROS2 network
             if iscell(name)
@@ -190,33 +252,124 @@ classdef TaskSurface < matlab.graphics.chartcontainer.ChartContainer
         end
 
         function setParameter(self, name, value)
-            %SETPARAMETER  Callback to update parameter value.
-            switch name
-                case 'alpha'
-                    self.setEMA(value.double_value);
-                case 'n_pts'
-                    self.setN(value.double_value);
-                case 'cursor_color'
-                    self.CursorColor = value.double_array_value;
-                case 'cursor_size'
-                    self.R = value.double_value;
-                case 'target_size'
-                    self.T1_(:, 3) = value.double_value .* ones(size(self.T1_,1),1);
-                    self.T2_(:, 3) = value.double_value .* ones(size(self.T2_,1),1);
-                case 'target_edge_color'
-                    self.T1EdgeColor = repmat(value.double_array_value, size(self.T1_,1), 1);
-                    self.T2EdgeColor = repmat(value.double_array_value, size(self.T2_,1), 1);
-                case 'target_fill_color'
-                    self.T1FaceColor = repmat(value.double_array_value, size(self.T1_,1), 1);
-                    self.T2FaceColor = repmat(value.double_array_value, size(self.T2_,1), 1);
-                case 'outer_ring_radius'
-                    self.Outer_Ring_Radius_ = value.double_array_value;
-                case 'x_lim'
-                    self.XLim = value.double_array_value;
-                case 'y_lim'
-                    self.YLim = value.double_array_value;
-                otherwise
-                    warning("Unrecognized parameter response: %s", name);
+            %SETPARAMETER  Callback to update parameter(s) value(s). 
+            %
+            % Syntax:
+            %   self.setParameter(name, value);
+            %
+            % Inputs:
+            %   name - String or char array of parameter names to set.
+            %               -> Can send as an array of strings, or cell
+            %                   array of char arrays. In this case, `value`
+            %                   input must be cell array of values or
+            %                   struct array of rcl_interfaces/Parameter -
+            %                   type structs (e.g. with .type field and
+            %                   value fields like .double_value or
+            %                   .double_array_value). 
+            %   value - rcl_interfaces/Parameter - type struct, or the
+            %           value directly which corresponds to `name`. See
+            %           note in `name` input description regarding passing
+            %           array of parameter names and values.
+            %
+            % See also: Contents
+            name = string(name);
+            if ~isstruct(value)
+                if ~iscell(value)
+                    value = {value};
+                end
+            end
+            for ii = 1:numel(name)
+                switch name(ii)
+                    case "alpha"
+                        if isstruct(value(ii))
+                            x = value(ii).double_value;
+                        else
+                            x = value{ii};
+                        end
+                        self.setEMA(x);
+                    case "cursor_color"
+                        if isstruct(value(ii))
+                            x = value(ii).double_array_value;
+                        else
+                            x = value{ii};
+                        end
+                        self.CursorColor = x;
+                    case "cursor_size"
+                        if isstruct(value(ii))
+                            x = value(ii).double_value;
+                        else
+                            x = value{ii};
+                        end
+                        self.R = x;
+                    case "n_pts"
+                        if isstruct(value(ii))
+                            x = value(ii).double_value;
+                        else
+                            x = value{ii};
+                        end
+                        self.setN(x);
+                    case "n_overshoots_allowed"
+                        if isstruct(value(ii))
+                            x = value(ii).double_value;
+                        else
+                            x = value{ii};
+                        end
+                        self.N_Overshoots_Allowed_ = x;
+                    case "outer_ring_radius"
+                        if isstruct(value(ii))
+                            x = value(ii).double_array_value;
+                        else
+                            x = value{ii};
+                        end
+                        self.Outer_Ring_Radius_ = x;
+                    case "target_size"
+                        if isstruct(value(ii))
+                            x = value(ii).double_value;
+                        else
+                            x = value{ii};
+                        end
+                        self.T1_(:, 3) = x .* ones(size(self.T1_,1),1);
+                        self.T2_(:, 3) = x .* ones(size(self.T2_,1),1);
+                    case "target_edge_color"
+                        if isstruct(value(ii))
+                            x = value(ii).double_array_value;
+                        else
+                            x = value{ii};
+                        end
+                        self.T1EdgeColor = repmat(x, size(self.T1_,1), 1);
+                        self.T2EdgeColor = repmat(x, size(self.T2_,1), 1);
+                    case "target_fill_color"
+                        if isstruct(value(ii))
+                            x = value(ii).double_array_value;
+                        else
+                            x = value{ii};
+                        end
+                        self.T1FaceColor = repmat(x, size(self.T1_,1), 1);
+                        self.T2FaceColor = repmat(x, size(self.T2_,1), 1);
+                    case "targets"
+                        if isstruct(value(ii))
+                            x = value(ii).double_array_value;
+                        else
+                            x = value{ii};
+                        end
+                        self.setOuterRingThetas(x);
+                    case "x_lim"
+                        if isstruct(value(ii))
+                            x = value(ii).double_array_value;
+                        else
+                            x = value{ii};
+                        end
+                        self.XLim = x;
+                    case "y_lim"
+                        if isstruct(value(ii))
+                            x = value(ii).double_array_value;
+                        else
+                            x = value{ii};
+                        end
+                        self.YLim = x;
+                    otherwise
+                        warning("Unrecognized parameter response: %s", name(ii));
+                end
             end
             self.update();
         end
@@ -227,45 +380,64 @@ classdef TaskSurface < matlab.graphics.chartcontainer.ChartContainer
             y = self.Alpha_ * y + self.Beta_ * self.Y;
             self.X = x;
             self.Y = y;
-            if self.In_T1
-                if ((self.T1_(1,1) - x)^2 + (self.T1_(1,2) - y)^2) > (self.T1_(1,3)^2)
+            r = self.R;
+            t1_d = (self.T1_(1,1) - x)^2 + (self.T1_(1,2) - y)^2;
+            t1_r = self.T1_(1,3);
+            if  t1_d > ((t1_r+r)^2)
                     self.In_T1 = false;
                     self.T1FaceColor(1,:) = [0.0 0.0 0.0];
-                    notify(self, "Exit_T1");
-                end
-            elseif ((self.T1_(1,1) - x)^2 + (self.T1_(1,2) - y)^2) <= (self.T1_(1,3)^2)
+                    notify(self, "exit_t1", event.EventData());
+                
+            elseif t1_d <= ((t1_r+r)^2)
                 self.In_T1 = true;
                 self.T1FaceColor(1,:) = self.T1EdgeColor(1,:).*0.75;
-                notify(self, "Enter_T1");
+                notify(self, "enter_t1", event.EventData());
             end
             
-            if self.In_T2
-                if ((self.T2_(1,1) - x)^2 + (self.T2_(1,2) - y)^2) > (self.T2_(1,3)^2)
+            t2_d = ((self.T2_(1,1) - x)^2 + (self.T2_(1,2) - y)^2);
+            t2_r = self.T2_(1,3);
+            if t2_d > ((t2_r+r)^2)
                     self.In_T2 = false;
                     self.T2FaceColor(1,:) = [0.0 0.0 0.0];
-                    notify(self, "Exit_T2");
-                end
-            elseif ((self.T2_(1,1) - x)^2 + (self.T2_(1,2) - y)^2) <= (self.T2_(1,3)^2)
+                    notify(self, "exit_t2", event.EventData());
+            elseif t2_d <= ((t2_r+r)^2)
                 self.In_T2 = true;
                 self.T2FaceColor(1,:) = self.T2EdgeColor(1,:).*0.75;
-                notify(self, "Enter_T2");
+                notify(self, "enter_t2", event.EventData());
+            end
+            
+            if self.In_Ring
+                if t1_d > (self.Outer_Ring_Radius_ + r + t2_r)^2
+                    self.In_Ring = false;
+                    notify(self, "exit_ring", event.EventData());
+                end
+            elseif t1_d <= (self.Outer_Ring_Radius_ + r + t2_r)^2
+                self.In_Ring = true;
+                notify(self, "enter_ring", event.EventData());
             end
 
             self.update();
         end
 
+        function setOuterRingThetas(self, thetas)
+            %SETOUTERRINGTHETAS  Sets the possible angular positions for each target.
+            self.Outer_Ring_Thetas_ = thetas;
+            self.Outer_Ring_Target_ = min(numel(thetas), self.Outer_Ring_Target_);
+        end
+
         function setOuterTargetIndex(self, index)
+            %SETOUTERTARGETINDEX  Sets the index of the current target and uses the corresponding theta to compute its position for graphics update.
             self.Outer_Ring_Target_ = index;
-            if self.Direction
+            if self.Direction == 1
                 self.T1_(1,1:2) = [0.0, 0.0];
                 self.T2_(1,1:2) = [...
-                    self.Outer_Ring_Radius_*cos(self.Outer_Ring_Thetas_(self.Outer_Ring_Target)), ...
-                    self.Outer_Ring_Radius_*sin(self.Outer_Ring_Thetas_(self.Outer_Ring_Target)) ...
+                    self.Outer_Ring_Radius_*cos(self.Outer_Ring_Thetas_(self.Outer_Ring_Target_)), ...
+                    self.Outer_Ring_Radius_*sin(self.Outer_Ring_Thetas_(self.Outer_Ring_Target_)) ...
                     ];
             else
                 self.T1_(1,1:2) = [...
-                    self.Outer_Ring_Radius_*cos(self.Outer_Ring_Thetas_(self.Outer_Ring_Target)), ...
-                    self.Outer_Ring_Radius_*sin(self.Outer_Ring_Thetas_(self.Outer_Ring_Target)) ...
+                    self.Outer_Ring_Radius_*cos(self.Outer_Ring_Thetas_(self.Outer_Ring_Target_)), ...
+                    self.Outer_Ring_Radius_*sin(self.Outer_Ring_Thetas_(self.Outer_Ring_Target_)) ...
                     ];
                 self.T2_(1,1:2) = [0.0, 0.0];
             end
@@ -465,38 +637,8 @@ classdef TaskSurface < matlab.graphics.chartcontainer.ChartContainer
             ax = getAxes(self);
             self.N_ = N_PTS;
             self.Theta_ = linspace(0, 2*pi, N_PTS)';
-            c = self.C;
             
-            
-            self.C = matlab.graphics.primitive.Patch(...
-                'Parent', ax, ...
-                'Faces', [1:self.N_, 1], ...
-                'Vertices', [self.R.*cos(self.Theta_) + self.X, self.R.*sin(self.Theta_) + self.Y], ...
-                'EdgeColor', 'none', ...
-                'FaceColor', self.CursorColor, ...
-                'Tag', 'Circle.Cursor');
-            delete(c);
-            
-            t1 = self.T1;
-            self.T1 = gobjects(size(t1));
-            for ii = 1:size(self.T1_,1)
-                self.T1(ii) = matlab.graphics.primitive.Patch(...
-                    'Parent', ax, ...
-                    'Faces', [1:self.N_, 1], ...
-                    'LineWidth', self.LineWidth, ...
-                    'Vertices', [self.T1_(ii,3).*cos(self.Theta_) + self.T1_(ii,1), self.T1_(ii,3).*sin(self.Theta_) + self.T1_(ii,2)], ...
-                    'EdgeColor', self.T1EdgeColor(ii,:), ...
-                    'FaceColor', self.T1FaceColor(ii,:), ...
-                    'Visible', matlab.lang.OnOffSwitchState(self.T1_(ii,4)), ...
-                    'Tag', sprintf('Circle.T1.%d', ii));
-            end
-
-            for ii = (size(self.T1_,1)+1):numel(t1)
-                delete(t1(ii));
-            end
-
             t2 = self.T2;
-            self.T2 = gobjects(size(t1));
             for ii = 1:numel(size(self.T2_,1))
                 self.T2(ii) = matlab.graphics.primitive.Patch(...
                     'Parent', ax, ...
@@ -513,6 +655,36 @@ classdef TaskSurface < matlab.graphics.chartcontainer.ChartContainer
             for ii = (size(self.T2_,1)+1):numel(t2)
                 delete(t2(ii));
             end
+            
+            t1 = self.T1;
+            for ii = 1:size(self.T1_,1)
+                self.T1(ii) = matlab.graphics.primitive.Patch(...
+                    'Parent', ax, ...
+                    'Faces', [1:self.N_, 1], ...
+                    'LineWidth', self.LineWidth, ...
+                    'Vertices', [self.T1_(ii,3).*cos(self.Theta_) + self.T1_(ii,1), self.T1_(ii,3).*sin(self.Theta_) + self.T1_(ii,2)], ...
+                    'EdgeColor', self.T1EdgeColor(ii,:), ...
+                    'FaceColor', self.T1FaceColor(ii,:), ...
+                    'Visible', matlab.lang.OnOffSwitchState(self.T1_(ii,4)), ...
+                    'Tag', sprintf('Circle.T1.%d', ii));
+            end
+
+            for ii = (size(self.T1_,1)+1):numel(t1)
+                delete(t1(ii));
+            end
+
+            c = self.C;
+            self.C = matlab.graphics.primitive.Patch(...
+                'Parent', ax, ...
+                'Faces', [1:self.N_, 1], ...
+                'Vertices', [self.R.*cos(self.Theta_) + self.X, self.R.*sin(self.Theta_) + self.Y], ...
+                'EdgeColor', 'none', ...
+                'FaceColor', self.CursorColor, ...
+                'Tag', 'Circle.Cursor');
+            delete(c);
+            
+            uistack(self.T1, "top");
+            uistack(self.C, "top");
         end
 
         % Set axes x-limits (horizontal voltage scaling)
@@ -574,6 +746,8 @@ classdef TaskSurface < matlab.graphics.chartcontainer.ChartContainer
                 'EdgeColor', 'none', ...
                 'FaceColor', self.CursorColor, ...
                 'Tag', 'Circle.Cursor');
+            uistack(self.T1, "top");
+            uistack(self.C, "top");
         end
 
         function update(self)

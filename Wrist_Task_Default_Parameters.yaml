@@ -1,0 +1,13 @@
+# Enumerates the default values for wrist task parameters.
+alpha: 0.30 # Between [0,1]; values closer to 1 emphasize more-recent samples in EMA smoother.
+cursor_size: 0.15 # Cursor radius (volts).
+cursor_color: [1.0, 1.0, 1.0] # Color of the subject cursor.
+n_pts: 180 # Number of points in polygon circle edges.
+n_overshoots_allowed: 2 # Maximum number of times the subject can overshoot T2 on a single trial before the trial resets.
+outer_ring_radius: 3.00 # Outer target ring radius (volts).
+target_size: 0.50 # Target radius (volts). 
+target_edge_color: [1.0, 1.0, 1.0] # Color of the target outline.
+target_fill_color: [0.0, 0.0, 0.0] # Fill/highlight color of the target (typically black). 
+targets: [0.00, 0.20, 0.40, 0.60, 0.80, 1.00, 1.20, 1.40, 1.60, 1.80, 2.00, 2.19, 2.39, 2.59, 2.79, 2.99, 3.19, 3.39, 3.59, 3.79, 3.99, 4.19, 4.39, 4.59, 4.79, 4.99, 5.19, 5.39, 5.59, 5.79, 5.99, 6.19] # Target angles (radians)
+x_lim: [-5.0, 5.0] # Range (volts) of horizontal screen axis limits.
+y_lim: [-5.0, 5.0] # Range (volts) of vertical screen axis limits. 

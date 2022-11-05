@@ -1,1 +1,170 @@
 # This config file sets up the task state machine for the Wrist Center-Out task.
+# 
+# MATLAB Syntax:
+#   machine = io.load_task('Wrist');
+task: "Wrist"
+state:
+ CUR: "idle"
+ PREV: "t1_pre"
+ PREV_: "t1_pre"
+parameters: # Enumerates the default values for wrist task parameters.
+ alpha: 0.30 # Between [0,1]; values closer to 1 emphasize more-recent samples in EMA smoother.
+ cursor_size: 0.15 # Cursor radius (volts).
+ cursor_color: [1.0, 1.0, 1.0] # Color of the subject cursor.
+ n_pts: 180 # Number of points in polygon circle edges.
+ n_overshoots_allowed: 2 # Maximum number of times the subject can overshoot T2 on a single trial before the trial resets.
+ outer_ring_radius: 3.00 # Outer target ring radius (volts).
+ target_size: 0.50 # Target radius (volts). 
+ target_edge_color: [1.0, 1.0, 1.0] # Color of the target outline.
+ target_fill_color: [0.0, 0.0, 0.0] # Fill/highlight color of the target (typically black). 
+ targets: [0.00, 0.20, 0.40, 0.60, 0.80, 1.00, 1.20, 1.40, 1.60, 1.80, 2.00, 2.19, 2.39, 2.59, 2.79, 2.99, 3.19, 3.39, 3.59, 3.79, 3.99, 4.19, 4.39, 4.59, 4.79, 4.99, 5.19, 5.39, 5.59, 5.79, 5.99, 6.19] # Target angles (radians)
+ x_lim: [-5.0, 5.0] # Range (volts) of horizontal screen axis limits.
+ y_lim: [-5.0, 5.0] # Range (volts) of vertical screen axis limits. 
+states:
+ - name: "idle"
+   description: "Paused, or before the very first trial or before parameters are initialized."
+   on_enter:
+   timeout: 
+    en: false  # timeout is not used
+   transitions:
+    - name: "next"          # exiting this state uses "next" transition -- a callback function
+      dest: "PREV"          # all-caps is a KEYWORD (see fields of 'state' field) -- return to PREV state.
+      trigger: "exit_idle"  # hearing "exit_idle" event exits this state
+ - name: "t1_pre"
+   description: "Before entering the primary target. May only enter this state very transiently between trials."
+   on_enter:
+    - "hide_t2"
+    - "show_t1"
+   timeout: 
+    en: false  # timeout is not used
+   transitions:
+    - name: "next"
+      dest: "t1_hold_1"
+      trigger: "enter_t1"   # this callback will happen when the "enter_t1" event is heard
+    - name: "pause"
+      dest: "idle"
+      trigger: "enter_idle"  # hearing "enter_idle" event forces to idle from any state
+ - name: "t1_hold_1"
+   description: "Has entered T1, but has not yet been shown T2."
+   on_enter:
+   timeout: 
+    en: true        # timeout is enforced | reaching the end of the timeout period triggers "timeout" event
+    mode: "exp"     # exponential random hold | can be: "exp" / "fixed" - single fixed 'value' parameter field / "gauss" - drawn from (bounded by 'min' and 'max') normal distribution with parameter fields 'mu' and 'sigma' / "rset" - random pick from fixed subset of possible timeouts (elements of 'value' parameter field array).
+    min: 0.250      # minimum hold duration (seconds)
+    max: 0.450      # maximum hold duration (seconds)
+   transitions:
+    - name: "next"
+      dest: "t1_hold_2"
+      trigger: "timeout"  # "timeout" event triggers "next" transition
+    - name: "fail"
+      dest: "t1_pre"
+      trigger: "exit_t1"  # "fail" transition will occur if we leave T1 too soon, triggering "exit_t1" event.
+    - name: "pause"
+      dest: "idle"
+      trigger: "enter_idle"  # hearing "enter_idle" event forces to idle from any state
+ - name: "t1_hold_2"
+   description: "Has entered T1, and now T2 is visible."
+   on_enter: 
+    - "show_t2"
+   timeout: 
+    en: true        # timeout is enforced | reaching the end of the timeout period triggers "timeout" event
+    mode: "exp"     # exponential random hold 
+    min: 0.500      # minimum hold duration (seconds)
+    max: 0.750      # maximum hold duration (seconds)
+   transitions:
+    - name: "next"
+      dest: "t1_go_t2"
+      trigger: "timeout"  # "timeout" event triggers "next" transition
+    - name: "fail"
+      dest: "t1_pre"
+      trigger: "exit_t1"  # "fail" transition will occur if we leave T1 too soon, triggering "exit_t1" event.
+    - name: "pause"
+      dest: "idle"
+      trigger: "enter_idle"  # hearing "enter_idle" event forces to idle from any state
+ - name: "t1_go_t2"
+   description: "T1 disappears, which is the cue to move to T2. Must exit T1 radius within a fixed time-limit to help learn to react quickly in order to help standardize task training/performance."
+   on_enter: 
+    - "play_go_cue"
+    - "hide_t1"
+   timeout: 
+    en: true        # timeout is enforced | reaching the end of the timeout period triggers "timeout" event
+    mode: "fixed"   # single fixed value
+    value: 0.350    # fixed time to react (seconds)
+   transitions:
+    - name: "next"
+      dest: "t1_move_t2"
+      trigger: "exit_t1"  # note that unlike previous states, now to "succeed" must NOT timeout (same for "move")
+    - name: "fail"
+      dest: "t1_pre"
+      trigger: "timeout"  # "fail" transition will occur if we leave T1 too LATE, triggering "timeout" event.
+    - name: "pause"
+      dest: "idle"
+      trigger: "enter_idle"  # hearing "enter_idle" event forces to idle from any state
+ - name: "t1_move_t2"
+   description: "Fixed duration during which the subject is able to navigate into T2. Timeout results in an unsuccessful trial. Setting fixed MOVE timeout threshold is critical for shaping the experimental behavior in this task."
+   on_enter: 
+   timeout: 
+    en: true        # timeout is enforced | reaching the end of the timeout period triggers "timeout" event
+    mode: "fixed"   # single fixed value
+    value: 2.500    # fixed time limit for this phase (seconds) | note that this is artificially high for debug
+   transitions:
+    - name: "next"
+      dest: "t2_hold_1"
+      trigger: "enter_t2"  # moves to next state on "enter_t2" event
+    - name: "overshoot"
+      dest: "t2_overshoot"
+      trigger: "exit_ring"  # triggered on "exit_ring" event (skips t2_hold_1 in this case)
+    - name: "fail"
+      dest: "t1_pre"
+      trigger: "timeout"  # "fail" transition will occur if we do not reach T2  in time, triggering "timeout" event.
+    - name: "pause"
+      dest: "idle"
+      trigger: "enter_idle"  # hearing "enter_idle" event forces to idle from any state
+ - name: "t2_hold_1"
+   description: "Has entered T2, and now must hold without leaving to successfully complete the trial."
+   on_enter: 
+   timeout: 
+    en: true        # timeout is enforced | reaching the end of the timeout period triggers "timeout" event
+    mode: "fixed"   # monkey gets mad if not fixed because randomness here feels like "sluggish" hit-check response
+    value: 0.500    # fixed hold time (seconds)
+   transitions:
+    - name: "next"
+      dest: "t2_reward"
+      trigger: "timeout"  # "timeout" event triggers "next" transition
+    - name: "overshoot"
+      dest: "t2_overshoot"
+      trigger: "exit_t2"  # "overshoot" transition will occur if we leave T2 too soon, triggering "exit_t2" event.
+    - name: "pause"
+      dest: "idle"
+      trigger: "enter_idle"  # hearing "enter_idle" event forces to idle from any state
+ - name: "t2_overshoot"
+   description: "Overshot T2, and now must hold without leaving to successfully complete the trial."
+   on_enter:
+   timeout: 
+    en: true        # timeout is enforced | reaching the end of the timeout period triggers "timeout" event
+    mode: "fixed"   # monkey gets mad if not fixed because randomness here feels like "sluggish" hit-check response
+    value: 0.500    # fixed overshoot correction limit (seconds)
+   transitions:
+    - name: "fail"
+      dest: "t1_pre"
+      trigger: "timeout"  # "timeout" event triggers "fail" transition
+    - name: "next"
+      dest: "t2_hold_1"
+      trigger: "enter_t2"  # "fail" transition will occur if we leave T1 too soon, triggering "exit_t1" event.
+    - name: "pause"
+      dest: "idle"
+      trigger: "enter_idle"  # hearing "enter_idle" event forces to idle from any state
+ - name: "t2_reward"
+   description: "Overshot T2, and now must hold without leaving to successfully complete the trial."
+   on_enter:
+   timeout: 
+    en: true        # timeout is enforced | reaching the end of the timeout period triggers "timeout" event
+    mode: "fixed"   # monkey gets mad if not fixed because randomness here feels like "sluggish" hit-check response
+    value: 0.250    # fixed reward dispensation time (seconds)
+   transitions:
+    - name: "succeed"
+      dest: "t1_pre"
+      trigger: "timeout"     # "timeout" event triggers "fail" transition
+    - name: "pause"
+      dest: "idle"
+      trigger: "enter_idle"  # hearing "enter_idle" event forces to idle from any state

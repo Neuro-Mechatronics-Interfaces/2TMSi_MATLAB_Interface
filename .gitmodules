@@ -31,3 +31,6 @@
 [submodule "+enum"]
 	path = +enum
 	url = git@github.com:Neuro-Mechatronics-Interfaces/matlab_package__enum
+[submodule "+mlog"]
+	path = +mlog
+	url = git@github.com:Neuro-Mechatronics-Interfaces/matlab_package__mlog
