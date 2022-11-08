@@ -43,9 +43,10 @@ end
 % USE_PARAM_SERVER = false;
 % USE_WORKER = true; % Set to true if the worker will actually be deployed (MUST BE DEPLOYED BEFORE RUNNING THIS SCRIPT IF SET TO TRUE).
 % N_SAMPLES_LOOP_BUFFER = 16384;
-IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
-                              186 430 1482 787]; % B
-
+% IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
+%                               186 430 1482 787]; % B
+IMPEDANCE_FIGURE_POSITION = [1100 1100 650 400; ... % A (DELL TMSI CART)
+                             1100 575  650 400];    % B (DELL TMSI CART)
 % Set this to LONGER than you think your recording should be, otherwise it
 % will loop back on itself! %
 N_SAMPLES_RECORD_MAX = 4000 * 60 * 10; % (sample rate) * (seconds/min) * (max. desired minutes to record)
@@ -84,8 +85,12 @@ pause(1.5);
 %% Setup device configurations.
 config_device_impedance = struct('ImpedanceMode', true, ... 
                           'ReferenceMethod', 'common', ...
-                          'Triggers', false);
-config_channel_impedance = struct('uni',1:64);
+                          'Triggers', false, ...
+                          'Dividers', {{'uni', 0; 'bip', -1}});
+config_channel_impedance = struct('uni',1:64, ...
+                                  'bip', 0, ...
+                                  'dig', 0, ...
+                                  'acc', 0);
 config_device = struct('Dividers', {{'uni', 0; 'bip', 0}}, ...
                         'Triggers', true, ...
                         'BaseSampleRate', 4000, ...
@@ -169,7 +174,10 @@ ch = device.getActiveChannels();
 
 buffer = cell(1, N_CLIENT); 
 for ii = 1:N_CLIENT
-    buffer{ii} = StreamBuffer(ch{ii}, channels.(device(ii).tag).n.samples, device(ii).tag, device(ii).sample_rate);
+    buffer{ii} = StreamBuffer(ch{ii}, ...
+        channels.(device(ii).tag).n.samples, ...
+        device(ii).tag, ...
+        device(ii).sample_rate);
 end
 buffer = vertcat(buffer{:});
 
@@ -177,7 +185,7 @@ buffer_event_listener = cell(1, N_CLIENT);
 for ii = 1:N_CLIENT
     buffer_event_listener{ii} = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer(ii), (1:64)'));
 end
-buffer_event_listener = vertcat(buffer_event_listener{:}); %#ok<NASGU>
+buffer_event_listener = vertcat(buffer_event_listener{:});  
 
 %%
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
@@ -274,18 +282,20 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 state = readline(udp_state_receiver);
                 if strcmpi(state, "rec")
                     if ~recording
-                        fprintf(1, "Buffer created, recording in process...");
+                        fprintf(1, "[RUN > REC]: Buffer created, recording in process...");
                         rec_buffer = cell(1, N_CLIENT); 
                         for ii = 1:N_CLIENT
-                            rec_buffer{ii} = StreamBuffer(ch{ii}, channels.(device(ii).tag).n.samples, device(ii).tag, device(ii).sample_rate);
+                            rec_buffer{ii} = StreamBuffer(ch{ii}, config.Default.Rec_Samples, device(ii).tag, device(ii).sample_rate);
                         end
                         rec_buffer = vertcat(rec_buffer{:});
                     end
                     recording = true;
                     running = true;
-                elseif ~strcmpi(state, "run")
-                    running = false;
-                    stop(device);
+                else
+                    running = strcmpi(state, "run");
+                    if ~running                        
+                        stop(device);
+                    end
                     if recording
                         fprintf(1, "complete\n\t->\t(%s)\n", fname);
                         rec_buffer.save(fname);
@@ -316,10 +326,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             state = readline(udp_state_receiver);
             if strcmpi(state, "rec")
                 if ~recording
-                    fprintf(1, "Buffer created, recording in process...");
+                    fprintf(1, "[IDLE > REC]: Buffer created, recording in process...");
                     rec_buffer = cell(1, N_CLIENT); 
                     for ii = 1:N_CLIENT
-                        rec_buffer{ii} = StreamBuffer(ch{ii}, channels.(device(ii).tag).n.samples, device(ii).tag, device(ii).sample_rate);
+                        rec_buffer{ii} = StreamBuffer(ch{ii}, config.Default.Rec_Samples, device(ii).tag, device(ii).sample_rate);
                     end
                     rec_buffer = vertcat(rec_buffer{:});
                 end
@@ -332,71 +342,32 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 if ~running
                     start(device);
                     running = true;
-                elseif recording
-                    fprintf(1, "complete\n\t->\t(%s)\n", fname);
-                    rec_buffer.save(fname);
-                    delete(rec_buffer);
-                    clear rec_buffer;
-                    if config.Default.Use_Worker_Server
-                        [~, finfo, ~] = fileparts(fname);
-                        args = strsplit(finfo, "_");
-                        for iWorker = 1:numel(worker)
-                            worker(iWorker).writeline(...
-                                string(sprintf('%s.%d.%d.%d.%s', ...
-                                    args{1}, ...
-                                    str2double(args{2}), ...
-                                    str2double(args{3}), ...
-                                    str2double(args{4}), ...
-                                    args{6}))); 
-                        end
-                    end
-                    recording = false;
                 end
-            else
-                if recording
-                    fprintf(1, "complete\n\t->\t(%s)\n", fname);
-                    rec_buffer.save(fname);
-                    delete(rec_buffer);
-                    clear rec_buffer;
-                    if config.Default.Use_Worker_Server
-                        [~, finfo, ~] = fileparts(fname);
-                        args = strsplit(finfo, "_");
-                        for iWorker = 1:numel(worker)
-                            worker(iWorker).writeline(...
-                                string(sprintf('%s.%d.%d.%d.%s', ...
-                                    args{1}, ...
-                                    str2double(args{2}), ...
-                                    str2double(args{3}), ...
-                                    str2double(args{4}), ...
-                                    args{6}))); 
-                        end
-                    end
-                end
-                if running
-                    stop(device); 
-                end
-                recording = false; 
-                running = false;
             end
             % If we are in impedance mode, change device config and show
             % impedances for each device, sequentially.
             if strcmpi(state, "imp")
-                device.setDeviceConfig( config_device_impedance );
-                device.setChannelConfig( config_channel_impedance );
-                start(device);
-                
+                iPlot = cell(size(device));
+                s = cell(size(device));
                 fig = gobjects(1, numel(device));
-                iPlot = cell(size(fig));
                 for ii = 1:numel(device)
+                    device(ii).setDeviceConfig( config_device_impedance );
+                    device(ii).setChannelConfig( config_channel_impedance );
+                    start(device(ii));
                     channel_names = getName(getActiveChannels(device(ii)));
-                    fig(ii) = figure(...
+                    fig(ii) = uifigure(...
                         'Name', sprintf('Impedance Plot: SAGA-%s', device(ii).tag), ...
                         'Color', 'w', ...
-                        'Posiiton', IMPEDANCE_FIGURE_POSITION(ii,:));
-                    iPlot{1,ii} = TMSiSAGA.ImpedancePlot(fig(ii), config_channel_impedance.uni, channel_names);
+                        'Icon', 'Impedance-Symbol.png', ...
+                        'HandleVisibility', 'on', ...
+                        'Position', IMPEDANCE_FIGURE_POSITION(ii,:));
+                    iPlot{ii} = TMSiSAGA.ImpedancePlot(fig(ii), config_channel_impedance.uni, channel_names);
                 end
-                s = cell(size(device));
-                while any(isvalid(fig))
+                
+                while any(isvalid(fig)) || ~strcmpi(state, "imp")
+                    if udp_state_receiver.NumBytesAvailable > 0
+                        state = readline(udp_state_receiver);
+                    end
                     for ii = 1:numel(device)
                         if isvalid(fig(ii))
                             [samples, num_sets] = device(ii).sample();
@@ -409,11 +380,17 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         end
                     end
                 end
-                device.setDeviceConfig(config_device);
-                device.setChannelConfig(config_channels);
-                state = "idle";
+                
                 for ii = 1:numel(device)
+                    device(ii).stop();
+                    enableChannels(device(ii), device(ii).channels);
+                    updateDeviceConfig(device(ii)); 
+                    device(ii).setDeviceConfig(config_device);
+                    device(ii).setChannelConfig(config_channels);
                     impedance_saver_helper(fname, device(ii).tag, s{ii});
+                end
+                if strcmpi(state, "imp")
+                    state = "idle";
                 end
             end
         end

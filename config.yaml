@@ -32,7 +32,7 @@
 SAGA:
  A: 
    Enable: true
-   Unit: "SAGA4"
+   Unit: "SAGAA"
    FileType: ".mat"
    Trigger:
     Channel: 70
@@ -53,7 +53,7 @@ SAGA:
  B: 
    Enable: true
    FileType: ".mat"
-   Unit: "SAGA5"
+   Unit: "SAGAB"
    Trigger:
     Channel: 70
     Bit: 1
@@ -69,13 +69,14 @@ SAGA:
      samples: 16384
 Default:
  Interface: "electrical"
- Folder: "R:/NMLShare/raw_data/human"
+ Folder: "R:/NMLShare/raw_data/primate"
  Subject: "Test"
  Use_Worker_Server: true
- Use_Param_Server: false
+ Use_Param_Server: true
  N_ICs: 20
  N_Triggers: 20
  Sample_Rate: 4000
+ Rec_Samples: 2400000 
  RMS_Sample_Epoch: 
   Start: 50
   Stop: 200

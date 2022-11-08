@@ -23,8 +23,10 @@ pars = struct;
 % % % Trying to pull the "relevant" ones to the top ... % % % 
 % pars.generated_data_folder =  strrep('C:\Users\NML\Box\N3_SharpFocus\Phase 3 experiments\generated_data', '\', '/'); % Setting this to human or primate, temporary hard code
 % pars.raw_data_folder = strrep('C:\Users\NML\Box\N3_SharpFocus\Phase 3 experiments\raw_data', '\', '/');
-pars.generated_data_folder =  strrep('R:\NMLShare\generated_data\human\DARPA_N3', '\', '/'); % Setting this to human or primate, temporary hard code
-pars.raw_data_folder = strrep('R:\NMLShare\raw_data\human', '\', '/');
+% pars.generated_data_folder =  strrep('R:\NMLShare\generated_data\human\DARPA_N3', '\', '/'); % Setting this to human or primate, temporary hard code
+pars.generated_data_folder =  strrep('R:\NMLShare\generated_data\primate\DARPA_N3\N3_Patch', '\', '/'); % Setting this to human or primate, temporary hard code
+% pars.raw_data_folder = strrep('R:\NMLShare\raw_data\human', '\', '/');
+pars.raw_data_folder = strrep('R:\NMLShare\raw_data\primate', '\', '/');
 pars.preliminary_output_folder = strrep(fullfile(pars.generated_data_folder, '.preliminary'), '\', '/'); % . prefix defaults to "Hidden" on Windows
 
 pars.default_training_log_file = 'G:\Shared drives\NML_NHP\Monkey Training Records\Training.xlsx';
