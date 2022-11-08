@@ -82,8 +82,9 @@ Default:
   Stop: 200
 Server:
  Address:
-  TCP: "127.0.0.1"
-  UDP: "127.0.0.1"
+  TCP: "10.0.0.90"
+  UDP: "10.0.0.90"
+  Worker: "10.0.0.81"
  TCP:
   Controller: 5000
   A:

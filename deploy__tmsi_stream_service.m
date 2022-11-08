@@ -80,7 +80,7 @@ N_SAMPLES_RECORD_MAX = 4000 * 60 * 10; % (sample rate) * (seconds/min) * (max. d
 % TAG = ["A"; "B"]; % Arbitrary  - "A" is SAGA-4 and "B" is SAGA-5
 
 fprintf(1, "Loading configuration file (config.yaml, in main repo folder)...\n");
-[config, TAG, SN, N_CLIENT] = parse_main_config('config.yaml');
+[config, TAG, SN, N_CLIENT] = parse_main_config(parameters('config'));
 pause(1.5);
 %% Setup device configurations.
 config_device_impedance = struct('ImpedanceMode', true, ... 
@@ -163,7 +163,7 @@ visualizer = vertcat(visualizer{:});
 if config.Default.Use_Worker_Server
     worker = cell(1, N_CLIENT);
     for ii = 1:N_CLIENT
-        worker{ii} = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Worker);
+        worker{ii} = tcpclient(config.Server.Address.Worker, config.Server.TCP.(device(ii).tag).Worker);
     end
     worker = vertcat(worker{:});
 end
