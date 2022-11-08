@@ -69,9 +69,9 @@ SAGA:
      samples: 16384
 Default:
  Interface: "electrical"
- Folder: "R:/NMLShare/raw_data/primate"
+ Folder: "R:/NMLShare/raw_data/human"
  Subject: "Test"
- Use_Worker_Server: true
+ Use_Worker_Server: false
  Use_Param_Server: true
  N_ICs: 20
  N_Triggers: 20
@@ -82,8 +82,9 @@ Default:
   Stop: 200
 Server:
  Address:
-  TCP: "127.0.0.1"
-  UDP: "127.0.0.1"
+  TCP: "10.0.0.90"
+  UDP: "10.0.0.90"
+  Worker: "10.0.0.81"
  TCP:
   Controller: 5000
   A:
