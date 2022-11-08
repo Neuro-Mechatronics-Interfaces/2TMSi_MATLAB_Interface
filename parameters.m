@@ -21,7 +21,7 @@ function varargout = parameters(varargin)
 pars = struct;
 
 % pars.config = strrep(fullfile(pwd, 'config.yaml'),'\','/');
-pars.config = strrep(fullfile(pwd, 'Forrest_2022_11_08.yaml'), '\', '/');
+pars.config = strrep(fullfile(pwd, 'Forrest_2022_08_11_config.yaml'), '\', '/');
 
 % % % Trying to pull the "relevant" ones to the top ... % % % 
 % pars.generated_data_folder =  strrep('C:\Users\NML\Box\N3_SharpFocus\Phase 3 experiments\generated_data', '\', '/'); % Setting this to human or primate, temporary hard code
