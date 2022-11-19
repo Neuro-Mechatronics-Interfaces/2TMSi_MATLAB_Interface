@@ -52,8 +52,8 @@ SAGA:
      samples: 16384
  B: 
    Enable: true
-   FileType: ".mat"
    Unit: "SAGAB"
+   FileType: ".mat"
    Trigger:
     Channel: 70
     Bit: 9
@@ -69,13 +69,15 @@ SAGA:
      samples: 16384
 Default:
  Interface: "electrical"
- Folder: "R:/NMLShare/raw_data/human"
- Subject: "Test"
+ Folder: "R:/NMLShare/raw_data/primate"
+ Subject: "Forrest"
  Muscle_Map: "R_DF_Extensors"
  Use_Worker_Server: false
  Use_Param_Server: true
  N_ICs: 20
  N_Triggers: 20
+ Sync_Bit: 9
+ File_Type: ".mat"
  Sample_Rate: 4000
  Rec_Samples: 2400000 
  RMS_Sample_Epoch: 
@@ -83,19 +85,18 @@ Default:
   Stop: 200
 Server:
  Address:
-  TCP: "10.0.0.90"
-  UDP: "10.0.0.90"
-  Worker: "10.0.0.81"
+  TCP: "127.0.0.1"
+  UDP: "127.0.0.1"
+  Worker: "127.0.0.1"
  TCP:
   Controller: 5000
   A:
-   Worker: 4000
    Viewer: 5020
    Parameters: 5010
   B:
-   Worker: 4001
    Viewer: 5021
    Parameters: 5011
+  Worker: 4002
  UDP:
   state: 3030
   name: 3031

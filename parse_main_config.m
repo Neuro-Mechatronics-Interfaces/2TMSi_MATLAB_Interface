@@ -27,7 +27,7 @@ function [config, TAG, SN, N_CLIENT, SAGA] = parse_main_config(cfg, saga)
 % See also: Contents, deploy__tmsi_stream_service, deploy__tmsi_tcp_servers
 
 if nargin < 1
-    cfg = 'config.yaml'; 
+    cfg = parameters('config'); 
 end
 
 if nargin < 2

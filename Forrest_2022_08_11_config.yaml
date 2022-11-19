@@ -71,6 +71,7 @@ Default:
  Interface: "electrical"
  Folder: "R:/NMLShare/raw_data/primate"
  Subject: "Forrest"
+ Muscle_Map: "R_DF_Extensors"
  Use_Worker_Server: true
  Use_Param_Server: true
  N_ICs: 20

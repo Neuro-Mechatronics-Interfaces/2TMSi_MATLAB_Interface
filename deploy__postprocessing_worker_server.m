@@ -1,4 +1,4 @@
-function [server, FILTER] = deploy__postprocessing_worker_server(config, FILTER)
+function [server, FILTER] = deploy__postprocessing_worker_server(cfg, FILTER)
 %DEPLOY__POSTPROCESSING_WORKER_SERVER - Run TCP server to handle post-processing requests.
 %
 % Syntax:
@@ -42,27 +42,24 @@ if nargin < 2
     FILTER.bipolar = utils.get_default_filtering_pars("TMSi", "Bipolar", "Rectified");
 end
 
-server = cell(size(config));
-for ii = 1:numel(server)
-    cfg = config(ii);
-    if ~isfield(cfg, 'delimiter')
-        cfg.delimiter = ".";
-    end
-    if ~isfield(cfg, 'terminator')
-        cfg.terminator = "LF";
-    end
-    if ~isfield(cfg, 'fcn')
-        cfg.fcn = @callback.exportFigures;
-    end
-    server{ii} = tcpserver(cfg.address, cfg.port);
-    server{ii}.UserData = struct( ...
-        'filter', FILTER, ...
-        'delimiter', cfg.delimiter, ...
-        'tag', cfg.tag, ...
-        'type', cfg.type, ...
-        'sync_bit', cfg.sync_bit);
-    configureTerminator(server{ii}, cfg.terminator);
-    configureCallback(server{ii}, 'terminator', cfg.fcn);
+
+if ~isfield(cfg, 'delimiter')
+    cfg.delimiter = ".";
 end
+if ~isfield(cfg, 'terminator')
+    cfg.terminator = "LF";
+end
+if ~isfield(cfg, 'fcn')
+    cfg.fcn = @callback.exportFigures;
+end
+server = tcpserver(cfg.address, cfg.port);
+server.UserData = struct( ...
+    'filter', FILTER, ...
+    'delimiter', cfg.delimiter, ...
+    'tag', cfg.tag, ...
+    'type', cfg.type, ...
+    'sync_bit', cfg.sync_bit);
+configureTerminator(server, cfg.terminator);
+configureCallback(server, 'terminator', cfg.fcn);
 
 end

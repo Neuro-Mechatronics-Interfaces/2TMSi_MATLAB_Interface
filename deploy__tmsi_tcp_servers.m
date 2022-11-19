@@ -1,30 +1,19 @@
-%DEPLOY__TMSI_TCP_SERVERS
+function deploy__tmsi_tcp_servers()
+%DEPLOY__TMSI_TCP_SERVERS  Blocking function, which starts up the TMSi online data visualization server.
 %
-% Starts up the TMSi online data visualization server.
 % See details in README.MD
+close all force; 
+clc;
 
-close all force;
-FIGURE_POSITION = struct(...
-    'A', [50 450 560 420], ...
-    'B', [50 100 560 420]);
-COLORS = [0 0 0; ...
-          0 0 1; ...
-          1 0 0; ...
-          1 0 1];
-
-[config, TAG, SN, N_CLIENT] = parse_main_config(parameters('config'));
+config_file = parameters('config');
+fprintf(1, 'Reading configuration file: %s\n\n', config_file);
+[config, TAG, ~, N_CLIENT] = parse_main_config(config_file);
 
 
 %% Create TMSi CONTROLLER server
 fprintf(1,'Setting up CONTROLLER TCP server...\n');
-if exist('serv__controller', 'var')~=0
-    if ~iscell(serv__controller)
-        delete(serv__controller);
-    end
-    clear serv__controller;
-end
 serv__controller = tcpserver(config.Server.Address.TCP, config.Server.TCP.Controller, ...
-    "ConnectionChangedFcn", @server__CON_connection_changed_cb);
+    "ConnectionChangedFcn", @callback.serverHandleControllerConnectionChange);
 
 % Set the server properties that we care about, here:
 tank = string(sprintf("%s_%04d_%02d_%02d", config.Default.Subject, year(today), month(today), day(today)));
@@ -34,25 +23,17 @@ serv__controller.UserData = struct(...
     'config', config, ...
     'datashare', config.Default.Folder, ...
     'tank', tank, ...
-    'udp', udpport("byte", 'EnablePortSharing', true), ...
-    'recv', udpport("byte"), ...
+    'udp', udpport("byte", 'EnablePortSharing', true, "LocalHost", config.Server.Address.UDP), ...
+    'recv', udpport("byte", "LocalPort", config.Server.UDP.recv, "LocalHost", config.Server.Address.UDP), ...
     'port', config.Server.UDP, ...
     'address', config.Server.Address.UDP, ...
     'block', "0", ...
-    'file', strrep(fullfile(config.Default.Folder, config.Default.Subject, tank, sprintf("%s_%%s_0", tank)), "\", "/"));
+    'file', strrep(fullfile(config.Default.Folder, config.Default.Subject, tank, sprintf("%s_%%s_%%d", tank)), "\", "/"));
 serv__controller.UserData.udp.EnableBroadcast = true;
 configureCallback(serv__controller, "terminator", @(src, evt)callback.serverHandleControllerMessages(src, evt));
 
 %% Create TMSi ONLINE DATA VISUALIZER server for SAGA-<TAG>
-if exist('serv__visualizer', 'var')~=0
-    my_tags = fieldnames(serv__visualizer);
-    for ii = 1:numel(my_tags)
-        delete(serv__visualizer.(my_tags{ii})); 
-    end
-    clear serv__visualizer my_tags;
-end
-
-for ii = 1:numel(TAG)
+for ii = 1:N_CLIENT
     tag = TAG{ii};
     serv__visualizer.(tag) = tcpserver(...
             config.Server.Address.TCP, ...
@@ -62,11 +43,10 @@ for ii = 1:numel(TAG)
     serv__visualizer.(tag).UserData = struct(...
                 'app', SAGA_Data_Visualizer(tag, config), ...
                 'n', config.SAGA.(tag).Channels.n.samples);
-%     n_samples = config.SAGA.(tag).Channels.n.samples*config.SAGA.(tag).Channels.n.channels;
     n_samples = config.SAGA.(tag).Channels.n.samples + 1;
     configureCallback(serv__visualizer.(tag), "byte", 8*(n_samples), ...
         @(src, evt)callback.serverVisualizationCallbackWrapper(src, evt));
-    serv__controller.UserData.visualizer.(tag) = serv__visualizer;
+    serv__controller.UserData.visualizer.(tag) = serv__visualizer.(tag);
 end
 
 %% Create TMSi Worker Server
@@ -95,7 +75,55 @@ end
 % end
 
 %% Keep application running
-fprintf(1,'Running all servers until application windows are closed.\n');
-for ii = 1:numel(TAG)
-    waitfor(serv__visualizer.(TAG{ii}).UserData.app); 
+fprintf(1,'\n\n\t\t->\t[%s] Running all servers until application windows are closed.\t\t<-\t\n\n\n', string(datetime('now')));
+keepBlocking = true;
+while (keepBlocking)
+    keepBlocking = false;
+    for ii = 1:N_CLIENT
+        keepBlocking = keepBlocking || isvalid(serv__visualizer.(TAG{ii}).UserData.app); 
+    end
+    if keepBlocking && (serv__controller.UserData.recv.NumBytesAvailable > 0)
+        msg = readline(serv__controller.UserData.recv);
+        msg_info = strsplit(msg, '.');
+        switch msg_info{1}
+            case 'set'
+                if ~callback.serverHandleControllerSetterMessage(serv__controller, msg_info{2}, strrep(msg_info{3},'\','/'))
+                    fprintf(1, '[UDP recv] Bad `set` message ("%s")\n', msg);
+                end
+            otherwise
+                fprintf(1,'[UDP recv] Unhandled message ("%s")\n', msg);
+        end
+    end
+    pause(1);
+end
+
+%% Shutdown servers/ports
+try
+    delete(serv__controller.UserData.udp);
+    fprintf(1,'Closed controller broadcast UDP port successfully.\n');
+catch
+    fprintf(1,'Error closing controller broadcast UDP port.\n');
+end
+try
+    delete(serv__controller.UserData.recv);
+    fprintf(1,'Closed controller message-receiver UDP port successfully.\n');
+catch
+    fprintf(1,'Error closing controller message-receiver UDP port.\n');
+end
+for ii = 1:N_CLIENT
+    try
+        delete(serv__visualizer.(TAG{ii}));
+        fprintf(1,'Closed online data visualization TCP-server-%s successfully.\n', TAG{ii});
+    catch
+        fprintf(1,'Error closing online data visualization TCP-server-%s.\n', TAG{ii});
+    end
+end
+try
+    delete(serv__controller);
+    fprintf(1,'Successfully closed TMSi controller TCP-server. Hope you did not leave any SAGA device loops running!\n');
+catch
+    fprintf(1,'Couldn''t close the TMSi controller TCP-server. Hopefully it shut down SAGA devices before this failure!\n');
+end
+pause(1);
+
 end
