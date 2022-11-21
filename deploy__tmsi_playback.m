@@ -161,12 +161,12 @@ while ~strcmpi(state, "quit")
             fprintf(1,'[UDP STATE]::[INNER BLOCKING LOOP]::"%s" -> "%s"\n', prev_state, state);
             if strcmpi(state, "rec")
                 if ~recording
-                    fprintf(1, "[RUN > REC]: Buffer created, fake recording in process...");
-%                     rec_buffer = cell(1, N_CLIENT); 
-%                     for ii = 1:N_CLIENT
-%                         rec_buffer{ii} = StreamBuffer(ch{ii}, config.Default.Rec_Samples, device(ii).tag, device(ii).sample_rate);
-%                     end
-%                     rec_buffer = vertcat(rec_buffer{:});
+                    fprintf(1, "[RUN > REC]: Buffer created, recording in process...");
+                    rec_buffer = cell(1, N_CLIENT); 
+                    for ii = 1:N_CLIENT
+                        rec_buffer{ii} = StreamBuffer(ch{ii}, config.Default.Rec_Samples, device(ii).tag, device(ii).sample_rate);
+                    end
+                    rec_buffer = vertcat(rec_buffer{:});
                 end
                 recording = true;
                 running = true;
@@ -177,9 +177,9 @@ while ~strcmpi(state, "quit")
                 end
                 if recording
                     fprintf(1, "complete\n\t->\t(%s)\n", fname);
-%                     rec_buffer.save(fname);
-%                     delete(rec_buffer);
-%                     clear rec_buffer;
+                    rec_buffer.save(fname);
+                    delete(rec_buffer);
+                    clear rec_buffer;
                     if config.Default.Use_Worker_Server
                         [~, finfo, ~] = fileparts(fname);
                         args = strsplit(finfo, "_");
@@ -197,9 +197,9 @@ while ~strcmpi(state, "quit")
                 recording = false; 
             end
         end          
-%         if recording
-%             rec_buffer.append(samples);
-%         end            
+        if recording
+            rec_buffer.append(samples);
+        end            
     end
     while udp_state_receiver.NumBytesAvailable > 0
         prev_state = state;
@@ -207,12 +207,12 @@ while ~strcmpi(state, "quit")
         fprintf(1,'[UDP STATE]::[OUTER BLOCKING LOOP]::"%s" -> "%s"\n', prev_state, state);
         if strcmpi(state, "rec")
             if ~recording
-                fprintf(1, "[IDLE > REC]: Buffer created, fake recording in process...");
-%                 rec_buffer = cell(1, N_CLIENT); 
-%                 for ii = 1:N_CLIENT
-%                     rec_buffer{ii} = StreamBuffer(ch{ii}, config.Default.Rec_Samples, device(ii).tag, device(ii).sample_rate);
-%                 end
-%                 rec_buffer = vertcat(rec_buffer{:});
+                fprintf(1, "[IDLE > REC]: Buffer created, recording in process...");
+                rec_buffer = cell(1, N_CLIENT); 
+                for ii = 1:N_CLIENT
+                    rec_buffer{ii} = StreamBuffer(ch{ii}, config.Default.Rec_Samples, device(ii).tag, device(ii).sample_rate);
+                end
+                rec_buffer = vertcat(rec_buffer{:});
             end
             recording = true;
             if ~running

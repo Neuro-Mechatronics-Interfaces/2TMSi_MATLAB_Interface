@@ -22,7 +22,7 @@ pars = struct;
 
 % pars.config = strrep(fullfile(pwd, 'config.yaml'),'\','/');
 % pars.config = strrep(fullfile(pwd, 'Forrest_2022_08_11_config.yaml'), '\', '/');
-pars.config = strrep(fullfile(pwd, 'Local_Testing_config.yaml'), '\', '/');
+% pars.config = strrep(fullfile(pwd, 'Local_Testing_config.yaml'), '\', '/');
 
 % % % Trying to pull the "relevant" ones to the top ... % % % 
 pars.config = "config_125k.yaml";
