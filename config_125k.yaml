@@ -73,12 +73,16 @@ Default:
  Interface: "optical"
  # Folder: "R:/NMLShare/raw_data/human"
  Folder: "R:/NMLShare/raw_data/primate"
- Subject: "Test"
+ Subject: "Default"
  Use_Worker_Server: false
- Use_Param_Server: false
+ Use_Param_Server: true
  N_ICs: 20
  N_Triggers: 20
  Sample_Rate: 4000
+ Sync_Bit: 3
+ File_Type: ".mat"
+ Sample_Rate: 4000
+ Rec_Samples: 16384
  RMS_Sample_Epoch: 
   Start: 50
   Stop: 200
@@ -88,16 +92,16 @@ Server:
   TCP: "128.2.244.60"
   # UDP: "127.0.0.1"
   UDP: "128.2.244.60"
+  Worker: "127.0.0.1"
  TCP:
   Controller: 5000
   A:
-   Worker: 4000
    Viewer: 5020
    Parameters: 5010
   B:
-   Worker: 4001
    Viewer: 5021
    Parameters: 5011
+  Worker: 4002
  UDP:
   state: 3030
   name: 3031
