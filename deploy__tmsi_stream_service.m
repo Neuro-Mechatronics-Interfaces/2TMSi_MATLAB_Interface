@@ -98,7 +98,7 @@ try % Separate try loop because now we must be sure to disconnect device.
     device.setChannelConfig(config_channels);
     device.setDeviceConfig(config_device); 
     for ii = 1:numel(device)
-        fprintf(1,'\t->\tDetected device(%d): TAG=%s | API=%d | INTERFACE=%s\n', ii, device(ii).tag, device(ii).api_version, device(ii).data_recorder.interface_type);
+        fprintf(1,'\t->\tDetected device(%d): SAGA=%s | API=%d | INTERFACE=%s\n', ii, device(ii).tag, device(ii).api_version, device(ii).data_recorder.interface_type);
     end
     if numel(device) ~= N_CLIENT
         fprintf(1,'Wrong number of devices returned. Something went wrong with hardware connections.\n');
@@ -128,7 +128,7 @@ packet_mode = struct('A','US','B','US');
 
 visualizer = struct;
 for ii = 1:N_CLIENT
-    visualizer.(TAG{ii}) = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Viewer);
+    visualizer.(device(ii).tag) = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Viewer);
 end
 if config.Default.Use_Worker_Server
     worker = tcpclient(config.Server.Address.Worker, config.Server.TCP.Worker);
@@ -138,11 +138,12 @@ end
 
 
 ch = device.getActiveChannels();
-% fsm = SAGA_State_Machine(config, ch, TAG);
-
+if ~iscell(ch)
+    ch = {ch};
+end
 buffer = struct;
 for ii = 1:N_CLIENT
-    buffer.(TAG{ii}) = StreamBuffer(ch{ii}, ...
+    buffer.(device(ii).tag) = StreamBuffer(ch{ii}, ...
         channels.(device(ii).tag).n.samples, ...
         device(ii).tag, ...
         device(ii).sample_rate);
@@ -191,13 +192,13 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             apply_car = str2double(info{3});
                             i_subset = (double(info{4}) - 96)';
                             fprintf(1, 'Enabled CH-%02d (UNI)\n', i_subset);
-                            buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer(ii), i_subset, apply_car));
+                            buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer.(packet_tag), i_subset, apply_car));
                             fprintf(1, "\t->\tConfigured %s for unipolar stream data.\n", packet_tag);
                         case 'BS'
                             i_subset = (double(info{3}) - 96)';
                             fprintf(1, 'Enabled CH-%02d (BIP)\n', i_subset);
                             for ii = 1:N_CLIENT
-                                buffer_event_listener.(info{2}) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BS(src, evt, visualizer(ii), i_subset));
+                                buffer_event_listener.(info{2}) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BS(src, evt, visualizer.(packet_tag), i_subset));
                             end
                             fprintf(1, "\t->\tConfigured %s for bipolar stream data.\n", packet_tag);
                         case 'UA'
@@ -268,8 +269,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if recording
                         fprintf(1, "complete\n\t->\t(%s)\n", fname);
                         for ii = 1:N_CLIENT
-                            rec_buffer.(TAG(ii)).save(fname);
-                            delete(rec_buffer.(TAG(ii)));
+                            rec_buffer.(device(ii).tag).save(fname);
+                            delete(rec_buffer.(device(ii).tag));
                         end
                         if config.Default.Use_Worker_Server
                             [~, finfo, ~] = fileparts(fname);
