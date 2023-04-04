@@ -8,3 +8,5 @@ testing/
 example__tcp_ip_comms.m
 
 *.mat
+
+*.lnk

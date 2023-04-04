@@ -1,6 +1,6 @@
 [submodule "+io"]
 	path = +io
-	url = git@github.com:m053m716/-io.git
+	url = https://github.com/Neuro-Mechatronics-Interfaces/matlab_package__io
 [submodule "+TMSiSAGA"]
 	path = +TMSiSAGA
 	url = git@github.com:Neuro-Mechatronics-Interfaces/TMSi_SAGA.git
@@ -9,7 +9,7 @@
 	url = git@github.com:m053m716/Matlab-Defaults
 [submodule "+cm"]
 	path = +cm
-	url = git@github.com:m053m716/cm.git
+	url = https://github.com/Neuro-Mechatronics-Interfaces/matlab_package__cm.git
 [submodule "+callback"]
 	path = +callback
 	url = git@github.com:m053m716/-callback
@@ -34,3 +34,9 @@
 [submodule "+mlog"]
 	path = +mlog
 	url = git@github.com:Neuro-Mechatronics-Interfaces/matlab_package__mlog
+[submodule "+msg"]
+	path = +msg
+	url = git@github.com:Neuro-Mechatronics-Interfaces/matlab_package__msg.git
+[submodule "+charts"]
+	path = +charts
+	url = https://github.com/Neuro-Mechatronics-Interfaces/matlab_package__charts

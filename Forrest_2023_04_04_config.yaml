@@ -1,0 +1,145 @@
+#CONFIG.YAML  Set the configuration for TMSiSAGA units to be used as "A" and "B"
+#
+# These header notes are split up according to the top-level fields.
+#
+# -- SAGA --
+#  -> Currently, only supports 2 SAGA at a time.
+#  -> Valid options for "Unit" property of each are:
+#     - "SAGA1"
+#     - "SAGA2"
+#     - "SAGA3"
+#     - "SAGA4"
+#     - "SAGA5"
+#     - "SAGAA"
+#     - "SAGAB"
+#
+# MAKE SURE TO KEEP TRACK OF WHICH UNIT IS ASSIGNED TAG "A" AND "B"
+#   -> THIS IS CRITICAL FOR KEEPING TRACK OF WHICH LEADS WENT WHERE!
+#
+# TO ONLY USE 1 SAGA, SET `Enable: false` ON THE CORRESPONDING UNIT.
+#
+# -- Default --
+# The values here are mostly for initializing applications and aren't likely to be important.
+#  -> THE ONE EXCEPTION IS 'Folder' -- THIS MUST BE THE ROOT LOCATION WHERE YOU WANT TO SAVE DATA.
+#   -> To avoid crashing the Worker server, you should ensure that whichever machine is running Worker
+#        ALSO has access to the mapped location (i.e. both computers should have "raptor" mapped).
+#
+# -- Network --
+#
+# The values under `Network` are less-likely to change (probably only if you know what you're doing).
+#   -> It would be easier just to ask Max first before changing those values.
+
+SAGA:
+ A: 
+   Enable: true
+   Unit: "SAGAA"
+   Textiles: true
+   CAR: true
+   FileType: ".mat"
+   Trigger:
+    Channel: 72
+    Bit: 7
+   Channels:
+    CREF: 1
+    UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
+    BIP: [66,67,68,69]
+    AUX: [70,71]
+    STAT: 73
+    COUNT: 74
+    n: 
+     byte_stream_channels: 70
+     channels: 74
+     samples: 16384
+ B: 
+   Enable: true
+   FileType: ".mat"
+   Unit: "SAGAB"
+   Textiles: true
+   CAR: true
+   Trigger:
+    Channel: 72
+    Bit: 7
+   Channels:
+    CREF: 1
+    UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
+    BIP: [66,67,68,69]
+    AUX: [70, 71]
+    STAT: 73
+    COUNT: 74
+    n: 
+     byte_stream_channels: 70
+     channels: 74
+     samples: 16384
+Default:
+ Interface: "electrical"
+ Folder: "H:/raw_data"
+ Subject: "Forrest"
+ Muscle_Map: "R_DF_Extensors"
+ Use_Worker_Server: false
+ Use_Param_Server: true
+ N_ICs: 20
+ N_Triggers: 20
+ N_Pre: 60 # samples
+ N_Post: 140 # samples
+ N_Max_Trials: 30000
+ Sample_Rate: 4000
+ Rec_Samples: 2400000 
+ RMS_Sample_Epoch: 
+  Start: 50
+  Stop: 200
+ MUAP_Threshold: 12 #mV
+Host:
+ interface: "10.0.0.90"
+ streams: "10.0.0.81"
+ task: "127.0.0.1"
+ visualizer: 
+  A: "127.0.0.1"
+  B: "127.0.0.1"
+ muaps: "127.0.0.1"
+ stimulation: 
+  controller: "127.0.0.1"
+  visualizer: "127.0.0.1"
+  server: "172.26.21.247"
+ metadata: "127.0.0.1"
+ multicast: "226.0.0.1"
+TCP:
+ tmsi:
+  server: 5070
+  worker: 4020
+  streams:
+   A: 5020
+   B: 5021
+ stimulation:
+  server: 6005
+  responses: 6006
+UDP:
+ tmsi:
+  controller:
+   service: 3030
+   interface: 3032
+  config: 3031
+  streams: 3036
+  visualizer:
+   A: 5030
+   B: 5031
+  muaps: 5050
+ task:
+  interface: 3033
+ stimulation:
+  controller: 6000
+  visualizer: 
+   A: 6001
+   B: 6002
+ streams_gui: 3032
+ metadata_gui: 3033
+ ds8r_gui: 3034
+ patch_gui: 3035
+Verbosity:
+ tmsi:
+  service: 1
+  interface: 1
+  data: 1
+ visualizer:
+  A: 0
+  B: 0
+ task: 0

@@ -26,7 +26,7 @@ classdef MetaDataHandler < handle
     end
 
     properties (Access=protected)
-        def_raw_data_folder = "R:/NMLShare/raw_data/primate"
+        def_raw_data_folder (1,1) string
         tank    string                  % Folder containing recordings on raw_data drive
         T       table                   % The full metadata table
         var_types       cell            % Actual variable types from table
@@ -69,10 +69,12 @@ classdef MetaDataHandler < handle
             %
             % See also: Contents
             if nargin < 1
+                config = io.yaml.loadFile(parameters('config'), 'ConvertToArray', true);
+                self.def_raw_data_folder = string(config.Default.Folder);
                 [SUBJ, YYYY, MM, DD, ARRAY, BLOCK] = MetaDataHandler.quick_selector_gui();
             elseif nargin == 1
                 config = SUBJ;
-                self.def_raw_data_folder = config.Default.Folder;
+                self.def_raw_data_folder = string(config.Default.Folder);
                 [SUBJ, YYYY, MM, DD, ARRAY, BLOCK] = MetaDataHandler.quick_selector_gui();
             end
             self.array = ARRAY;

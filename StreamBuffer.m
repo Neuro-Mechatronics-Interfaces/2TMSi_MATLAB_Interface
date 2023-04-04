@@ -6,7 +6,7 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
     end
     
     properties (GetAccess = public, SetAccess = protected)
-        array       string ="A"        % "A" or "B"
+        tag         string ="A"        % "A" or "B"
         channels                       % Cell array of channels
         counter     double = 0         % Total number of samples (rolling)
         index       double             % The integer index that increments by 1 for each sample, denoting ordering of samples (columns)
@@ -46,18 +46,18 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
                 case 0
                     error("Must pass `channels` argument at least.");
                 case 1
-                    obj.n = struct('channels', numel(channels), 'samples', 16384, 'samples_per_frame', 16384);
+                    obj.n = struct('channels', numel(channels), 'samples', 16384, 'limit', 16384);
                 case 2
-                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'samples_per_frame', nSamples);
+                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'limit', nSamples);
                 case 3
-                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'samples_per_frame', nSamples);
-                    obj.array = string(array);
+                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'limit', nSamples);
+                    obj.tag = string(array);
                 case 4
-                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'samples_per_frame', nSamples);
-                    obj.array = string(array);
+                    obj.n = struct('channels', numel(channels), 'samples', nSamples, 'limit', nSamples);
+                    obj.tag = string(array);
                     obj.sample_rate = sample_rate;
                 otherwise
-                    error("Invalid number of input arguments (%d).", nargin);
+                    error("[StreamBuffer::Constructor]\tInvalid number of input arguments (%d).", nargin);
             end
             obj.channels = channels;
             obj.samples = zeros(obj.n.channels, obj.n.samples);
@@ -94,8 +94,7 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             obj.counter = obj.counter + ns;
             
             % If we filled up, then send data samples.
-            
-            if obj.counter >= obj.n.samples_per_frame
+            if obj.counter >= obj.n.limit
                 obj.counter = 0;
                 notify(obj, "FrameFilledEvent");       
             end
@@ -204,11 +203,11 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             obj.samples = zeros(obj.n.channels, obj.n.samples);
         end
         
-        function fname = save(obj, fname)
+        function [fname, block] = save(obj, fname)
             %SAVE  Save data buffered in .samples to variable 'samples' in fname (file)
             %
             % Syntax:
-            %   fname = obj.save(fname);
+            %   [fname, block] = obj.save(fname);
             %
             % Inputs:
             %   fname - Name of file to save to. Note that if this is
@@ -217,6 +216,7 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             %
             % Output:
             %   fname - Version of input fname that was used.
+            %   block - Numeric block index used in actual filename.
             %
             % See also: Contents
             
@@ -233,23 +233,35 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             
             [p, f, e] = fileparts(fname);
             if isempty(e)
-                f = strcat(f, ".mat");
+                f = char(strcat(f, ".mat"));
             else
-                f = strcat(f, e);
+                f = char(strcat(f, e));
             end
             if contains(f, "%s")
-                f = sprintf(f, obj.array);
+                f = char(sprintf(f, obj.tag));
             end
-            if isempty(p)
-                fname = f;
-            else
-                if exist(p, 'dir') == 0
-                    try %#ok<TRYNC>
-                        mkdir(p);
-                        fprintf(1,'Created save folder:\n\t<strong>%s</strong>\n\n', p);
-                    end
+            if exist(p, 'dir') == 0
+                try %#ok<TRYNC>
+                    warning('off', 'MATLAB:MKDIR:EmptyDirectoryName');
+                    mkdir(p);
+                    warning('on', 'MATLAB:MKDIR:EmptyDirectoryName');
+                    fprintf(1,'[StreamBuffer::%s]\tCreated save folder:\n\t<strong>%s</strong>\n\n', obj.tag, p);
                 end
-                fname = fullfile(p, f);
+            end
+            fname = fullfile(p, f);
+            update_fname = false;
+            block_orig = regexp(f, sprintf('((?<=%s\\_)\\d+)',obj.tag), 'match');
+            while exist(fname, 'file')~=0
+                update_fname = true;
+                [block_start, block_end] = regexp(f, sprintf('((?<=%s\\_)\\d+)',obj.tag));
+                block = str2double(f(block_start:block_end)) + 1;
+                f = [f(1:(block_start-1)), char(num2str(block)), f((block_end+1):end)];
+                fname = fullfile(p,f);
+            end
+            if update_fname
+                fprintf(1,"[StreamBuffer::%s]\tUpdated BLOCK-%s filename to %s\n", obj.tag, block_orig, f);
+            else
+                block = str2double(block_orig);
             end
             ns = min(obj.counter, obj.n.samples); % Truncate unassigned samples (only save what was actually appended).
             samples = obj.samples(:, 1:ns); %#ok<PROPLC>

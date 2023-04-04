@@ -106,9 +106,9 @@ meta.IsExemplar = m.Exemplar;
 meta.Evoked = struct('EMG', m.EMG, 'Movement', m.Movement);
 if exist(fullfile(p_meta, string(m.Muscle_Map)), 'file')~=0
     fprintf(1, 'Found muscle map file: <strong>%s</strong>\n', string(m.Muscle_Map));
-    meta.Muscle = JSON(fullfile(p_meta, string(m.Muscle_Map)));
+    meta.Muscle = io.JSON(fullfile(p_meta, string(m.Muscle_Map)));
 else
-    meta.Muscle = JSON(struct('Muscles', struct, 'Impedances', struct));
+    meta.Muscle = io.JSON(struct('Muscles', struct, 'Impedances', struct));
     fprintf(1, 'No muscle map file: <strong>%s</strong>\n', fullfile(p_meta, string(m.Muscle_Map)));
 end
 meta.Goal = m.Goal;
