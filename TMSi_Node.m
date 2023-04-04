@@ -319,7 +319,7 @@ classdef TMSi_Node < handle
                     self.block = v.block;
                     self.subject = v.subject;
                     self.date = datetime(v.year,v.month,v.day,'Format','uuuu_MM_dd');
-                    self.update_fname_();
+                    self.update_fname_(false);
                     if strcmpi(self.device_, "virtual")
                         self.needs_reload = true;
                     end
