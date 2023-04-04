@@ -323,6 +323,7 @@ classdef TMSi_Node < handle
                     if strcmpi(self.device_, "virtual")
                         self.needs_reload = true;
                     end
+                    src.flush();
                     self.logger_.info(sprintf("UDP :: subject=%s", self.subject));
                     self.logger_.info(sprintf("UDP :: block=%d",   self.block));
                 case "block"
@@ -331,6 +332,7 @@ classdef TMSi_Node < handle
                     if strcmpi(self.device_, "virtual")
                         self.needs_reload = true;
                     end
+                    src.flush();
                     self.logger_.info(sprintf("UDP :: block=%d", v));
                 case "folder"
                     self.folder = v;
