@@ -67,17 +67,17 @@ classdef SAGA_Controller < matlab.apps.AppBase
 
     
     
-    properties (Hidden, GetAccess = public, SetAccess = protected)
+    properties (Hidden, Access = public)
         Parent
     end
 
     properties (SetAccess = protected, GetAccess = public)
         connected (1,1) logical = false % Is the client currently connected to the TCP server?
+        controller                      % udpport client connected to server
     end
 
     properties (Access = protected)
         data_server_connection_ 
-        controller_                     % udpport client connected to server
         controller_listener_            % eventlistener for the controller_ udp port
         task_                           % UDPPort listening to task messages (Potentially)
         task_host_     (1,1) string = "0.0.0.0"; % LocalHost address for UDP port configured to listen to messages from wrist task.
@@ -95,7 +95,7 @@ classdef SAGA_Controller < matlab.apps.AppBase
     methods (Access = public)
         function clean_up_handles(app, ~, ~)
             try %#ok<*TRYNC> 
-                delete(app.controller_);
+                delete(app.controller);
             end
             try
                 delete(app.controller_listener_);
@@ -163,13 +163,13 @@ classdef SAGA_Controller < matlab.apps.AppBase
 
         function connect(app, IP, PORT)
             try  
-                delete(app.controller_);
+                delete(app.controller);
             end
             try
-                app.controller_ = udpport(...
+                app.controller = udpport(...
                     'LocalHost', app.controller_host_, ...
                     'LocalPort', app.controller_port_);
-                app.controller_.EnableBroadcast = true;
+                app.controller.EnableBroadcast = true;
                 app.streams_service_host_ = IP;
                 app.streams_service_port_ = PORT;
                 if app.verbosity_.interface > 0
@@ -186,9 +186,9 @@ classdef SAGA_Controller < matlab.apps.AppBase
                 app.ConnectButton.Value = 0;
                 return;
             end
-            app.controller_.UserData = SubjectMetadata();
-            app.controller_listener_ = addlistener(app.controller_.UserData, "MetaEvent", @app.update_meta_fields);
-            app.controller_.configureCallback("terminator", @app.handle_serialized_udp_messages_to_controller);
+            app.controller.UserData = SubjectMetadata();
+            app.controller_listener_ = addlistener(app.controller.UserData, "MetaEvent", @app.update_meta_fields);
+            app.controller.configureCallback("terminator", @app.handle_serialized_udp_messages_to_controller);
             app.Lamp.Color = [0.1 0.8 0.1];
             app.ConnectButton.Text = "Disconnect";
             app.TMSiStateButtonGroup.Enable = 'on';
@@ -201,7 +201,7 @@ classdef SAGA_Controller < matlab.apps.AppBase
             % can respond to and update the interface.
             data = msg.json_tmsi_udp_controller_message("get", "name");
             message = jsonencode(data);
-            app.controller_.writeline(message, app.streams_service_host_, app.streams_service_port_);
+            app.controller.writeline(message, app.streams_service_host_, app.streams_service_port_);
             if ~isempty(app.Parent)
                 if isvalid(app.Parent)
                     app.Parent.TMSiLamp.Color = [0.0 0.6 0.0];
@@ -211,7 +211,7 @@ classdef SAGA_Controller < matlab.apps.AppBase
         
         function disconnect(app)
             try 
-                delete(app.controller_);
+                delete(app.controller);
             end
             try
                 delete(app.controller_listener_);
@@ -246,7 +246,7 @@ classdef SAGA_Controller < matlab.apps.AppBase
             app.StartDatePicker.Value = datetime(YYYY, MM, DD);
             app.BlockSpinner.Value = BLOCK;
             if app.UpdateNameButton.Enable
-                callback.handleTMSiRecNameMetadata(app.controller_, SUBJ, YYYY, MM, DD, BLOCK);
+                callback.handleTMSiRecNameMetadata(app.controller, SUBJ, YYYY, MM, DD, BLOCK);
             end
         end
 
@@ -371,11 +371,11 @@ classdef SAGA_Controller < matlab.apps.AppBase
             DD = day(t);
             data = msg.json_tmsi_udp_controller_message("folder", app.RawDataFolderEditField.Value);
             message = jsonencode(data);
-            app.controller_.writeline(message, app.streams_service_host_, app.streams_service_port_);
+            app.controller.writeline(message, app.streams_service_host_, app.streams_service_port_);
             val = msg.json_tmsi_udp_name_message(SUBJ, YYYY, MM, DD, "%s", BLOCK);
             data = msg.json_tmsi_udp_controller_message("name", val);
             message = jsonencode(data);
-            app.controller_.writeline(message, app.streams_service_host_, app.streams_service_port_);
+            app.controller.writeline(message, app.streams_service_host_, app.streams_service_port_);
             
         end
 
@@ -401,7 +401,7 @@ classdef SAGA_Controller < matlab.apps.AppBase
             end
             data = msg.json_tmsi_udp_controller_message('state', state);
             message = jsonencode(data);
-            app.controller_.writeline(message, ...
+            app.controller.writeline(message, ...
                 app.streams_service_host_, app.streams_service_port_);
             if app.verbosity_.interface > 0
                 fprintf(1,'[TMSi Client]\tWrote UDP command [%s] ( %s:%d ---> %s:%d )\n', ...
@@ -429,7 +429,7 @@ classdef SAGA_Controller < matlab.apps.AppBase
             end
             data = msg.json_sta_udp_config_message(false, n_max,n_pre,n_post,channel,trigger_bit);
             message = jsonencode(data);
-            app.controller_.writeline(message, ...
+            app.controller.writeline(message, ...
                 event.Source.UserData.host, ...
                 event.Source.UserData.port);
             if app.verbosity_.interface > 0
@@ -449,7 +449,7 @@ classdef SAGA_Controller < matlab.apps.AppBase
             trigger_bit = app.SAGAATriggerBitEditField.Value;
             data = msg.json_sta_udp_config_message(true, n_max,n_pre,n_post,channel,trigger_bit);
             message = jsonencode(data);
-            app.controller_.writeline(message, ...
+            app.controller.writeline(message, ...
                 app.SAGAASTAChannelEditField.UserData.host, ...
                 app.SAGAASTAChannelEditField.UserData.port);
 
@@ -457,7 +457,7 @@ classdef SAGA_Controller < matlab.apps.AppBase
             trigger_bit = app.SAGABTriggerBitEditField.Value;
             data = msg.json_sta_udp_config_message(true, n_max,n_pre,n_post,channel,trigger_bit);
             message = jsonencode(data);
-            app.controller_.writeline(message, ...
+            app.controller.writeline(message, ...
                 app.SAGABSTAChannelEditField.UserData.host, ...
                 app.SAGABSTAChannelEditField.UserData.port);
             if app.verbosity_.interface > 0
@@ -478,7 +478,7 @@ classdef SAGA_Controller < matlab.apps.AppBase
             end
             data = msg.json_sta_udp_config_message(false, n_max,n_pre,n_post,channel,trigger_bit);
             message = jsonencode(data);
-            app.controller_.writeline(message, ...
+            app.controller.writeline(message, ...
                 event.Source.UserData.host, ...
                 event.Source.UserData.port);
             if app.verbosity_.interface > 0
@@ -495,7 +495,7 @@ classdef SAGA_Controller < matlab.apps.AppBase
             data_B = msg.json_snippets_udp_config_message(app.SAGABChannelsEditField.Value, rms_range, app.SAGABTriggerBitEditField.Value);
             
             message = jsonencode(data_A);
-            app.controller_.writeline(message, ...
+            app.controller.writeline(message, ...
                 app.SAGAASTAChannelEditField.UserData.host, ...
                 app.SAGAASTAChannelEditField.UserData.port);
             if app.verbosity_.interface > 0
@@ -504,7 +504,7 @@ classdef SAGA_Controller < matlab.apps.AppBase
             end
 
             message = jsonencode(data_B);
-            app.controller_.writeline(message, ...
+            app.controller.writeline(message, ...
                 app.SAGABSTAChannelEditField.UserData.host, ...
                 app.SAGABSTAChannelEditField.UserData.port);
             if app.verbosity_.interface > 0

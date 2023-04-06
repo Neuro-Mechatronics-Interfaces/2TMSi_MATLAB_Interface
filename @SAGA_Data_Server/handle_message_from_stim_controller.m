@@ -8,9 +8,15 @@ switch data.type
         if ~isempty(self.Connection.Rec) && isvalid(self.Connection.Rec)
             self.Connection.Rec.writeline(message);
         else
-            error_data = msg.json_stim_response(self.Stimulus, "disconnected", -1);
+            error_data = msg.json_stim_response(self.Stimulus, ...
+                "disconnected", -1, nan, nan, nan);
             error_message = jsonencode(error_data);
             src.writeline(error_message);
         end
+    otherwise
+        error_data = msg.json_stim_response(-1, ...
+            sprintf("Unexpected response: %s (only handles stim.response `type`).", data.type), -1, nan, nan, nan);
+        error_message = jsonencode(error_data);
+        src.writeline(error_message);
 end
 end

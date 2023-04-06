@@ -17,7 +17,6 @@ switch in.type
             self.meta_data(i_match,2)');    % y (mm)
         resp_message = jsonencode(resp);
         src.writeline(resp_message);
-
 end
 
 end

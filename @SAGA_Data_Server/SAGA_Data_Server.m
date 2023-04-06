@@ -5,11 +5,11 @@ classdef SAGA_Data_Server < handle
     %   serv = SAGA_Data_Server('Name', value, ...);
 
     properties (Access = public)
-        trigger_channel (1,2) double = [69, 69];
-        counter_channel (1,2) double = [70, 70];
-        sync_bit (1,2) double = [9, 9];
-        sample_data (136, :, :) double  % Triggered sample data for (64 UNI + 4 BIP) x 2 SAGA
-        meta_data   (:, 4) double       % [x (mm), y (mm), focus (a.u.; higher is more-focused), amplitude]
+        trigger_channel (1,2) double
+        counter_channel (1,2) double
+        sync_bit        (1,2) double
+        sample_data     (136, :, :) double  % Triggered sample data for (64 UNI + 4 BIP) x 2 SAGA
+        meta_data       (:, 5) double       % [x (mm), y (mm), focus (a.u.; higher is more-focused), amplitude, block]
     end
 
     properties (GetAccess = public, SetAccess = protected)
@@ -20,12 +20,14 @@ classdef SAGA_Data_Server < handle
         block   (1,1) double = 0;
 
         Ready (1,1) logical = false;
-        Stimulus (1,1) double = 0;
-        UIFigure
-        UITabGroup
+        Stimulus        (1,1) double = 0;
+        UIFigure        
+        UITabGroup      
+        UIToolbar       
         UITab = struct
-        UIGrid = struct     
-        Experiment (1,1) matlab.ui.control.Label
+        UIGrid = struct 
+        UIAxes = struct
+        Label = struct
         Lamp = struct       % Struct with fields that are Lamp uicontrols
         Push = struct       % Struct with fields that are PushButton uicontrols
         In = struct         % Struct with fields that are EditField or NumericEditField uicontrols
@@ -36,8 +38,9 @@ classdef SAGA_Data_Server < handle
         Queued  % Struct with queued patterns or other queued data
         prev_data
         trig_samples
+        t_lim (1,2) double = [17.5, 25.0]; % Times to consider for RMS calculation
         t     (1,:) double         % Relative sample times
-        n_sta (1,1) double = 0;    % Number of actual STA trials observed
+        n_sta (1,2) double = [0,0];    % Number of actual STA trials observed
         n_pre (1,1) double         % Number of pre-trigger samples
         n_post (1,1) double        % Number of post-trigger samples
         pattern_logger = mlog.Logger("StimPatterns");
@@ -57,7 +60,12 @@ classdef SAGA_Data_Server < handle
                 @(in)(isstring(in) || all(ischar(in))))
             p.parse(varargin{:});
             config = io.yaml.loadFile(p.Results.ConfigFile, "ConvertToArray", true);
+            self.subject = config.Default.Subject;
+            self.trigger_channel = [config.SAGA.A.Trigger.Channel, config.SAGA.B.Trigger.Channel];
+            self.counter_channel = [config.SAGA.A.Channels.COUNT, config.SAGA.B.Channels.COUNT];
+
             self.build_interface(config, p.Results);
+            self.build_toolbar();
             self.Connection.Responses = tcpserver("0.0.0.0", config.TCP.stimulation.responses, ...
                 'Timeout', 30, ...
                 'ConnectionChangedFcn', @self.handle_responses_connect_disconnect);
@@ -101,7 +109,11 @@ classdef SAGA_Data_Server < handle
         end
     end % End constructor & overloaded methods
 
-    methods (Access = public) % Network message callback handlers
+    methods (Access = public) % External functions in @SAGA_Data_Server folder
+        function set_stims(self, n)
+            self.Stimulus = n;
+        end
+        % Network message handling
         handle_acquisition_stream(self, src, ~)
         handle_message_from_stim_controller(self, src, ~)
         handle_message_from_rec_controller(self, src, ~)
@@ -110,14 +122,30 @@ classdef SAGA_Data_Server < handle
         handle_responses_connect_disconnect(self, src, ~)
         handle_stim_connect_disconnect(self, src, ~)
         handle_stream_connect_disconnect(self, src, ~)
-
+        
+        % Miscellaneous utility methods
+        generate_test_data(self)    % Generate random test data
         [x,y,focus] = parse_queued_pattern(self) % Parse pattern data
-    end % End network message callback handlers
+        save_data(self) % Saves data stored in `sample_data` and `meta_data` to a file.
+    end % End external functions
 
-    methods (Access = protected)
+    methods (Access = protected) 
+        function name = tank_(self)
+            name = sprintf('%s_%04d_%02d_%02d', self.subject, self.year, self.month, self.day);
+        end
+
+        function name = block_(self)
+            name = sprintf('%s_%d', self.tank_(), self.block);
+        end
+
         function handle_buffer_parameter_changed(self, ~, ~)
             self.Lamp.Init.Color = [0.1 0.1 0.9];
             self.Ready = false;
+        end
+
+        function handle_save_push(self, ~, ~)
+            %HANDLE_SAVE_PUSH  Open save dialog for saving `meta_data` and `sample_data`
+            self.save_data();
         end
 
         function handle_sync_bit_changed(self, src, ~)
@@ -135,9 +163,9 @@ classdef SAGA_Data_Server < handle
                 self.sample_data = nan(136, ...             % 64 UNI + 4 BIP x 2 SAGA
                     1 + self.n_pre + self.n_post, ...     % Time samples
                     nTrials);                               % Maximum allowed trials
-                self.meta_data = nan(nTrials, 4); % [x (mm), y (mm), focusing (a.u.)]
+                self.meta_data = nan(nTrials, 5); % [x (mm), y (mm), focusing (a.u.), amplitude, block]
                 self.Stimulus = 0; % Indexing for the TCP hand-shaking part
-                self.n_sta = 0; % Indexing for graphics and other "online" database tracking part
+                self.n_sta = [0,0]; % Indexing for graphics and other "online" database tracking part
             end
             self.In.N_Pre.Enable = 'off';
             self.In.N_Post.Enable = 'off';
@@ -147,6 +175,66 @@ classdef SAGA_Data_Server < handle
             
             self.Lamp.Init.Color = [0.1 0.9 0.1];
             self.Ready = true;
+        end
+
+        function handle_temporal_refresh_push(self, ~, ~)
+            %HANDLE_TEMPORAL_REFRESH_PUSH  Pushbutton callback for "Refresh" button
+            delete(self.UIAxes.Temporal.Children);
+            bk = self.In.Block.Value;
+            ch = self.In.Channel.Value;
+            idx = self.meta_data(:,5) == bk;
+            n = sum(idx);
+            if n < 1
+                y = nan(size(self.t));
+                cdata = [0.9, 0.1, 0.1];
+            elseif sum(idx) == 1
+                y = self.sample_data(ch,:,idx);
+                cdata = [0.0, 0.0, 0.0];
+            else
+                y = squeeze(self.sample_data(ch,:,idx));
+                cdata = [0.0, 0.0, 0.0];
+            end
+            plot(self.UIAxes.Temporal, self.t, y);
+            [tag, chname] = SAGA_Data_Server.channel_index_2_name(ch);
+            set(self.Label.Temporal, ...
+                'String', sprintf('Block-%d | %s | %s (n = %d)', bk, tag, chname, n), ...
+                'Color', cdata);
+            drawnow();
+        end
+
+        function handle_spatial_refresh_push(self, ~, ~)
+            %HANDLE_SPATIAL_REFRESH_PUSH  Pushbutton callback for "Refresh" button
+            delete(self.UIAxes.Spatial.Children);
+            bk = self.In.Block.Value;
+            ch = self.In.Channel.Value;
+            amp = self.In.Amplitude.Value;
+            idx = (self.meta_data(:,5) == bk) & (self.meta_data(:,4) == amp);
+            n = sum(idx);
+
+            [tag, chname] = SAGA_Data_Server.channel_index_2_name(ch);
+            set(self.Label.Spatial, ...
+                'String', sprintf('Block-%d | %s | %s (n = %d)', bk, tag, chname, n));
+            
+            if n < 1
+                return;
+            elseif sum(idx) == 1
+                z = self.sample_data(ch,:,idx);
+            else
+                z = squeeze(self.sample_data(ch,:,idx))';
+            end
+            t_idx = (self.t >= self.t_lim(1)) & (self.t <= self.t_lim(2));
+            z = rms(z(:, t_idx), 2);
+            x = self.meta_data(idx,1);
+            y = self.meta_data(idx,2);
+            bubblechart(self.UIAxes.Spatial, x, y, z);
+            drawnow();
+        end
+
+        function handle_spatial_imit_change(self, ~, ~)
+            %HANDLE_SPATIAL_LIMIT_CHANGE  Handles chaning spatial-axes limits
+            set(self.UIAxes.Spatial, ...
+                'XLim', [self.In.XMin.Value, self.In.XMax.Value], ... 
+                'YLim', [self.In.YMin.Value, self.In.YMax.Value])
         end
     
         function handle_unlock_push(self, ~, ~)
@@ -159,6 +247,7 @@ classdef SAGA_Data_Server < handle
         end
 
         function update_experiment_text(self, varargin)
+            %UPDATE_EXPERIMENT_TEXT  Updates the text in self.Label.Experiment
             p = inputParser();
             p.addParameter('subject', self.subject);
             p.addParameter('year', self.year);
@@ -166,27 +255,41 @@ classdef SAGA_Data_Server < handle
             p.addParameter('day', self.day);
             p.addParameter('block', self.block);
             p.parse(varargin{:});
-
-            self.Experiment.Text =  sprintf('%s: %04d-%02d-%02d (%d)', ...
+            self.subject = p.Results.subject;
+            self.year = p.Results.year;
+            self.month = p.Results.month;
+            self.day = p.Results.day;
+            self.block = p.Results.block;
+            self.In.Block.Value = self.block;
+            self.Label.Experiment.Text =  sprintf('%s: %04d-%02d-%02d (%d)', ...
                 p.Results.subject, p.Results.year, p.Results.month, p.Results.day, p.Results.block);
         end
 
+        % Gigantic function that builds the UI elements
         function build_interface(self, config, parameters)
+            %BUILD_INTERFACE  Make all the stuff
+            switch getenv("COMPUTERNAME")
+                case 'NMLNHP-DELL-C01'
+                    pos = [1234 291 667 420];
+                otherwise
+                    pos = [260 1398 667 420];
+            end
             self.UIFigure = uifigure(...
                 'Name', 'TMSi SAGA Data Server', ...
                 'Color', 'w', ...
                 'Icon', parameters.FigureIcon, ...
+                'Position', pos, ...
                 'DeleteFcn', @(~,~)self.delete);
             maingrid = uigridlayout(self.UIFigure, ...
                 'ColumnWidth', {'1x', '20x', '1x'}, ...
                 'RowHeight', {'1x', '20x', '1x'}, ...
                 'BackgroundColor', [0 0 0]);
-            self.Experiment = uilabel(maingrid, ...
+            self.Label.Experiment = uilabel(maingrid, ...
                 'FontName', 'Tahoma', 'FontSize', 14, 'FontWeight', 'bold', ...
                 'Text', 'Not Connected', 'HorizontalAlignment', 'left', ...
                 'FontColor', [1 1 1]);
-            self.Experiment.Layout.Row = 1;
-            self.Experiment.Layout.Column = [1 2];
+            self.Label.Experiment.Layout.Row = 1;
+            self.Label.Experiment.Layout.Column = [1 2];
             self.Lamp.Responses = uilamp(maingrid, 'Color', [0.1 0.1 0.9]);
             self.Lamp.Responses.Layout.Row = 1;
             self.Lamp.Responses.Layout.Column = 3;
@@ -238,6 +341,7 @@ classdef SAGA_Data_Server < handle
                 'Limits', [0, 15], ...
                 'ValueChangedFcn', @self.handle_sync_bit_changed, ...
                 'Value', config.SAGA.A.Trigger.Bit);
+            self.sync_bit = ones(1,2).*config.SAGA.A.Trigger.Bit;
             self.In.Sync_Bit.Layout.Row = 1;
             self.In.Sync_Bit.Layout.Column = 3;
 
@@ -256,6 +360,7 @@ classdef SAGA_Data_Server < handle
                 'Limits', [0, 80], ...
                 'ValueChangedFcn', @self.handle_buffer_parameter_changed, ...
                 'Value', config.Default.N_Pre);
+            self.n_pre = config.Default.N_Pre;
             self.In.N_Pre.Layout.Row = 2;
             self.In.N_Pre.Layout.Column = 3;
 
@@ -274,6 +379,7 @@ classdef SAGA_Data_Server < handle
                 'Limits', [0, 200], ...
                 'ValueChangedFcn', @self.handle_buffer_parameter_changed, ...
                 'Value', config.Default.N_Post);
+            self.n_post = config.Default.N_Post;
             self.In.N_Post.Layout.Row = 3;
             self.In.N_Post.Layout.Column = 3;
 
@@ -488,10 +594,185 @@ classdef SAGA_Data_Server < handle
             self.Lamp.Stream.B.Layout.Row = 3;
             self.Lamp.Stream.B.Layout.Column = 4;
             
+            % % Build the tab for data visualization % %
+            self.UITab.Temporal = uitab(self.UITabGroup, ...
+                'Title', 'Temporal Data');
+            self.UIGrid.Temporal = uigridlayout(self.UITab.Temporal, ...
+                'ColumnWidth', {'1x', '2x', '1x', '2x', '2x', '1x'}, ...
+                'RowHeight', {'8x', '1x'}, ...
+                'BackgroundColor', [1 1 1]);
+            self.UIAxes.Temporal = uiaxes(self.UIGrid.Temporal, ...
+                'FontName', 'Tahoma', 'NextPlot', 'add');
+            xlabel(self.UIAxes.Temporal, 'Time (ms)', 'FontName', 'Tahoma', 'Color', 'k');
+            ylabel(self.UIAxes.Temporal, 'Amplitude (mV)', 'FontName', 'Tahoma', 'Color', 'k');
+            self.Label.Temporal = title(self.UIAxes.Temporal, 'Block-0 | A | UNI-01', 'FontName', 'Tahoma', 'Color', 'k');
+            self.UIAxes.Temporal.Layout.Row = 1;
+            self.UIAxes.Temporal.Layout.Column = [2 5];
+            self.UIAxes.Temporal.Toolbar.Visible = 'off';
+            self.UIAxes.Temporal.Interactions = [panInteraction zoomInteraction];
+            
+            lab = uilabel(self.UIGrid.Temporal, ...
+                'FontName', 'Tahoma', 'FontSize', 16, ...
+                'Text', 'Block', ...
+                'HorizontalAlignment', 'right');
+            lab.Layout.Row = 2;
+            lab.Layout.Column = 1;
+
+            self.In.Block = uieditfield(self.UIGrid.Temporal, 'numeric', ...
+                'HorizontalAlignment', 'center', ...
+                'FontName', 'Tahoma', ...
+                'RoundFractionalValues', true, ...
+                'FontSize', 16, ...
+                'Limits', [0, 100000], ...
+                'Value', 0);
+            self.In.Block.Layout.Row = 2;
+            self.In.Block.Layout.Column = 2;
+
+            lab = uilabel(self.UIGrid.Temporal, ...
+                'FontName', 'Tahoma', 'FontSize', 16, ...
+                'Text', 'Channel', ...
+                'HorizontalAlignment', 'right');
+            lab.Layout.Row = 2;
+            lab.Layout.Column = 3;
+
+            self.In.Channel = uieditfield(self.UIGrid.Temporal, 'numeric', ...
+                'HorizontalAlignment', 'center', ...
+                'FontName', 'Tahoma', ...
+                'RoundFractionalValues', true, ...
+                'FontSize', 16, ...
+                'Limits', [1, 136], ...
+                'Value', 1);
+            self.In.Channel.Layout.Row = 2;
+            self.In.Channel.Layout.Column = 4;
+
+            self.Push.Refresh_Temporal = uibutton(self.UIGrid.Temporal, 'push', ...
+                'FontName', 'Tahoma', 'FontSize', 20, ...
+                'Tooltip', {'Refresh the data plot.'}, ...
+                'Text', 'Refresh', 'ButtonPushedFcn', @self.handle_temporal_refresh_push);
+            self.Push.Refresh_Temporal.Layout.Row = 2;
+            self.Push.Refresh_Temporal.Layout.Column = 5;
+
+             % % Build the tab for sweep visualization % %
+            self.UITab.Spatial = uitab(self.UITabGroup, ...
+                'Title', 'Spatial Data');
+            self.UIGrid.Spatial = uigridlayout(self.UITab.Spatial, ...
+                'ColumnWidth', {'1x', '2x', '2x', '1x', '2x', '2x', '1x', '2x', '3x', '1x'}, ...
+                'RowHeight', {'8x', '1x'}, ...
+                'BackgroundColor', [1 1 1]);
+            self.UIAxes.Spatial = uiaxes(self.UIGrid.Spatial, ...
+                'FontName', 'Tahoma', 'NextPlot', 'add', ...
+                'XLimMode', 'manual', 'XLim', [-6.5, 6.5], ...
+                'YLimMode', 'manual', 'YLim', [-2.5, 2.5]);
+            xlabel(self.UIAxes.Spatial, 'ML (mm)', 'FontName', 'Tahoma', 'Color', 'k');
+            ylabel(self.UIAxes.Spatial, 'AP (mm)', 'FontName', 'Tahoma', 'Color', 'k');
+            self.Label.Spatial = title(self.UIAxes.Spatial, 'Block-0 | A | UNI-01', 'FontName', 'Tahoma', 'Color', 'k');
+            self.UIAxes.Spatial.Layout.Row = 1;
+            self.UIAxes.Spatial.Layout.Column = [2 9];
+            self.UIAxes.Spatial.Toolbar.Visible = 'off';
+            self.UIAxes.Spatial.Interactions = [panInteraction zoomInteraction];
+            
+            lab = uilabel(self.UIGrid.Spatial, ...
+                'FontName', 'Tahoma', 'FontSize', 16, ...
+                'Text', 'X', ...
+                'HorizontalAlignment', 'right');
+            lab.Layout.Row = 2;
+            lab.Layout.Column = 1;
+
+            self.In.XMin = uieditfield(self.UIGrid.Spatial, 'numeric', ...
+                'HorizontalAlignment', 'center', ...
+                'FontName', 'Tahoma', ...
+                'Tooltip', {'Min X-Grid (mm)'}, ...
+                'RoundFractionalValues', false, ...
+                'FontSize', 16, ...
+                'Limits', [-100000, 100000], ...
+                'Value', -6.5, ...
+                'ValueChangedFcn', @self.handle_spatial_limit_change);
+            self.In.XMin.Layout.Row = 2;
+            self.In.XMin.Layout.Column = 2;
+
+            self.In.XMax = uieditfield(self.UIGrid.Spatial, 'numeric', ...
+                'HorizontalAlignment', 'center', ...
+                'FontName', 'Tahoma', ...
+                'Tooltip', {'Max X-Grid (mm)'}, ...
+                'RoundFractionalValues', false, ...
+                'FontSize', 16, ...
+                'Limits', [-100000, 100000], ...
+                'Value', 6.5, ...
+                'ValueChangedFcn', @self.handle_spatial_limit_change);
+            self.In.XMax.Layout.Row = 2;
+            self.In.XMax.Layout.Column = 3;
+
+            lab = uilabel(self.UIGrid.Spatial, ...
+                'FontName', 'Tahoma', 'FontSize', 16, ...
+                'Text', 'Y', ...
+                'HorizontalAlignment', 'right');
+            lab.Layout.Row = 2;
+            lab.Layout.Column = 4;
+
+            self.In.YMin = uieditfield(self.UIGrid.Spatial, 'numeric', ...
+                'HorizontalAlignment', 'center', ...
+                'FontName', 'Tahoma', ...
+                'Tooltip', {'Min Y-Grid (mm)'}, ...
+                'RoundFractionalValues', false, ...
+                'FontSize', 16, ...
+                'Limits', [-100000, 100000], ...
+                'Value', -2.5, ...
+                'ValueChangedFcn', @self.handle_spatial_limit_change);
+            self.In.YMin.Layout.Row = 2;
+            self.In.YMin.Layout.Column = 5;
+
+            self.In.YMax = uieditfield(self.UIGrid.Spatial, 'numeric', ...
+                'HorizontalAlignment', 'center', ...
+                'FontName', 'Tahoma', ...
+                'Tooltip', {'Max Y-Grid (mm)'}, ...
+                'RoundFractionalValues', false, ...
+                'FontSize', 16, ...
+                'Limits', [-100000, 100000], ...
+                'Value', 2.5, ...
+                'ValueChangedFcn', @self.handle_spatial_limit_change);
+            self.In.YMax.Layout.Row = 2;
+            self.In.YMax.Layout.Column = 6;
+
+            lab = uilabel(self.UIGrid.Spatial, ...
+                'FontName', 'Tahoma', 'FontSize', 12, ...
+                'Text', 'Amp', ...
+                'HorizontalAlignment', 'right');
+            lab.Layout.Row = 2;
+            lab.Layout.Column = 7;
+
+            self.In.Amplitude = uieditfield(self.UIGrid.Spatial, 'numeric', ...
+                'HorizontalAlignment', 'center', ...
+                'FontName', 'Tahoma', ...
+                'Tooltip', {'Stimulation Amplitude'}, ...
+                'RoundFractionalValues', false, ...
+                'FontSize', 16, ...
+                'Limits', [-100000, 100000], ...
+                'Value', 0);
+            self.In.Amplitude.Layout.Row = 2;
+            self.In.Amplitude.Layout.Column = 8;
+
+            self.Push.Refresh_Spatial = uibutton(self.UIGrid.Spatial, 'push', ...
+                'FontName', 'Tahoma', 'FontSize', 20, ...
+                'Tooltip', {'Refresh the data plot.'}, ...
+                'Text', 'Refresh', 'ButtonPushedFcn', @self.handle_spatial_refresh_push);
+            self.Push.Refresh_Spatial.Layout.Row = 2;
+            self.Push.Refresh_Spatial.Layout.Column = 9;
+        end
+    
+        function build_toolbar(self)
+            %BUILD_TOOLBAR  Smaller function to build just the toolbar
+            self.UIToolbar = uitoolbar(self.UIFigure);
+
+            % Create SavePushTool
+            self.Push.Save = uipushtool(self.UIToolbar, ...
+                'Tooltip', {'Open data-saving dialog.'}, ...
+                'ClickedCallback', @self.handle_save_push, ...
+                'Icon', 'baseline_save_black_24dp.png');
         end
     end
 
-    methods (Static, Access = public)
+    methods (Static, Access = public) % External static functions in @SAGA_Data_Server folder
+        [tag, chname] = channel_index_2_name(ch)           % Parses the string representation of SAGA (tag) and channel name given channel index and assuming fixed indexing scheme
         pdata = parse_pattern_volume_string(str, varargin) % Parses pattern volume string from filenames.
     end
 end

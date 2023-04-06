@@ -43,9 +43,9 @@ switch in.type
                 sta_snippet_data(:, assign_vec(vec_mask), ii) = y(1:68, vec_snippet(vec_mask));
             end
             updated_channels = ((k - 1)*68 + 1) : (k*68);
-            updated_snippets = (self.n_sta + 1):(self.n_sta + n_new);
+            updated_snippets = (self.n_sta(k) + 1):(self.n_sta(k) + n_new);
             self.sample_data(updated_channels, :, updated_snippets) = sta_snippet_data;
-            self.n_sta = self.n_sta + n_new;
+            self.n_sta(k) = self.n_sta(k) + n_new;
         end
     case 'name.tmsi'
         self.subject = in.subject;
