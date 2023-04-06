@@ -21,16 +21,20 @@ function varargout = parameters(varargin)
 pars = struct;
 
 % pars.config = strrep(fullfile(pwd, 'config.yaml'),'\','/');
-% pars.config = strrep(fullfile(pwd, 'Forrest_2022_08_11_config.yaml'), '\', '/');
-pars.config = strrep(fullfile(pwd, 'Local_Testing_config.yaml'), '\', '/');
+% pars.config = strrep(fullfile(pwd, 'Forrest_2022_11_08_config.yaml'), '\', '/');
+% pars.config = strrep(fullfile(pwd, 'Local_Testing_config.yaml'), '\', '/');
 
 % % % Trying to pull the "relevant" ones to the top ... % % % 
+% pars.config = "config_125k.yaml";
+pars.config = "Forrest_2023_04_05_config.yaml";
 % pars.generated_data_folder =  strrep('C:\Users\NML\Box\N3_SharpFocus\Phase 3 experiments\generated_data', '\', '/'); % Setting this to human or primate, temporary hard code
 % pars.raw_data_folder = strrep('C:\Users\NML\Box\N3_SharpFocus\Phase 3 experiments\raw_data', '\', '/');
 % pars.generated_data_folder =  strrep('R:\NMLShare\generated_data\human\DARPA_N3', '\', '/'); % Setting this to human or primate, temporary hard code
 pars.generated_data_folder =  strrep('R:\NMLShare\generated_data\primate\DARPA_N3\N3_Patch', '\', '/'); % Setting this to human or primate, temporary hard code
+% pars.generated_data_folder =  strrep('C:\Temp_Save\generated_data', '\', '/'); % Local for Forrest_2023_03_06
 % pars.raw_data_folder = strrep('R:\NMLShare\raw_data\human', '\', '/');
 pars.raw_data_folder = strrep('R:\NMLShare\raw_data\primate', '\', '/');
+% pars.raw_data_folder = strrep('C:\Temp_Save\raw_data', '\', '/'); % Local for Forrest_2023_03_06
 pars.preliminary_output_folder = strrep(fullfile(pars.generated_data_folder, '.preliminary'), '\', '/'); % . prefix defaults to "Hidden" on Windows
 
 pars.default_training_log_file = 'G:\Shared drives\NML_NHP\Monkey Training Records\Training.xlsx';
@@ -42,7 +46,7 @@ pars.max_brain_mesh_folder = "D:/__Assets__/MRI/_SLICER3D_/Spencer/06_Output";
 pars.frame_dir = 'D:/__Assets__/temp/generated_data/N3_Patch/.preliminary/Brain-Pattern-Volume-Overlays/Individual';
 pars.vid_dir = 'D:/__Assets__/temp/generated_data/N3_Patch/.preliminary/Brain-Pattern-Volume-Overlays';
 pars.monkey_arms_dir = 'G:/Shared drives/NML_NHP/Generic Images/Monkey Cartoons';
-pars.version = "1.6.0"; % "Version" of repo code
+pars.version = "3.0.0"; % "Version" of repo code
 
 % % Depending on functions that are used, some of the below parameters may
 % be deprecated as the organization of this repo has changed numerous
@@ -84,7 +88,7 @@ pars.alignment_folder = struct( ...
 pars.mongo.server = "localhost";
 pars.mongo.port = 27017;
 pars.mongo.dbname = "wrist";
-pars.version = 2.0; % "Version" of utils/parameter repo code
+pars.version = 3.3; % "Version" of utils/parameter repo code
 
 % Filtering and acquisition parameters
 pars.f_order = 2;       % Use fourth-order butterworth filter

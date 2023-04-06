@@ -25,28 +25,9 @@ else
 end
 
 %% SET PARAMETERS
-% SERVER_ADDRESS = "127.0.0.1";        % Host machine for TMSiSAGA ("Stream Server"; most-likely "localhost")
-% WORKER_ADDRESS = "127.0.0.1";        % Can be Max desktop ("128.2.244.29") or Backyard Brains ("172.26.32.199")
-% UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
-% UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
-% UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
-% UDP_TASK_BROADCAST_PORT  = 3033;    % UDP port: task
-% UDP_DATA_BROADCAST_PORT  = 3034;    % UDP port: data
-% UDP_CONTROLLER_RECV_PORT = 3035;    % UDP port: receiver (controller)
-% SERVER_PORT_CONTROLLER = 5000;          % Server port for CONTROLLER
-% SERVER_PORT_DATA = struct;
-% SERVER_PORT_DATA.A    = 5020;           % Server port for DATA from SAGA-A
-% SERVER_PORT_DATA.B    = 5021;           % Server port for DATA from SAGA-B
-% SERVER_PORT_WORKER = struct;
-% SERVER_PORT_WORKER.A = 4000;
-% SERVER_PORT_WORKER.B = 4001;
-% USE_PARAM_SERVER = false;
-% USE_WORKER = true; % Set to true if the worker will actually be deployed (MUST BE DEPLOYED BEFORE RUNNING THIS SCRIPT IF SET TO TRUE).
-% N_SAMPLES_LOOP_BUFFER = 16384;
-% IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
-%                               186 430 1482 787]; % B
-IMPEDANCE_FIGURE_POSITION = [1100 1100 650 400; ... % A (DELL TMSI CART)
-                             1100 575  650 400];    % B (DELL TMSI CART)
+IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
+                              186 430 1482 787]; % B
+
 % Set this to LONGER than you think your recording should be, otherwise it
 % will loop back on itself! %
 N_SAMPLES_RECORD_MAX = 4000 * 60 * 10; % (sample rate) * (seconds/min) * (max. desired minutes to record)
@@ -61,26 +42,9 @@ N_SAMPLES_RECORD_MAX = 4000 * 60 * 10; % (sample rate) * (seconds/min) * (max. d
 % object to do this or subclassing to a new buffer class that is
 % specifically meant for saving stream records.
 
-% SN = [1005210029; 1005210028]; % NHP-B; NHP-A | docking stations / bottom
-% TAG = ["B"; "A"];
-
-% SN = [1000210036; 1000210037]; % NHP-B; NHP-A | data recorders / bottom
-% TAG = ["B"; "A"];
-
-% SN = [1005210038]; % SAGA-3 (wean | docking station / bottom half)
-% TAG = "S3"; 
-
-% SN = [1000210046]; % SAGA-3 (wean | data recorder / top half)
-% TAG = "S3";
-
-% SN = [1005220030; 1005220009]; % SAGA-4; SAGA-5 (wean | docking stations / bottom half)
-% TAG = ["S4"; "S5"];
-
-% SN = [1000220037; 1000220035];
-% TAG = ["A"; "B"]; % Arbitrary  - "A" is SAGA-4 and "B" is SAGA-5
-
-fprintf(1, "Loading configuration file (config.yaml, in main repo folder)...\n");
-[config, TAG, SN, N_CLIENT] = parse_main_config(parameters('config'));
+config_file = parameters('config');
+fprintf(1, "[TMSi]::Loading configuration file (%s, in main repo folder)...\n", config_file);
+[config, TAG, SN, N_CLIENT] = parse_main_config(config_file);
 pause(1.5);
 %% Setup device configurations.
 config_device_impedance = struct('ImpedanceMode', true, ... 
@@ -103,7 +67,8 @@ config_device = struct('Dividers', {{'uni', 0; 'bip', 0}}, ...
 config_channels = struct('uni', 1:64, ...
                          'bip', 1:4, ...
                          'dig', 0, ...
-                         'acc', 0);
+                         'acc', 0, ...
+                         'aux', 1:2);
 channels = struct('A', config.SAGA.A.Channels, ...
                   'B', config.SAGA.B.Channels);
 
@@ -114,8 +79,9 @@ lib = TMSiSAGA.Library();
 try
     % Code within the try-catch to ensure that all devices are stopped and 
     % closed properly in case of a failure.
-    device = lib.getDevices('usb', config.Default.Interface, 2, 2);  
+    device = lib.getDevices('usb', config.Default.Interface, 2, 2); 
     connect(device); 
+    setDeviceTag(device, SN, TAG);
 catch e
     % In case of an error close all still active devices and clean up
     lib.cleanUp();  
@@ -126,12 +92,18 @@ end
 
 %% Retrieve data about the devices.
 try % Separate try loop because now we must be sure to disconnect device.
-    setDeviceTag(device, SN, TAG);
+    
     info = getDeviceInfo(device);
     enableChannels(device, horzcat({device.channels}));
     updateDeviceConfig(device);   
     device.setChannelConfig(config_channels);
     device.setDeviceConfig(config_device); 
+    for ii = 1:numel(device)
+        fprintf(1,'[TMSi]\t->\tDetected device(%d): SAGA=%s | API=%d | INTERFACE=%s\n', ii, device(ii).tag, device(ii).api_version, device(ii).data_recorder.interface_type);
+    end
+    if numel(device) ~= N_CLIENT
+        fprintf(1,'[TMSi]\t->\tWrong number of devices returned. Something went wrong with hardware connections.\n');
+    end
 catch e
     disconnect(device);
     lib.cleanUp();
@@ -155,34 +127,33 @@ end
 packet_mode = struct('A','US','B','US');
 
 
-visualizer = cell(1, N_CLIENT);
+visualizer = struct;
 for ii = 1:N_CLIENT
-    visualizer{ii} = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Viewer);
+    visualizer.(device(ii).tag) = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Viewer);
 end
-visualizer = vertcat(visualizer{:});
+worker = struct('A', [], 'B', []);
 if config.Default.Use_Worker_Server
-    worker = tcpclient(config.Server.Address.Worker, config.Server.TCP.Worker);
-else
-    worker = [];
+    for ii = 1:N_CLIENT
+        worker.(device(ii).tag) = tcpclient(config.Server.Address.Worker, config.Server.TCP.(device(ii).tag).Worker);
+    end
 end
-
 
 ch = device.getActiveChannels();
-% fsm = SAGA_State_Machine(config, ch, TAG);
-
-buffer = cell(1, N_CLIENT); 
+if ~iscell(ch)
+    ch = {ch};
+end
+buffer = struct;
 for ii = 1:N_CLIENT
-    buffer{ii} = StreamBuffer(ch{ii}, ...
+    buffer.(device(ii).tag) = StreamBuffer(ch{ii}, ...
         channels.(device(ii).tag).n.samples, ...
         device(ii).tag, ...
         device(ii).sample_rate);
 end
-buffer = vertcat(buffer{:});
 
 buffer_event_listener = struct;
 for ii = 1:N_CLIENT
-    itag = device(ii).tag;
-    buffer_event_listener.(itag) = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer(ii), (channels.(itag).UNI(1:4))'));
+    tag = device(ii).tag;
+    buffer_event_listener.(tag) = addlistener(buffer.(tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer.(tag), (channels.(tag).UNI(1:4))', true));
 end
 
 %%
@@ -198,96 +169,101 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
 %         fname = fsm.check_for_name_update();
 %         fsm.check_for_parameter_update();
         
-        if udp_name_receiver.NumBytesAvailable > 0
+        while udp_name_receiver.NumBytesAvailable > 0
             tmp = udp_name_receiver.readline();
             if startsWith(strrep(tmp, "\", "/"), config.Default.Folder)
                 fname = tmp;
             else
                 fname = strrep(fullfile(config.Default.Folder, tmp), "\", "/"); 
             end
-            fprintf(1, "File name updated: %s\n", fname);
+            fprintf(1, "[TMSi]\t->\tFile name updated: %s\n", fname);
         end        
         if config.Default.Use_Param_Server
-            if udp_extra_receiver.NumBytesAvailable > 0 %#ok<*UNRCH>
+            while udp_extra_receiver.NumBytesAvailable > 0 %#ok<*UNRCH>
                 tmp = udp_extra_receiver.readline();
                 info = strsplit(tmp, '.');
                 packet_tag = info{2};
                 if strcmpi(packet_tag, 'A') || strcmpi(packet_tag, 'B')
-                    fprintf(1, "Detected switch in packet mode from '%s' to --> '%s' <--\n", packet_mode, tmp);
-                    packet_mode = info{1};
-                    
+                    fprintf(1, "[TMSi]\t->\tDetected (%s) switch in packet mode from '%s' to --> '%s' <--\n", packet_tag, packet_mode.(packet_tag), tmp);
+                    reset_buffer(buffer.(packet_tag));
+                    packet_mode.(packet_tag) = info{1};
                     delete(buffer_event_listener.(packet_tag)); 
                     switch packet_mode.(packet_tag)
                         case 'US'
-                            i_subset = channels.(packet_tag).UNI(double(info{3}) - 96)';
-                            fprintf(1, 'Enabled CH-%02d (UNI)\n', i_subset);
-                            for ii = 1:N_CLIENT
-                                buffer_event_listener.(packet_tag) = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer(ii), i_subset));
-                            end
-                            fprintf(1, "\t->\tConfigured %s for unipolar stream data.\n", packet_tag);
+                            apply_car = str2double(info{3});
+                            i_subset = (double(info{4}) - 96)';
+                            fprintf(1, '[TMSi]\tEnabled CH-%02d (UNI)\n', i_subset);
+                            buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer.(packet_tag), i_subset, apply_car));
+                            fprintf(1, "[TMSi]\t->\tConfigured %s for unipolar stream data.\n", packet_tag);
                         case 'BS'
-                            i_subset = channels.(packet_tag).BIP(double(info{3}) - 96)';
-                            fprintf(1, 'Enabled CH-%02d (BIP)\n', i_subset);
+                            i_subset = (double(info{3}) - 96)';
+                            fprintf(1, '[TMSi]\tEnabled CH-%02d (BIP)\n', i_subset);
                             for ii = 1:N_CLIENT
-                                buffer_event_listener.(info{2}) = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BS(src, evt, visualizer(ii), i_subset));
+                                buffer_event_listener.(info{2}) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BS(src, evt, visualizer.(packet_tag), i_subset));
                             end
-                            fprintf(1, "\t->\tConfigured %s for bipolar stream data.\n", packet_tag);
+                            fprintf(1, "[TMSi]\t->\tConfigured %s for bipolar stream data.\n", packet_tag);
                         case 'UA'
-                            i_subset = channels.(packet_tag).UNI(double(info{3}) - 96)';
-                            fprintf(1, 'Sending triggered-averages for %s:CH-%02d (UNI)\n', packet_tag, i_subset(1));
-                            for ii = 1:N_CLIENT
-                                buffer_event_listener.(info{2}) = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UA(src, evt, visualizer(ii), i_subset));
-                            end
-                            fprintf(1, "\t->\tConfigured %s for unipolar averaging data.\n", packet_tag);
+                            apply_car = str2double(info{3});
+%                             i_subset = str2double(info{4});
+                            i_subset = (double(info{4}) - 96)';
+                            i_trig = config.SAGA.(packet_tag).Trigger.Channel;
+                            fprintf(1, '[TMSi]\tSending triggered-averages for %s:CH-%02d (UNI)\n', packet_tag, i_subset);
+%                             buffer_event_listener.(info{2}) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UA(src, evt, visualizer.(packet_tag), i_subset, apply_car, i_trig));
+                            buffer_event_listener.(info{2}) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__SendAll(src, evt, visualizer.(packet_tag), i_subset, apply_car, i_trig));
+                            fprintf(1, "[TMSi]\t->\tConfigured %s for unipolar averaging data.\n", packet_tag);
                         case 'BA'
-                            i_subset = channels.(packet_tag).BIP(double(info{3}) - 96)';
-                            fprintf(1, 'Sending triggered-averages for %s:CH-%02d (BIP)\n', packet_tag, i_subset(1));
-                            for ii = 1:N_CLIENT
-                                buffer_event_listener.(packet_tag) = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BA(src, evt, visualizer(ii), i_subset));
-                            end
-                            fprintf(1, "Configured %s for bipolar averaging data.\n", packet_tag);
+%                             i_subset = str2double(info{3});
+                            apply_car = str2double(info{3});
+                            i_subset = (double(info{4}) - 96)';
+                            i_trig = config.SAGA.(packet_tag).Trigger.Channel;
+                            fprintf(1, '[TMSi]\tSending triggered-averages for %s:CH-%02d (BIP)\n', packet_tag, i_subset);
+%                             buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BA(src, evt, visualizer.(packet_tag), i_subset, i_trig));
+                            buffer_event_listener.(info{2}) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__SendAll(src, evt, visualizer.(packet_tag), i_subset, apply_car, i_trig));
+                            fprintf(1, "[TMSi]\tConfigured %s for bipolar averaging data.\n", packet_tag);
                         case 'UR'
-                            for ii = 1:N_CLIENT
-                                buffer_event_listener.(packet_tag) = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UR(src, evt, visualizer(ii)));
-                            end
-                            fprintf(1, "\t->\tConfigured %s for unipolar raster data.\n", packet_tag);
+                            buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UR(src, evt, visualizer.(packet_tag)));
+                            fprintf(1, "[TMSi]\t->\tConfigured %s for unipolar raster data.\n", packet_tag);
                         case 'IR'
-                            for ii = 1:N_CLIENT
-                                buffer_event_listener.(packet_tag) = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__IR(src, evt, visualizer(ii)));
-                            end
-                            fprintf(1, "\t->\tConfigured %s for ICA raster data.\n", packet_tag);
+                            buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__IR(src, evt, visualizer.(packet_tag)));
+                            fprintf(1, "[TMSi]\t->\tConfigured %s for ICA raster data.\n", packet_tag);
                         case 'IS'
                             i_subset = (double(info{3}) - 96)';
-                            fprintf(1, 'Sending triggered-averages for %s:ICA-%02d\n', packet_tag, i_subset(1));
-                            for ii = 1:N_CLIENT
-                                buffer_event_listener.(packet_tag)  = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__IS(src, evt, visualizer(ii), i_subset));
-                            end
-                            fprintf(1, "\t->\tConfigured %s for bipolar averaging data.\n", packet_tag);
+                            fprintf(1, '[TMSi]\tSending triggered-averages for %s:ICA-%02d\n', packet_tag, i_subset(1));
+                            buffer_event_listener.(packet_tag)  = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__IS(src, evt, visualizer.(packet_tag), i_subset));
+                            fprintf(1, "[TMSi]\t->\tConfigured %s for bipolar averaging data.\n", packet_tag);
                         case 'RC'
-                            for ii = 1:N_CLIENT
-                                buffer_event_listener.(packet_tag) = addlistener(buffer(ii), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__RC(src, evt, visualizer(ii)));
-                            end
-                            fprintf(1, "\t->\tConfigured %s for RMS contour data.\n", packet_tag);
+                            buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__RC(src, evt, visualizer.(packet_tag)));
+                            fprintf(1, "[TMSi]\t->\tConfigured %s for RMS contour data.\n", packet_tag);
                         otherwise
-                            fprintf(1,"\t->\tUnrecognized requested packet mode: %s", packet_mode);
-                    end      
-                end  
+                            fprintf(1, "[TMSi]\t->\tUnrecognized requested packet mode: %s", packet_mode);
+                    end 
+                end
             end
         end
         
         while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit")) && (~strcmpi(state, "imp"))
             [samples, num_sets] = device.sample();
-            buffer.append(samples);
+            for ii = 1:N_CLIENT
+                buffer.(device(ii).tag).append(samples{ii});
+                if udp_name_receiver.NumBytesAvailable > 0
+                    tmp = udp_name_receiver.readline();
+                    if startsWith(strrep(tmp, "\", "/"), config.Default.Folder)
+                        fname = tmp;
+                    else
+                        fname = strrep(fullfile(config.Default.Folder, tmp), "\", "/"); 
+                    end
+                    fprintf(1, "[TMSi]\t->\tFile name updated: %s\n", fname);
+                end
+            end
             if udp_state_receiver.NumBytesAvailable > 0
                 state = readline(udp_state_receiver);
                 if strcmpi(state, "rec")
                     if ~recording
-                        fprintf(1, "[RUN > REC]: Buffer created, recording in process...");
-                        rec_buffer = cell(1, N_CLIENT); 
+                        fprintf(1, "[TMSi]::[RUN > REC]: Buffer created, recording in process...\n");
+                        rec_buffer = struct;
                         for ii = 1:N_CLIENT
-                            rec_buffer{ii} = StreamBuffer(ch{ii}, config.Default.Rec_Samples, device(ii).tag, device(ii).sample_rate);
+                            rec_buffer.(device(ii).tag) = StreamBuffer(ch{ii}, config.Default.Rec_Samples, device(ii).tag, device(ii).sample_rate);
                         end
-                        rec_buffer = vertcat(rec_buffer{:});
                     end
                     recording = true;
                     running = true;
@@ -297,40 +273,44 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         stop(device);
                     end
                     if recording
-                        fprintf(1, "complete\n\t->\t(%s)\n", fname);
-                        rec_buffer.save(fname);
-                        delete(rec_buffer);
-                        clear rec_buffer;
+                        fprintf(1, "[TMSi]::[REC > RUN]: Recording complete\n\t->\t(%s)\n", fname);
+                        for ii = 1:N_CLIENT
+                            rec_buffer.(device(ii).tag).save(fname);
+                            delete(rec_buffer.(device(ii).tag));
+                        end
                         if config.Default.Use_Worker_Server
                             [~, finfo, ~] = fileparts(fname);
                             args = strsplit(finfo, "_");
-                            worker.writeline(...
-                                string(sprintf('%s.%d.%d.%d.%s', ...
-                                    args{1}, ...
-                                    str2double(args{2}), ...
-                                    str2double(args{3}), ...
-                                    str2double(args{4}), ...
-                                    args{5}, ...
-                                    args{6}))); 
+                            for ii = 1:N_CLIENT
+                                worker.(device(ii).tag).writeline(...
+                                    string(sprintf('%s.%d.%d.%d.%s', ...
+                                        args{1}, ...
+                                        str2double(args{2}), ...
+                                        str2double(args{3}), ...
+                                        str2double(args{4}), ...
+                                        args{5}, ...
+                                        args{6}))); 
+                            end
                         end
                     end
                     recording = false; 
                 end
             end          
             if recording
-                rec_buffer.append(samples);
+                for ii = 1:N_CLIENT
+                    rec_buffer.(device(ii).tag).append(samples{ii});
+                end
             end            
         end
-        if udp_state_receiver.NumBytesAvailable > 0
+        while udp_state_receiver.NumBytesAvailable > 0
             state = readline(udp_state_receiver);
             if strcmpi(state, "rec")
                 if ~recording
-                    fprintf(1, "[IDLE > REC]: Buffer created, recording in process...");
-                    rec_buffer = cell(1, N_CLIENT); 
+                    fprintf(1, "[TMSi]::[IDLE > REC]: Buffer created, recording in process...\n");
+                    rec_buffer = struct;
                     for ii = 1:N_CLIENT
-                        rec_buffer{ii} = StreamBuffer(ch{ii}, config.Default.Rec_Samples, device(ii).tag, device(ii).sample_rate);
+                        rec_buffer.(device(ii).tag) = StreamBuffer(ch{ii}, config.Default.Rec_Samples, device(ii).tag, device(ii).sample_rate);
                     end
-                    rec_buffer = vertcat(rec_buffer{:});
                 end
                 recording = true;
                 if ~running

@@ -1,7 +1,7 @@
 % DEPLOY__NHP_TMSI_SAGAS - For use with windows batch script executable to deploy the TMSi SAGA device streams.
-disp("Running deploy__tmsi_stream_service...");
+fprintf(1,"[DEPLOY]::[TMSi-Streams] Running deploy__tmsi_stream_service...\n");
 try
-    deploy__tmsi_stream_service;
+    deploy__tmsi_stream_service2;
 catch me
     try %#ok<TRYNC> 
         disconnect(device);
@@ -16,12 +16,12 @@ catch me
                 pause(1);
             end
             pause(2);
-            disp("Could not create tcpclient object!");            
+            fprintf(1,"[DEPLOY]::[TMSi-Streams] Could not create tcpclient object!\n");            
         otherwise
             disp(me.message);
             pause(2);
-            disp("Waiting 15 seconds before shutdown...");
-            pause(15);
+            fprintf(1,"[DEPLOY]::[TMSi-Streams] Waiting 60 seconds before shutdown...\n");
+            pause(60);
     end
 end
-disp("Exiting TMSi stream service.");
+fprintf(1,"\n\n[DEPLOY]::[TMSi-Streams] Exiting TMSi stream service.\n");

@@ -10,7 +10,7 @@
 %   StreamBuffer                       - Implements a buffer for streamed data.
 %
 % Event Data Classes
-%   SAGAEventData                      - Event data class for notifying about SAGA status using small text files and a worker pool monitoring them.
+%   SAGA_EventData                     - Event data class for notifying about SAGA status using small text files and a worker pool monitoring them.
 %   SampleEventData                    - Issued when the data frame fills up.
 %
 % Utility Functions
