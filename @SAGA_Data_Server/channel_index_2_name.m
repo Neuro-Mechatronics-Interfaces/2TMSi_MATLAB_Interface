@@ -17,11 +17,11 @@ function [tag, chname] = channel_index_2_name(ch)
 %
 % See also: Contents, SAGA_Data_Server
 
-if ch < 70
+if ch < 69
     tag = "A";
 else
     tag = "B";
-    ch = ch - 69;
+    ch = ch - 68;
 end
 
 if ch < 65
