@@ -57,7 +57,7 @@ catch e
     rethrow(e);
 end
 
-%% Create TMSi stream client + udpport
+%% Set channel tag
 ordered_tags = strings(size(device));
 ch = struct();
 for ii = 1:numel(ordered_tags)
@@ -66,35 +66,59 @@ for ii = 1:numel(ordered_tags)
     setSAGA(ch.(ordered_tags(ii)), ordered_tags(ii));
 end
 
-%%
+%% Create LSL outlets
 % make a new stream outlet
-disp('Creating a new streaminfo...');
-info = lsl_streaminfo(lib,'TMSi','EMG',68,4000,'cf_float32','sdfwerr32432');
+outlet = struct;
+% instantiate the LSL library
+lib_lsl = lsl_loadlib();
 
-name = {'SAGAA'; 'SAGAB'};
-
-for ii = 1:numel(name)
-    info = lsl_streaminfo(lib,'TMSi','EMG',74,4000,'cf_float32','SAGA_A');
+for iDev = 1:numel(device)
+    tag = device(iDev).tag;
+    fprintf(1,'Creating LSL streaminfo for SAGA-%s...\n',tag);
+    info = lsl_streaminfo(lib_lsl,sprintf('SAGA-%s',tag), ...
+        'EMG', 74, 4000, ...
+        'cf_double64', ...
+        sprintf('SN%s',num2str(device(iDev).data_recorder.serial_number)));
+%     info = lsl_streaminfo(lib_lsl,sprintf('SAGA-%s',tag), ...
+%         'EMG', 64, 100, ...
+%         'cf_double64', ...
+%         sprintf('SN%s',num2str(device(iDev).data_recorder.serial_number)));
     chns = info.desc().append_child('channels');
-    for label = {'C3','C4','Cz','FPz','POz','CPz','O1','O2'}
-        ch = chns.append_child('channel');
-        ch.append_child_value('label',label{1});
-        ch.append_child_value('unit','microvolts');
-        ch.append_child_value('type','EEG');
-    end
-    info.desc().append_child_value('manufacturer','SCCN');
-    cap = info.desc().append_child('cap');
-    cap.append_child_value('name','EasyCap');
-    cap.append_child_value('size','54');
-    cap.append_child_value('labelscheme','10-20');
-    
-    disp('Opening an outlet...');
-    outlet = lsl_outlet(info);
+    for iCh = 1:numel(ch.(tag))
+%     for iCh = 2:65
+        c = chns.append_child('channel');
+        c.append_child_value('label',ch.(tag)(iCh).name);
+        c.append_child_value('unit',ch.(tag)(iCh).unit_name);
+        c.append_child_value('type','EMG');
+        c.append_child_value('subtype', TMSiSAGA.TMSiUtils.toChannelTypeString(ch.(tag)(iCh).type));
+    end    
+    info.desc().append_child_value('manufacturer', 'NML');
+    info.desc().append_child_value('layout', '2Textile');
+    disp('Opening outlet...');
+    outlet.(tag) = lsl_outlet(info);
 end
 
-% send data into the outlet
+%% Loop: send data into the outlet
 disp('Now transmitting chunked data...');
-while true
+try
+    start(device);
     
-    pause(0.5);
+%     counter = struct('A', 1:200, 'B', 1:200);
+    n = numel(device);
+    while true
+%         triggers = ones(2,200).*255;  % sum(2^(0:7))
+%         triggers(randi(400,2)) = 128; % 255 - 2^7
+        for iDev = 1:n
+            tag = device(iDev).tag;
+%             data = [zeros(1,200); randn(70,200); triggers; counter.(tag)];
+%             data = randn(64,50);
+%             outlet.(tag).push_chunk(data);
+            outlet.(tag).push_chunk(device(iDev).sample());
+%             counter.(tag) = counter.(tag) + 200;
+        end
+        pause(0.050);
+    end
+catch me
+    disp(me);
+    stop(device);
 end
