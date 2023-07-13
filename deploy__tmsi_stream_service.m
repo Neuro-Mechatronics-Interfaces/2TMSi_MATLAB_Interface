@@ -25,18 +25,11 @@ else
 end
 
 %% SET PARAMETERS
-IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
-                              186 430 1482 787]; % B
+% IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
+%                               186 430 1482 787]; % B
+IMPEDANCE_FIGURE_POSITION = [10 250 1250 950; ... % A - 125k
+                             1250 250 1250 950];
 
-% Set this to LONGER than you think your recording should be, otherwise it
-% will loop back on itself! %
-N_SAMPLES_RECORD_MAX = 4000 * 60 * 10; % (sample rate) * (seconds/min) * (max. desired minutes to record)
-% 5/8/22 - On NHP-Dell-C01 takes memory from 55% to 70% to pre-allocate 2
-% cell arrays of randn for 72 channels each with enough samples for
-% 10-minutes (to get an idea of scaling). 
-%   -> General rule of thumb: better to pre-allocate big array of random
-%       noise, then "gain" memory by indexed assignment into it, than to
-%       run out of memory while running the loop.
 % TODO: Add something that will increment a sub-block index so that it
 % auto-saves if the buffer overflows, maybe using a flag on the buffer
 % object to do this or subclassing to a new buffer class that is
@@ -95,6 +88,9 @@ try % Separate try loop because now we must be sure to disconnect device.
     
     info = getDeviceInfo(device);
     enableChannels(device, horzcat({device.channels}));
+    for ii = 1:numel(device)
+        setSAGA(device(ii).channels, device(ii).tag);
+    end
     updateDeviceConfig(device);   
     device.setChannelConfig(config_channels);
     device.setDeviceConfig(config_device); 
@@ -158,7 +154,7 @@ end
 
 %%
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
-    
+    samples = cell(N_CLIENT,1);
     state = "idle";
     fname = strrep(fullfile(config.Default.Folder,config.Default.Subject,sprintf("%s_%%s_%%d.mat", config.Default.Subject)), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
     recording = false;
@@ -216,12 +212,14 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__BA(src, evt, visualizer.(packet_tag), i_subset, i_trig));
                             fprintf(1, "Configured %s for bipolar averaging data.\n", packet_tag);
                         case 'UR'
-                            buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UR(src, evt, visualizer.(packet_tag)));
+                            buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "ThresholdEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UR(src, evt, visualizer.(packet_tag)));
                             fprintf(1, "\t->\tConfigured %s for unipolar raster data.\n", packet_tag);
                         case 'IR'
-                            buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__IR(src, evt, visualizer.(packet_tag)));
+                            %TODO: load ICA filter configuration here.
+                            buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "ThresholdEvent", @(src, evt)callback.handleStreamBufferFilledEvent__IR(src, evt, visualizer.(packet_tag)));
                             fprintf(1, "\t->\tConfigured %s for ICA raster data.\n", packet_tag);
                         case 'IS'
+                            %TODO: load ICA filter configuration here.
                             i_subset = (double(info{3}) - 96)';
                             fprintf(1, 'Sending triggered-averages for %s:ICA-%02d\n', packet_tag, i_subset(1));
                             buffer_event_listener.(packet_tag)  = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__IS(src, evt, visualizer.(packet_tag), i_subset));
@@ -238,8 +236,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
         
         while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit")) && (~strcmpi(state, "imp"))
             for ii = 1:N_CLIENT
-                [samples, num_sets] = device(ii).sample();
-                buffer.(device(ii).tag).append(samples);
+                [samples{ii}, num_sets] = device(ii).sample();
+                buffer.(device(ii).tag).append(samples{ii});
                 if udp_name_receiver.NumBytesAvailable > 0
                     tmp = udp_name_receiver.readline();
                     if startsWith(strrep(tmp, "\", "/"), config.Default.Folder)
@@ -291,7 +289,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             end          
             if recording
                 for ii = 1:N_CLIENT
-                    rec_buffer.(device(ii).tag).append(samples);
+                    rec_buffer.(device(ii).tag).append(samples{ii});
                 end
             end            
         end
@@ -342,10 +340,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     end
                     for ii = 1:numel(device)
                         if isvalid(fig(ii))
-                            [samples, num_sets] = device(ii).sample();
+                            [samples{ii}, num_sets] = device(ii).sample();
                             % Append samples to the plot and redraw
                             if num_sets > 0
-                                s{ii} = samples ./ 10^6; % need to divide by 10^6
+                                s{ii} = samples{ii} ./ 10^6; % need to divide by 10^6
                                 iPlot{ii}.grid_layout(s{ii});
                                 drawnow;
                             end  

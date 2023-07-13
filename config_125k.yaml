@@ -31,7 +31,7 @@
 
 SAGA:
  A: 
-   Enable: false
+   Enable: true
    FileType: ".mat"
    Unit: "SAGAA"
    Trigger:
@@ -72,8 +72,9 @@ Default:
  # Interface: "electrical"
  Interface: "optical"
  # Folder: "R:/NMLShare/raw_data/human"
- Folder: "R:/NMLShare/raw_data/primate"
- Subject: "Default"
+ # Folder: "R:/NMLShare/raw_data/primate"
+ Folder: "D:/TMSi/MATLAB/raw_data"
+ Subject: "Spencer"
  Use_Worker_Server: false
  Use_Param_Server: true
  N_ICs: 20

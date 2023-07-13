@@ -50,7 +50,7 @@ config.SAGA.A.SN = struct('DR', SAGA.DR.(config.SAGA.A.Unit), 'DS', SAGA.DS.(con
 if config.SAGA.A.Enable
     TAG = "A";
     SN = config.SAGA.A.SN.DR;
-    fprintf(1, "Using %s (SN:%12d) as Device-Tag 'A'\n", config.SAGA.A.Unit, SN(1));
+    fprintf(1, "Using %s (SN:%12d) as Device-Tag 'A'\n", config.SAGA.A.Unit, SN);
 else
     TAG = [];
     SN = [];
@@ -62,7 +62,7 @@ if config.SAGA.B.Enable
     TAG = [TAG, "B"];
     sn =  config.SAGA.B.SN.DR;
     SN = [SN, sn];
-    fprintf(1, "Using %s (SN:%12d) as Device-Tag 'B'\n", config.SAGA.B.Unit, SN(1));
+    fprintf(1, "Using %s (SN:%12d) as Device-Tag 'B'\n", config.SAGA.B.Unit, SN(end));
 else
     fprintf(1, "Device-Tag 'B' Unit is not enabled and will not be used for recordings.\n"); 
 end
