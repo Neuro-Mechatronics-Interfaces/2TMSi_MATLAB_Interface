@@ -77,6 +77,7 @@ Default:
  Subject: "Spencer"
  Use_Worker_Server: false
  Use_Param_Server: true
+ Use_Visualizer: false
  N_ICs: 20
  N_Triggers: 20
  Sample_Rate: 4000

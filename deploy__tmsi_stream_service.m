@@ -91,9 +91,7 @@ try % Separate try loop because now we must be sure to disconnect device.
     for ii = 1:numel(device)
         setSAGA(device(ii).channels, device(ii).tag);
     end
-    updateDeviceConfig(device);   
-    device.setChannelConfig(config_channels);
-    device.setDeviceConfig(config_device); 
+    configStandardMode(device, config_channels, config_device);
     for ii = 1:numel(device)
         fprintf(1,'\t->\tDetected device(%d): SAGA=%s | API=%d | INTERFACE=%s\n', ii, device(ii).tag, device(ii).api_version, device(ii).data_recorder.interface_type);
     end
@@ -122,10 +120,13 @@ end
 %   "RC" - RMS Contour
 packet_mode = struct('A','US','B','US');
 
-
-visualizer = struct;
-for ii = 1:N_CLIENT
-    visualizer.(device(ii).tag) = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Viewer);
+if config.Default.Use_Visualizer
+	visualizer = struct;
+	for ii = 1:N_CLIENT
+		visualizer.(device(ii).tag) = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Viewer);
+	end
+else
+	visualizer = [];
 end
 if config.Default.Use_Worker_Server
     worker = tcpclient(config.Server.Address.Worker, config.Server.TCP.Worker);
@@ -146,12 +147,13 @@ for ii = 1:N_CLIENT
         device(ii).sample_rate);
 end
 
-buffer_event_listener = struct;
-for ii = 1:N_CLIENT
-    tag = device(ii).tag;
-    buffer_event_listener.(tag) = addlistener(buffer.(tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer.(tag), (channels.(tag).UNI(1:4))', true));
+if config.Default.Use_Visualizer
+	buffer_event_listener = struct;
+	for ii = 1:N_CLIENT
+		tag = device(ii).tag;
+		buffer_event_listener.(tag) = addlistener(buffer.(tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer.(tag), (channels.(tag).UNI(1:4))', true));
+	end
 end
-
 %%
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
@@ -161,20 +163,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     running = false;
     fprintf(1, "\n\t\t->\t[%s] SAGA LOOP BEGIN\t\t<-\n\n",string(datetime('now')));
 
-    while ~strcmpi(state, "quit")
-%         fname = fsm.check_for_name_update();
-%         fsm.check_for_parameter_update();
-        
-        while udp_name_receiver.NumBytesAvailable > 0
-            tmp = udp_name_receiver.readline();
-            if startsWith(strrep(tmp, "\", "/"), config.Default.Folder)
-                fname = tmp;
-            else
-                fname = strrep(fullfile(config.Default.Folder, tmp), "\", "/"); 
-            end
-            fprintf(1, "File name updated: %s\n", fname);
-        end        
-        if config.Default.Use_Param_Server
+    while ~strcmpi(state, "quit") 
+        pause(0.010);       
+        if config.Default.Use_Param_Server && config.Default.Use_Visualizer
             while udp_extra_receiver.NumBytesAvailable > 0 %#ok<*UNRCH>
                 tmp = udp_extra_receiver.readline();
                 info = strsplit(tmp, '.');
@@ -235,6 +226,15 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
         end
         
         while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit")) && (~strcmpi(state, "imp"))
+            while udp_name_receiver.NumBytesAvailable > 0
+                tmp = udp_name_receiver.readline();
+                if startsWith(strrep(tmp, "\", "/"), config.Default.Folder)
+                    fname = tmp;
+                else
+                    fname = strrep(fullfile(config.Default.Folder, tmp), "\", "/"); 
+                end
+                fprintf(1, "File name updated: %s\n", fname);
+            end 
             for ii = 1:N_CLIENT
                 [samples{ii}, num_sets] = device(ii).sample();
                 buffer.(device(ii).tag).append(samples{ii});
@@ -321,8 +321,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 s = cell(size(device));
                 fig = gobjects(1, numel(device));
                 for ii = 1:numel(device)
-                    device(ii).setDeviceConfig( config_device_impedance );
-                    device(ii).setChannelConfig( config_channel_impedance );
+                    configImpedanceMode(device(ii), config_channel_impedance, config_device_impedance);
                     start(device(ii));
                     channel_names = getName(getActiveChannels(device(ii)));
                     fig(ii) = uifigure(...
@@ -354,9 +353,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 for ii = 1:numel(device)
                     device(ii).stop();
                     enableChannels(device(ii), device(ii).channels);
-                    updateDeviceConfig(device(ii)); 
-                    device(ii).setDeviceConfig(config_device);
-                    device(ii).setChannelConfig(config_channels);
+                    configStandardMode(device(ii), config_channels, config_device);
                     impedance_saver_helper(fname, device(ii).tag, s{ii});
                 end
                 if strcmpi(state, "imp")
