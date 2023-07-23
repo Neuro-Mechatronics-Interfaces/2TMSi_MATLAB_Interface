@@ -258,7 +258,7 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             samples = obj.samples(:, 1:ns); %#ok<PROPLC>
             channels = num2cell(obj.channels); %#ok<PROPLC>
             sample_rate = obj.sample_rate; %#ok<PROPLC>
-            time = datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS');
+            time = datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS', 'TimeZone', 'America/New_York') - seconds(ns/sample_rate);
             save(fname, 'samples', 'channels', 'sample_rate', 'time', '-v7.3');
         end
         
