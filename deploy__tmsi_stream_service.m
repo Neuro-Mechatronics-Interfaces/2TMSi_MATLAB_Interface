@@ -330,7 +330,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         'Icon', 'Impedance-Symbol.png', ...
                         'HandleVisibility', 'on', ...
                         'Position', IMPEDANCE_FIGURE_POSITION(ii,:));
-                    iPlot{ii} = TMSiSAGA.ImpedancePlot(fig(ii), config_channel_impedance.uni, channel_names);
+                    iPlot{ii} = TMSiSAGA.ImpedancePlot(fig(ii), channel_names);
                 end
                 
                 while any(isvalid(fig)) || ~strcmpi(state, "imp")
