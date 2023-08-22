@@ -19,10 +19,13 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
     properties (Access = protected)
         init        logical = false    % This sets to true once successfully initialized.
         stop        logical = false    % This is returned by `getData` second argument.
+        mode  (1,1) StreamBufferMode = StreamBufferMode.FRAME; % This determines what 'Event' is issued when appending samples to the buffer.
+        settings (1,1) struct          % Contains settings that depend on the event mode.
     end
     
     events
         FrameFilledEvent    % Issued any time that a data frame is filled.
+        ThresholdEvent      % Issued when a threshold is crossed.
     end
     
     methods
@@ -267,7 +270,7 @@ classdef StreamBuffer < matlab.net.http.io.ContentProvider
             samples = obj.samples(:, 1:ns); %#ok<PROPLC>
             channels = num2cell(obj.channels); %#ok<PROPLC>
             sample_rate = obj.sample_rate; %#ok<PROPLC>
-            time = datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS');
+            time = datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS', 'TimeZone', 'America/New_York') - seconds(ns/sample_rate);
             save(fname, 'samples', 'channels', 'sample_rate', 'time', '-v7.3');
         end
         

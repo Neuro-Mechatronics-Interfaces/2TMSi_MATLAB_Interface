@@ -31,7 +31,7 @@
 
 SAGA:
  A: 
-   Enable: false
+   Enable: true
    FileType: ".mat"
    Unit: "SAGAA"
    Trigger:
@@ -53,29 +53,31 @@ SAGA:
    FileType: ".mat"
    Trigger:
     # Channel: 70
-    Channel: 72
+    Channel: 70
     Bit: 1
    Channels:
     CREF: 1
     UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
     BIP: [66,67,68,69]
-    AUX: [70,71]
-    STAT: 73
-    COUNT: 74
-    # STAT: 71
-    # COUNT: 72
+    # AUX: [70,71]
+    # STAT: 73
+    # COUNT: 74
+    STAT: 71
+    COUNT: 72
     n: 
-     channels: 74
+     channels: 72
      # channels: 72
      samples: 16384
 Default:
  # Interface: "electrical"
  Interface: "optical"
  # Folder: "R:/NMLShare/raw_data/human"
- Folder: "R:/NMLShare/raw_data/primate"
- Subject: "Default"
+ # Folder: "R:/NMLShare/raw_data/primate"
+ Folder: "D:/TMSi/MATLAB/raw_data"
+ Subject: "Spencer"
  Use_Worker_Server: false
  Use_Param_Server: true
+ Use_Visualizer: false
  N_ICs: 20
  N_Triggers: 20
  Sample_Rate: 4000

@@ -25,18 +25,11 @@ else
 end
 
 %% SET PARAMETERS
-IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
-                              186 430 1482 787]; % B
+% IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
+%                               186 430 1482 787]; % B
+IMPEDANCE_FIGURE_POSITION = [10 250 1250 950; ... % A - 125k
+                             1250 250 1250 950];
 
-% Set this to LONGER than you think your recording should be, otherwise it
-% will loop back on itself! %
-N_SAMPLES_RECORD_MAX = 4000 * 60 * 10; % (sample rate) * (seconds/min) * (max. desired minutes to record)
-% 5/8/22 - On NHP-Dell-C01 takes memory from 55% to 70% to pre-allocate 2
-% cell arrays of randn for 72 channels each with enough samples for
-% 10-minutes (to get an idea of scaling). 
-%   -> General rule of thumb: better to pre-allocate big array of random
-%       noise, then "gain" memory by indexed assignment into it, than to
-%       run out of memory while running the loop.
 % TODO: Add something that will increment a sub-block index so that it
 % auto-saves if the buffer overflows, maybe using a flag on the buffer
 % object to do this or subclassing to a new buffer class that is
@@ -62,13 +55,13 @@ config_device = struct('Dividers', {{'uni', 0; 'bip', 0}}, ...
                         'ImpedanceMode', false, ...
                         'AutoReferenceMethod', false, ...
                         'ReferenceMethod', 'common',...
-                        'SyncOutDivider', 4000, ...
+                        'SyncOutDivider', -1, ...
                         'SyncOutDutyCycle', 500);
 config_channels = struct('uni', 1:64, ...
                          'bip', 1:4, ...
                          'dig', 0, ...
                          'acc', 0, ...
-                         'aux', 1:2);
+						 'aux', 0);
 channels = struct('A', config.SAGA.A.Channels, ...
                   'B', config.SAGA.B.Channels);
 
@@ -95,11 +88,12 @@ try % Separate try loop because now we must be sure to disconnect device.
     
     info = getDeviceInfo(device);
     enableChannels(device, horzcat({device.channels}));
-    updateDeviceConfig(device);   
-    device.setChannelConfig(config_channels);
-    device.setDeviceConfig(config_device); 
     for ii = 1:numel(device)
-        fprintf(1,'[TMSi]\t->\tDetected device(%d): SAGA=%s | API=%d | INTERFACE=%s\n', ii, device(ii).tag, device(ii).api_version, device(ii).data_recorder.interface_type);
+        setSAGA(device(ii).channels, device(ii).tag);
+    end
+    configStandardMode(device, config_channels, config_device);
+    for ii = 1:numel(device)
+        fprintf(1,'\t->\tDetected device(%d): SAGA=%s | API=%d | INTERFACE=%s\n', ii, device(ii).tag, device(ii).api_version, device(ii).data_recorder.interface_type);
     end
     if numel(device) ~= N_CLIENT
         fprintf(1,'[TMSi]\t->\tWrong number of devices returned. Something went wrong with hardware connections.\n');
@@ -126,10 +120,13 @@ end
 %   "RC" - RMS Contour
 packet_mode = struct('A','US','B','US');
 
-
-visualizer = struct;
-for ii = 1:N_CLIENT
-    visualizer.(device(ii).tag) = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Viewer);
+if config.Default.Use_Visualizer
+	visualizer = struct;
+	for ii = 1:N_CLIENT
+		visualizer.(device(ii).tag) = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Viewer);
+	end
+else
+	visualizer = [];
 end
 worker = struct('A', [], 'B', []);
 if config.Default.Use_Worker_Server
@@ -150,35 +147,25 @@ for ii = 1:N_CLIENT
         device(ii).sample_rate);
 end
 
-buffer_event_listener = struct;
-for ii = 1:N_CLIENT
-    tag = device(ii).tag;
-    buffer_event_listener.(tag) = addlistener(buffer.(tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer.(tag), (channels.(tag).UNI(1:4))', true));
+if config.Default.Use_Visualizer
+	buffer_event_listener = struct;
+	for ii = 1:N_CLIENT
+		tag = device(ii).tag;
+		buffer_event_listener.(tag) = addlistener(buffer.(tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer.(tag), (channels.(tag).UNI(1:4))', true));
+	end
 end
-
 %%
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
-    
+    samples = cell(N_CLIENT,1);
     state = "idle";
     fname = strrep(fullfile(config.Default.Folder,config.Default.Subject,sprintf("%s_%%s_%%d.mat", config.Default.Subject)), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
     recording = false;
     running = false;
     fprintf(1, "\n\t\t->\t[%s] SAGA LOOP BEGIN\t\t<-\n\n",string(datetime('now')));
 
-    while ~strcmpi(state, "quit")
-%         fname = fsm.check_for_name_update();
-%         fsm.check_for_parameter_update();
-        
-        while udp_name_receiver.NumBytesAvailable > 0
-            tmp = udp_name_receiver.readline();
-            if startsWith(strrep(tmp, "\", "/"), config.Default.Folder)
-                fname = tmp;
-            else
-                fname = strrep(fullfile(config.Default.Folder, tmp), "\", "/"); 
-            end
-            fprintf(1, "[TMSi]\t->\tFile name updated: %s\n", fname);
-        end        
-        if config.Default.Use_Param_Server
+    while ~strcmpi(state, "quit") 
+        pause(0.010);       
+        if config.Default.Use_Param_Server && config.Default.Use_Visualizer
             while udp_extra_receiver.NumBytesAvailable > 0 %#ok<*UNRCH>
                 tmp = udp_extra_receiver.readline();
                 info = strsplit(tmp, '.');
@@ -221,12 +208,14 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             buffer_event_listener.(info{2}) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__SendAll(src, evt, visualizer.(packet_tag), i_subset, apply_car, i_trig));
                             fprintf(1, "[TMSi]\tConfigured %s for bipolar averaging data.\n", packet_tag);
                         case 'UR'
-                            buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UR(src, evt, visualizer.(packet_tag)));
-                            fprintf(1, "[TMSi]\t->\tConfigured %s for unipolar raster data.\n", packet_tag);
+                            buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "ThresholdEvent", @(src, evt)callback.handleStreamBufferFilledEvent__UR(src, evt, visualizer.(packet_tag)));
+                            fprintf(1, "\t->\tConfigured %s for unipolar raster data.\n", packet_tag);
                         case 'IR'
-                            buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__IR(src, evt, visualizer.(packet_tag)));
-                            fprintf(1, "[TMSi]\t->\tConfigured %s for ICA raster data.\n", packet_tag);
+                            %TODO: load ICA filter configuration here.
+                            buffer_event_listener.(packet_tag) = addlistener(buffer.(packet_tag), "ThresholdEvent", @(src, evt)callback.handleStreamBufferFilledEvent__IR(src, evt, visualizer.(packet_tag)));
+                            fprintf(1, "\t->\tConfigured %s for ICA raster data.\n", packet_tag);
                         case 'IS'
+                            %TODO: load ICA filter configuration here.
                             i_subset = (double(info{3}) - 96)';
                             fprintf(1, '[TMSi]\tSending triggered-averages for %s:ICA-%02d\n', packet_tag, i_subset(1));
                             buffer_event_listener.(packet_tag)  = addlistener(buffer.(packet_tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__IS(src, evt, visualizer.(packet_tag), i_subset));
@@ -242,8 +231,17 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
         end
         
         while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit")) && (~strcmpi(state, "imp"))
-            [samples, num_sets] = device.sample();
+            while udp_name_receiver.NumBytesAvailable > 0
+                tmp = udp_name_receiver.readline();
+                if startsWith(strrep(tmp, "\", "/"), config.Default.Folder)
+                    fname = tmp;
+                else
+                    fname = strrep(fullfile(config.Default.Folder, tmp), "\", "/"); 
+                end
+                fprintf(1, "File name updated: %s\n", fname);
+            end 
             for ii = 1:N_CLIENT
+                [samples{ii}, num_sets] = device(ii).sample();
                 buffer.(device(ii).tag).append(samples{ii});
                 if udp_name_receiver.NumBytesAvailable > 0
                     tmp = udp_name_receiver.readline();
@@ -330,8 +328,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 s = cell(size(device));
                 fig = gobjects(1, numel(device));
                 for ii = 1:numel(device)
-                    device(ii).setDeviceConfig( config_device_impedance );
-                    device(ii).setChannelConfig( config_channel_impedance );
+                    configImpedanceMode(device(ii), config_channel_impedance, config_device_impedance);
                     start(device(ii));
                     channel_names = getName(getActiveChannels(device(ii)));
                     fig(ii) = uifigure(...
@@ -340,7 +337,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         'Icon', 'Impedance-Symbol.png', ...
                         'HandleVisibility', 'on', ...
                         'Position', IMPEDANCE_FIGURE_POSITION(ii,:));
-                    iPlot{ii} = TMSiSAGA.ImpedancePlot(fig(ii), config_channel_impedance.uni, channel_names);
+                    iPlot{ii} = TMSiSAGA.ImpedancePlot(fig(ii), channel_names);
                 end
                 
                 while any(isvalid(fig)) || ~strcmpi(state, "imp")
@@ -349,10 +346,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     end
                     for ii = 1:numel(device)
                         if isvalid(fig(ii))
-                            [samples, num_sets] = device(ii).sample();
+                            [samples{ii}, num_sets] = device(ii).sample();
                             % Append samples to the plot and redraw
                             if num_sets > 0
-                                s{ii} = samples ./ 10^6; % need to divide by 10^6
+                                s{ii} = samples{ii} ./ 10^6; % need to divide by 10^6
                                 iPlot{ii}.grid_layout(s{ii});
                                 drawnow;
                             end  
@@ -363,9 +360,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 for ii = 1:numel(device)
                     device(ii).stop();
                     enableChannels(device(ii), device(ii).channels);
-                    updateDeviceConfig(device(ii)); 
-                    device(ii).setDeviceConfig(config_device);
-                    device(ii).setChannelConfig(config_channels);
+                    configStandardMode(device(ii), config_channels, config_device);
                     impedance_saver_helper(fname, device(ii).tag, s{ii});
                 end
                 if strcmpi(state, "imp")
