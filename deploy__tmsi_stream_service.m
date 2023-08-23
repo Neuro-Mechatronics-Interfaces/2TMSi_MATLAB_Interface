@@ -76,11 +76,32 @@ try
     connect(device); 
     setDeviceTag(device, SN, TAG);
 catch e
-    % In case of an error close all still active devices and clean up
-    lib.cleanUp();  
-        
-    % Rethrow error to ensure you get a message in console
-    rethrow(e)
+    if strcmpi(e.identifier, 'MATLAB:narginchk:notEnoughInputs')
+        if strcmpi(config.Default.Interface, 'optical')
+            device = lib.getDevices('usb', 'electrical', 2, 2);
+            if numel(device) < N_CLIENT
+                e = addCause(e, MException('MATLAB:TMSiSAGA:InvalidDeviceConnection','Could not detect any hardware connection to data recorder (electrical or optical). Is it on?'));
+                lib.cleanUp();
+                rethrow(e);
+            end
+            connect(device);
+            for ii = 1:numel(device)
+                changeDataRecorderInterfaceTo(device(ii), char(config.Default.Interface));
+            end
+            connect(device); % Reconnect on new interface
+            setDeviceTag(device, SN, TAG);
+        else
+            e = addCause(e, MException('MATLAB:TMSiSAGA:InvalidDeviceConnection',sprintf('Could not detect devices on %s hardware interface.', config.Default.Interface)));
+            lib.cleanUp();
+            rethrow(e);
+        end
+    else
+        % In case of an error close all still active devices and clean up
+        lib.cleanUp();  
+            
+        % Rethrow error to ensure you get a message in console
+        rethrow(e);
+    end
 end
 
 %% Retrieve data about the devices.
@@ -95,8 +116,23 @@ try % Separate try loop because now we must be sure to disconnect device.
     for ii = 1:numel(device)
         fprintf(1,'\t->\tDetected device(%d): SAGA=%s | API=%d | INTERFACE=%s\n', ii, device(ii).tag, device(ii).api_version, device(ii).data_recorder.interface_type);
     end
+    if numel(device) < N_CLIENT
+        disconnect(device);
+        device = lib.getDevices('usb', {'electrical', 'optical'}, 2, 2);
+        i_remove = false(size(device));
+        for ii = 1:numel(device)
+            connect(device(ii))
+            if ~strcmpi(device(ii).data_recorder.interface_type,config.Default.Interface)
+                changeDataRecorderInterfaceTo(device(ii), char(config.Default.Interface));
+            end
+        end
+        connect(device);
+        delete(device(i_remove));
+        device(i_remove) = [];
+        setDeviceTag(device, SN, TAG);
+    end
     if numel(device) ~= N_CLIENT
-        fprintf(1,'[TMSi]\t->\tWrong number of devices returned. Something went wrong with hardware connections.\n');
+        error(1,'Wrong number of devices returned. Something went wrong with hardware connections.\n');
     end
 catch e
     disconnect(device);
