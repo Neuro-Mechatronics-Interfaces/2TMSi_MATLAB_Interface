@@ -1,7 +1,7 @@
 % DEPLOY__NHP_TMSI_SAGAS - For use with windows batch script executable to deploy the TMSi SAGA device streams.
 fprintf(1,"[DEPLOY]::[TMSi-Streams] Running deploy__tmsi_stream_service...\n");
 try
-    deploy__tmsi_stream_service2;
+    deploy__tmsi_stream_service;
 catch me
     try %#ok<TRYNC> 
         disconnect(device);
