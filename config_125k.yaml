@@ -46,7 +46,7 @@ SAGA:
     STAT: 72
     n: 
      channels: 72
-     samples: 16384
+     samples: 524288
  B: 
    Enable: true
    Unit: "SAGAB"
@@ -67,7 +67,7 @@ SAGA:
     n: 
      channels: 72
      # channels: 72
-     samples: 16384
+     samples: 524288
 Default:
  # Interface: "electrical"
  Interface: "optical"
@@ -84,7 +84,7 @@ Default:
  Sync_Bit: 3
  File_Type: ".mat"
  Sample_Rate: 4000
- Rec_Samples: 16384
+ Rec_Samples: 524288
  RMS_Sample_Epoch: 
   Start: 50
   Stop: 200
