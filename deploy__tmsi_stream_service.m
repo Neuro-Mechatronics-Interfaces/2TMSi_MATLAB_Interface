@@ -147,6 +147,7 @@ if config.Default.Use_Param_Server
     udp_extra_receiver = udpport("byte","LocalHost",config.Server.Address.UDP, "LocalPort", config.Server.UDP.extra, "EnablePortSharing", true);
 end
 udp_param_receiver = udpport("byte", "LocalHost", config.Server.Address.UDP, "LocalPort", config.Server.UDP.params, "EnablePortSharing", false);
+param = struct('n', config.Default.Rec_Samples, 'f', strrep(config.Default.Folder,'\','/'));
 
 % "mode" codes (see tab 'Tag' properties in SAGA_Data_Visualizer app):
 %   "US" - Unipolar Stream
@@ -196,7 +197,7 @@ end
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
     state = "idle";
-    fname = strrep(fullfile(config.Default.Folder,config.Default.Subject,sprintf("%s_%%s_%%d.mat", config.Default.Subject)), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
+    fname = strrep(fullfile(param.f,config.Default.Subject,sprintf("%s_%%s_%%d.mat", config.Default.Subject)), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
     recording = false;
     running = false;
     fprintf(1, "\n\t\t->\t[%s] SAGA LOOP BEGIN\t\t<-\n\n",string(datetime('now')));
@@ -204,10 +205,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     while ~strcmpi(state, "quit") 
         while udp_name_receiver.NumBytesAvailable > 0
             tmp = udp_name_receiver.readline();
-            if startsWith(strrep(tmp, "\", "/"), config.Default.Folder)
+            if startsWith(strrep(tmp, "\", "/"), param.f)
                 fname = tmp;
             else
-                fname = strrep(fullfile(config.Default.Folder, tmp), "\", "/"); 
+                fname = strrep(fullfile(param.f, tmp), "\", "/"); 
             end
             fprintf(1, "File name updated: %s\n", fname);
         end 
@@ -276,21 +277,44 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 end
             end
         end
+        while udp_param_receiver.NumBytesAvailable > 0
+            tmp = udp_param_receiver.readline();
+            fprintf(1,'[TMSi]\t->\tParameter: %s\n',tmp);
+            tmp_split = strsplit(tmp, '.');
+            switch tmp_split{1}
+                case 'n'
+                    param.n = str2double(tmp_split{2});
+                case 'f'
+                    param.f = strrep(tmp_split{2}, '\', '/');
+                otherwise
+                    param.(lower(tmp_split{1})) = tmp_split{2};
+            end
+        end
 
 
         
         while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit")) && (~strcmpi(state, "imp"))
             while udp_name_receiver.NumBytesAvailable > 0
                 tmp = udp_name_receiver.readline();
-                if startsWith(strrep(tmp, "\", "/"), config.Default.Folder)
+                if startsWith(strrep(tmp, "\", "/"), param.f)
                     fname = tmp;
                 else
-                    fname = strrep(fullfile(config.Default.Folder, tmp), "\", "/"); 
+                    fname = strrep(fullfile(param.f, tmp), "\", "/"); 
                 end
                 fprintf(1, "File name updated: %s\n", fname);
             end 
             while udp_param_receiver.NumBytesAvailable > 0
-                
+                tmp = udp_param_receiver.readline();
+                fprintf(1,'[TMSi]\t->\tParameter: %s\n',tmp);
+                tmp_split = strsplit(tmp, '.');
+                switch tmp_split{1}
+                    case 'n'
+                        param.n = str2double(tmp_split{2});
+                    case 'f'
+                        param.f = strrep(tmp_split{2}, '\', '/');
+                    otherwise
+                        param.(lower(tmp_split{1})) = tmp_split{2};
+                end
             end
             pause(0.010);
             for ii = 1:N_CLIENT
@@ -298,10 +322,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 buffer.(device(ii).tag).append(samples{ii});
                 if udp_name_receiver.NumBytesAvailable > 0
                     tmp = udp_name_receiver.readline();
-                    if startsWith(strrep(tmp, "\", "/"), config.Default.Folder)
+                    if startsWith(strrep(tmp, "\", "/"), param.f)
                         fname = tmp;
                     else
-                        fname = strrep(fullfile(config.Default.Folder, tmp), "\", "/"); 
+                        fname = strrep(fullfile(param.f, tmp), "\", "/"); 
                     end
                     fprintf(1, "[TMSi]\t->\tFile name updated: %s\n", fname);
                 end
@@ -313,7 +337,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         fprintf(1, "[TMSi]::[RUN > REC]: Buffer created, recording in process...\n");
                         rec_buffer = struct;
                         for ii = 1:N_CLIENT
-                            rec_buffer.(device(ii).tag) = StreamBuffer(ch{ii}, config.Default.Rec_Samples, device(ii).tag, device(ii).sample_rate);
+                            rec_buffer.(device(ii).tag) = StreamBuffer(ch{ii}, param.n, device(ii).tag, device(ii).sample_rate);
                         end
                     end
                     recording = true;
@@ -360,7 +384,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     fprintf(1, "[TMSi]::[IDLE > REC]: Buffer created, recording in process...\n");
                     rec_buffer = struct;
                     for ii = 1:N_CLIENT
-                        rec_buffer.(device(ii).tag) = StreamBuffer(ch{ii}, config.Default.Rec_Samples, device(ii).tag, device(ii).sample_rate);
+                        rec_buffer.(device(ii).tag) = StreamBuffer(ch{ii}, param.n, device(ii).tag, device(ii).sample_rate);
                     end
                 end
                 recording = true;
