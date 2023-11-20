@@ -46,12 +46,13 @@ SAGA:
     STAT: 72
     n: 
      channels: 72
-     samples: 524288
+     samples: 2097152
  B: 
    Enable: true
    Unit: "SAGAB"
    FileType: ".mat"
    Trigger:
+    # Channel: 70
     Channel: 70
     Bit: 1
    Channels:
@@ -65,11 +66,15 @@ SAGA:
     COUNT: 72
     n: 
      channels: 72
-     samples: 524288
+     # channels: 72
+     samples: 2097152
 Default:
- Interface: "optical"
+ Interface: "electrical"
+ # Interface: "optical"
+ # Folder: "R:/NMLShare/raw_data/human"
+ # Folder: "R:/NMLShare/raw_data/primate"
  Folder: "D:/TMSi/MATLAB/raw_data"
- Subject: "Spencer"
+ Subject: "Slinky"
  Use_Worker_Server: false
  Use_Param_Server: true
  Use_Visualizer: false
@@ -79,14 +84,16 @@ Default:
  Sync_Bit: 3
  File_Type: ".mat"
  Sample_Rate: 4000
- Rec_Samples: 524288
+ Rec_Samples: 2097152
  RMS_Sample_Epoch: 
   Start: 50
   Stop: 200
 Server:
  Address:
-  TCP: "128.2.244.60"
-  UDP: "128.2.244.60"
+  TCP: "127.0.0.1"
+  # TCP: "128.2.244.60"
+  UDP: "127.0.0.1"
+  # UDP: "128.2.244.60"
   Worker: "127.0.0.1"
  TCP:
   Controller: 5000
@@ -104,4 +111,3 @@ Server:
   task: 3033
   data: 3034
   recv: 3035
-  params: 3036

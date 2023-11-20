@@ -58,10 +58,10 @@ config_device = struct('Dividers', {{'uni', 0; 'bip', 0}}, ...
                         'SyncOutDivider', -1, ...
                         'SyncOutDutyCycle', 500);
 config_channels = struct('uni', 1:64, ...
-                         'bip', 1:4, ...
+                         'bip', 0, ...
                          'dig', 0, ...
                          'acc', 0, ...
-						 'aux', 0);
+						 'aux', 1:3);
 channels = struct('A', config.SAGA.A.Channels, ...
                   'B', config.SAGA.B.Channels);
 
@@ -146,6 +146,8 @@ udp_name_receiver = udpport("byte", "LocalHost", config.Server.Address.UDP, "Loc
 if config.Default.Use_Param_Server
     udp_extra_receiver = udpport("byte","LocalHost",config.Server.Address.UDP, "LocalPort", config.Server.UDP.extra, "EnablePortSharing", true);
 end
+udp_param_receiver = udpport("byte", "LocalHost", config.Server.Address.UDP, "LocalPort", config.Server.UDP.params, "EnablePortSharing", false);
+
 % "mode" codes (see tab 'Tag' properties in SAGA_Data_Visualizer app):
 %   "US" - Unipolar Stream
 %   "BS" - Bipolar Stream
@@ -200,6 +202,15 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     fprintf(1, "\n\t\t->\t[%s] SAGA LOOP BEGIN\t\t<-\n\n",string(datetime('now')));
 
     while ~strcmpi(state, "quit") 
+        while udp_name_receiver.NumBytesAvailable > 0
+            tmp = udp_name_receiver.readline();
+            if startsWith(strrep(tmp, "\", "/"), config.Default.Folder)
+                fname = tmp;
+            else
+                fname = strrep(fullfile(config.Default.Folder, tmp), "\", "/"); 
+            end
+            fprintf(1, "File name updated: %s\n", fname);
+        end 
         pause(0.010);       
         if config.Default.Use_Param_Server && config.Default.Use_Visualizer
             while udp_extra_receiver.NumBytesAvailable > 0 %#ok<*UNRCH>
@@ -265,6 +276,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 end
             end
         end
+
+
         
         while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit")) && (~strcmpi(state, "imp"))
             while udp_name_receiver.NumBytesAvailable > 0
@@ -276,6 +289,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 end
                 fprintf(1, "File name updated: %s\n", fname);
             end 
+            while udp_param_receiver.NumBytesAvailable > 0
+                
+            end
+            pause(0.010);
             for ii = 1:N_CLIENT
                 [samples{ii}, num_sets] = device(ii).sample();
                 buffer.(device(ii).tag).append(samples{ii});
@@ -410,7 +427,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     recording = false;
     running = false;
     disconnect(device);
-    clear client worker buffer buffer_event_listener udp_state_receiver udp_name_receiver udp_extra_receiver
+    clear client worker buffer buffer_event_listener udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     
 catch me
@@ -418,7 +435,7 @@ catch me
     stop(device);
     disconnect(device);
     warning(me.message);
-    clear client worker buffer buffer_event_listener udp_state_receiver udp_name_receiver udp_extra_receiver
+    clear client worker buffer buffer_event_listener udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     fprintf(1, '\n\n-->\tTMSi stream stopped at %s\t<--\n\n', ...
         string(datetime('now')));

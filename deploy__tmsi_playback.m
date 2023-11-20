@@ -29,6 +29,8 @@ udp_name_receiver = udpport("byte", "LocalHost", config.Server.Address.UDP, "Loc
 if config.Default.Use_Param_Server
     udp_extra_receiver = udpport("byte","LocalHost",config.Server.Address.UDP, "LocalPort", config.Server.UDP.extra, "EnablePortSharing", false);
 end
+udp_param_receiver = udpport("byte", "LocalHost", config.Server.Address.UDP, "LocalPort", config.Server.UDP.params, "EnablePortSharing", false);
+
 % "mode" codes (see tab 'Tag' properties in SAGA_Data_Visualizer app):
 %   "US" - Unipolar Stream
 %   "BS" - Bipolar Stream
@@ -232,6 +234,7 @@ while ~strcmpi(state, "quit")
                 running = true;
             end
         end
+        pause(0.010);
     end
 end
 stop(playback_device);
@@ -248,6 +251,11 @@ try
 catch
     fprintf(1,'[PLAYBACK]\tError deleting udp name receiver port.\n');
 end
+try
+    delete(udp_param_receiver);
+    fprintf(1,'[PLAYBACK]\tDeleted udp parameter receiver port.\n');
+catch
+    fprintf(1,'[PLAYBACK]\tError deleting udp parameter receiver port.\n');
 try
     delete(udp_extra_receiver);
     fprintf(1,'[PLAYBACK]\tDeleted udp extra (mode) receiver port.\n');
