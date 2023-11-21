@@ -285,7 +285,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 case 'n'
                     param.n = str2double(tmp_split{2});
                     n_sec = floor(param.n / device(1).sample_rate);
-                    if n_sec > 30
+                    if n_sec < 60
                         fprintf(1,'[TMSi]\t->\t[n]: Set for %d-second recordings.', floor(n_sec));
                     else
                         fprintf(1,'[TMSi]\t->\t[n]: Set for %d-minute recordings.', floor(n_sec/60));
@@ -294,7 +294,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     n_samples = round(str2double(tmp_split{2}) * device(1).sample_rate);
                     param.n = 2^nextpow2(n_samples);
                     n_sec = floor(param.n / device(1).sample_rate);
-                    if n_sec > 30
+                    if n_sec < 60
                         fprintf(1,'[TMSi]\t->\t[n]: Set for %d-second recordings.', floor(n_sec));
                     else
                         fprintf(1,'[TMSi]\t->\t[n]: Set for %d-minute recordings.', floor(n_sec/60));
@@ -324,7 +324,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     case 'n'
                         param.n = str2double(tmp_split{2});
                         n_sec = floor(param.n / device(1).sample_rate);
-                        if n_sec > 30
+                        if n_sec < 60
                             fprintf(1,'[TMSi]\t->\t[n]: Set for %d-second recordings.', floor(n_sec));
                         else
                             fprintf(1,'[TMSi]\t->\t[n]: Set for %d-minute recordings.', floor(n_sec/60));
@@ -333,7 +333,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         n_samples = round(str2double(tmp_split{2}) * device(1).sample_rate);
                         param.n = 2^nextpow2(n_samples);
                         n_sec = floor(param.n / device(1).sample_rate);
-                        if n_sec > 30
+                        if n_sec < 60
                             fprintf(1,'[TMSi]\t->\t[n]: Set for %d-second recordings.', floor(n_sec));
                         else
                             fprintf(1,'[TMSi]\t->\t[n]: Set for %d-minute recordings.', floor(n_sec/60));
