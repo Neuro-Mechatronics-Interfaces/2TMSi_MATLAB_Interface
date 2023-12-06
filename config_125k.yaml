@@ -65,7 +65,7 @@ SAGA:
     COUNT: 72
     n: 
      channels: 72
-     samples: 524288
+     samples: 2097152
 Default:
  Interface: "optical"
  Folder: "D:/TMSi/MATLAB/raw_data"
@@ -79,7 +79,7 @@ Default:
  Sync_Bit: 3
  File_Type: ".mat"
  Sample_Rate: 4000
- Rec_Samples: 524288
+ Rec_Samples: 2097152
  RMS_Sample_Epoch: 
   Start: 50
   Stop: 200
