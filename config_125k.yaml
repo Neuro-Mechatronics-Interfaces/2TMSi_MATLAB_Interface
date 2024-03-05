@@ -35,39 +35,40 @@ SAGA:
    FileType: ".mat"
    Unit: "SAGAA"
    Trigger:
-    Channel: 70
+    Channel: 73
     Bit: 1
    Channels:
     CREF: 1
     UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
     BIP: [66,67,68,69]
-    # STAT: 70
-    COUNT: 71
-    STAT: 72
+    AUX: [70,71,72]
+    STAT: 74
+    COUNT: 75
     n: 
-     channels: 72
+     channels: 75
      samples: 524288
+     # samples: 64
  B: 
    Enable: true
    Unit: "SAGAB"
    FileType: ".mat"
    Trigger:
-    Channel: 70
+    Channel: 73
     Bit: 1
    Channels:
     CREF: 1
     UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
     BIP: [66,67,68,69]
-    # AUX: [70,71]
-    # STAT: 73
-    # COUNT: 74
-    STAT: 71
-    COUNT: 72
+    AUX: [70,71,72]
+    STAT: 74
+    COUNT: 75
     n: 
-     channels: 72
-     samples: 2097152
+     channels: 75
+     samples: 524288
+     # samples: 64
 Default:
  Interface: "optical"
+ #Interface: "electrical"
  Folder: "D:/TMSi/MATLAB/raw_data"
  Subject: "Spencer"
  Use_Worker_Server: false
@@ -76,7 +77,7 @@ Default:
  N_ICs: 20
  N_Triggers: 20
  Sample_Rate: 4000
- Sync_Bit: 3
+ Sync_Bit: 7
  File_Type: ".mat"
  Sample_Rate: 4000
  Rec_Samples: 2097152
@@ -85,8 +86,10 @@ Default:
   Stop: 200
 Server:
  Address:
-  TCP: "128.2.244.60"
-  UDP: "128.2.244.60"
+  #TCP: "128.2.244.60"
+  TCP: "192.168.0.54"
+  #UDP: "128.2.244.60"
+  UDP: "192.168.0.54"
   Worker: "127.0.0.1"
  TCP:
   Controller: 5000
@@ -105,3 +108,19 @@ Server:
   data: 3034
   recv: 3035
   params: 3036
+  bip: 
+    A: 3037
+    B: 3038
+  muap: 3039
+  all: 3040
+ UDPHOST:
+  state: "127.0.0.1"
+  name: "127.0.0.1"
+  extra: "127.0.0.1"
+  task: "127.0.0.1"
+  data: "127.0.0.1"
+  recv: "127.0.0.1"
+  params: "127.0.0.1"
+  bip: "127.0.0.1"
+  muap: "127.0.0.1"
+  all: "127.0.0.1"
