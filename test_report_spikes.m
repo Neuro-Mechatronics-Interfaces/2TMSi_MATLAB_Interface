@@ -5,5 +5,7 @@ for ii = 1:numel(data.n)
         fprintf(1,'%s::Channel-%d=%d spikes\n', evt.AbsoluteTime, ii, data.n(ii));
     end
 end
-src.UserData = data.n;
+src.UserData.(data.SAGA).x = 1:numel(data.n);
+src.UserData.(data.SAGA).y = data.n';
+% refreshdata;
 end

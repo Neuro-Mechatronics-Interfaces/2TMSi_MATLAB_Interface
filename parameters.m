@@ -28,6 +28,7 @@ pars = struct;
 % pars.config = "config_125k.yaml";
 pars.config = "config_cart.yaml";
 pars.config_stream_service_plus = "config_stream_service_plus__default.yaml";
+pars.saga_file = 'SAGA.json';
 % pars.config = "config_125k_delta.yaml";
 % pars.config = "Forrest_2023_04_05_config.yaml";
 % pars.generated_data_folder =  strrep('C:\Users\NML\Box\N3_SharpFocus\Phase 3 experiments\generated_data', '\', '/'); % Setting this to human or primate, temporary hard code

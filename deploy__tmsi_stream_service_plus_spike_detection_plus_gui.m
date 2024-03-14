@@ -171,7 +171,7 @@ udp_param_receiver = udpport("byte", ...
     "LocalHost", config.UDP.Socket.StreamService.Address, ...
     "LocalPort", config.UDP.Socket.StreamService.Port.params, ...
     "EnablePortSharing", false);
-tcp_spike_server = tcpserver(config.TCP.SpikeServer.Address, ...
+tcp_spike_server = tcpserver("0.0.0.0", ... % Allow any IP to connect
                              config.TCP.SpikeServer.Port);
 
 param = struct(...
@@ -345,32 +345,44 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
 
             % Handle updating the "Squiggles" GUI if required
             if param.gui.squiggles.enable
-                for ii = 1:N_CLIENT
-                    if size(samples{ii},2) > 0
-                        sample_counts = samples{ii}(config.SAGA.(device(ii).tag).Channels.COUNT,:);
-                        i_assign = rem([sample_counts-1, sample_counts(end)], param.gui.squiggles.n_samples)+1;
-                        for iCh = 1:numel(param.gui.squiggles.channels.(device(ii).tag))
-                            squiggles.h.(device(ii).tag)(iCh,i_assign) = [samples{ii}(param.gui.squiggles.channels.(device(ii).tag)(iCh),:), nan];
+                if isvalid(param.gui.squiggles.fig)
+                    for ii = 1:N_CLIENT
+                        if size(samples{ii},2) > 0
+                            sample_counts = samples{ii}(config.SAGA.(device(ii).tag).Channels.COUNT,:);
+                            i_assign = rem([sample_counts-1, sample_counts(end)], param.gui.squiggles.n_samples)+1;
+                            for iCh = 1:numel(param.gui.squiggles.channels.(device(ii).tag))
+                                squiggles.h.(device(ii).tag)(iCh,i_assign) = [samples{ii}(param.gui.squiggles.channels.(device(ii).tag)(iCh),:), nan];
+                            end
+                        else
+                            sample_counts = [];
                         end
-                    else
-                        sample_counts = [];
                     end
-                end
-                if ~isempty(sample_counts)
-                    i_ts = rem(sample_counts,param.gui.squiggles.n_samples) == round(param.gui.squiggles.n_samples/2);
-                    if sum(i_ts) == 1
-                        param.gui.squiggles.h.xline.Label = seconds_2_str(samples{ii}(config.SAGA.A.Channels.COUNT, i_ts)/param.sample_rate);
+                    if ~isempty(sample_counts)
+                        i_ts = rem(sample_counts,param.gui.squiggles.n_samples) == round(param.gui.squiggles.n_samples/2);
+                        if sum(i_ts) == 1
+                            param.gui.squiggles.h.xline.Label = seconds_2_str(samples{ii}(config.SAGA.A.Channels.COUNT, i_ts)/param.sample_rate);
+                        end
                     end
+                else
+                    param.gui.squiggles.fig = [];
+                    param.gui.squiggles.enable = false;
+                    fprintf(1,'[TMSi]::[SQUIGGLES] Gui was closed.\n');
                 end
             end
 
             % Handle updating the "NEO" (spikes) GUI if required
             if param.gui.neo.enable && param.spike_detector
-                iTag = TAG == param.gui.neo.saga;
-                if size(samples{iTag},2) > 3
-                    ineo = rem(samples{iTag}(config.SAGA.(param.gui.neo.saga).Channels.COUNT,2:end)'-1, param.gui.neo.n_samples)+1;
-                    y = [neodata.(param.gui.neo.saga)(:,param.gui.neo.channel); nan];
-                    param.gui.neo.h.data.YData(ineo) = y;
+                if isvalid(param.gui.neo.fig)
+                    iTag = TAG == param.gui.neo.saga;
+                    if size(samples{iTag},2) > 3
+                        ineo = rem(samples{iTag}(config.SAGA.(param.gui.neo.saga).Channels.COUNT,2:end)'-1, param.gui.neo.n_samples)+1;
+                        y = [neodata.(param.gui.neo.saga)(:,param.gui.neo.channel); nan];
+                        param.gui.neo.h.data.YData(ineo) = y;
+                    end
+                else
+                    param.gui.neo.fig = [];
+                    param.gui.neo.enable = false;
+                    fprintf(1,'[TMSi]::[NEO] Gui was closed.\n');
                 end
             end
             pause(param.pause_duration); % Allow the other callbacks to process.

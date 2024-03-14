@@ -1,9 +1,11 @@
-function [config, TAG, SN, N_CLIENT, SAGA] = parse_main_config(cfg, saga)
+function [config, TAG, SN, N_CLIENT, SAGA] = parse_main_config(cfg, saga, options)
 %PARSE_MAIN_CONFIG  Parses config struct from config.yaml
 %
 % Syntax:
 %   [config, TAG, SN, N_CLIENT, SAGA] = parse_main_config(cfg);
 %   [...] = parse_main_config(cfg, saga);
+%   [...] = parse_main_config(__,'Name',value,...);
+%
 %
 % Inputs:
 %   cfg - The configuration struct loaded from
@@ -16,6 +18,9 @@ function [config, TAG, SN, N_CLIENT, SAGA] = parse_main_config(cfg, saga)
 %               (or, its filename e.g. 'project/SAGA.json')
 %           -> Default will use 'SAGA.json' if not specified.
 %
+% Options:
+%   Verbose (1,1) logical = true -  Set false to suppress command window output.
+%
 % Output:
 %   config - The parsed configuration struct.
 %   TAG - The array of device tags to use in this session
@@ -26,12 +31,14 @@ function [config, TAG, SN, N_CLIENT, SAGA] = parse_main_config(cfg, saga)
 %
 % See also: Contents, deploy__tmsi_stream_service, deploy__tmsi_tcp_servers
 
-if nargin < 1
-    cfg = parameters('config'); 
+arguments
+    cfg {mustBeTextScalar} = "";
+    saga {mustBeTextScalar} = 'SAGA.json';
+    options.Verbose (1,1) logical = true;
 end
 
-if nargin < 2
-    saga = 'SAGA.json'; 
+if strlength(cfg) == 0
+    cfg = parameters('config'); 
 end
 
 if ischar(saga) || isstring(saga)
@@ -50,11 +57,15 @@ config.SAGA.A.SN = struct('DR', SAGA.DR.(config.SAGA.A.Unit), 'DS', SAGA.DS.(con
 if config.SAGA.A.Enable
     TAG = "A";
     SN = config.SAGA.A.SN.DR;
-    fprintf(1, "Using %s (SN:%12d) as Device-Tag 'A'\n", config.SAGA.A.Unit, SN);
+    if options.Verbose
+        fprintf(1, "Using %s (SN:%12d) as Device-Tag 'A'\n", config.SAGA.A.Unit, SN);
+    end
 else
     TAG = [];
     SN = [];
-    fprintf(1, "Device-Tag 'A' Unit is not enabled and will not be used for recordings.\n"); 
+    if options.Verbose
+        fprintf(1, "Device-Tag 'A' Unit is not enabled and will not be used for recordings.\n"); 
+    end
 end
 
 config.SAGA.B.SN = struct('DR', SAGA.DR.(config.SAGA.B.Unit), 'DS', SAGA.DS.(config.SAGA.B.Unit));
@@ -62,9 +73,13 @@ if config.SAGA.B.Enable
     TAG = [TAG, "B"];
     sn =  config.SAGA.B.SN.DR;
     SN = [SN, sn];
-    fprintf(1, "Using %s (SN:%12d) as Device-Tag 'B'\n", config.SAGA.B.Unit, SN(end));
+    if options.Verbose
+        fprintf(1, "Using %s (SN:%12d) as Device-Tag 'B'\n", config.SAGA.B.Unit, SN(end));
+    end
 else
-    fprintf(1, "Device-Tag 'B' Unit is not enabled and will not be used for recordings.\n"); 
+    if options.Verbose
+        fprintf(1, "Device-Tag 'B' Unit is not enabled and will not be used for recordings.\n"); 
+    end
 end
 
 N_CLIENT = numel(TAG);
