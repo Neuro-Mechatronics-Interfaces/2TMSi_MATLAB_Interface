@@ -25,10 +25,12 @@ else
 end
 
 %% SET PARAMETERS
+IMPEDANCE_FIGURE_POSITION = [ 280 160 1200 720; ... % A
+                             2120 100 1200 720]; % B
 % IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
 %                               186 430 1482 787]; % B
-IMPEDANCE_FIGURE_POSITION = [10 250 1250 950; ... % A - 125k
-    1250 250 1250 950];
+% IMPEDANCE_FIGURE_POSITION = [10 250 1250 950; ... % A - 125k
+%     1250 250 1250 950];
 
 % TODO: Add something that will increment a sub-block index so that it
 % auto-saves if the buffer overflows, maybe using a flag on the buffer
@@ -147,7 +149,14 @@ udp_name_receiver = udpport("byte", "LocalHost", config.Server.Address.UDP, "Loc
 %     udp_extra_receiver = udpport("byte","LocalHost",config.Server.Address.UDP, "LocalPort", config.Server.UDP.extra, "EnablePortSharing", true);
 % end
 udp_param_receiver = udpport("byte", "LocalHost", config.Server.Address.UDP, "LocalPort", config.Server.UDP.params, "EnablePortSharing", false);
-param = struct('n', config.Default.Rec_Samples, 'f', strrep(config.Default.Folder,'\','/'));
+tcp_spike_server = tcpserver("0.0.0.0", config.Server.TCP.SpikeServer);
+
+param = struct(...
+    'n', config.Default.Rec_Samples, ...             % Number of samples in buffer
+    'f', strrep(config.Default.Folder,'\','/'),  ... % Save folder
+    'state', 'default', ...
+    'transform', struct('A', struct('default', eye(68)), 'B', struct('default', eye(68))), ...
+    'threshold', struct('A', struct('default', inf(68,1)), 'B', struct('default', inf(68,1))));
 
 % "mode" codes (see tab 'Tag' properties in SAGA_Data_Visualizer app):
 %   "US" - Unipolar Stream
@@ -157,22 +166,22 @@ param = struct('n', config.Default.Rec_Samples, 'f', strrep(config.Default.Folde
 %   "UR" - Unipolar Raster
 %   "IR" - ICA Raster
 %   "RC" - RMS Contour
-packet_mode = struct('A','US','B','US');
+% packet_mode = struct('A','US','B','US');
 
-if config.Default.Use_Visualizer
-    visualizer = struct;
-    for ii = 1:N_CLIENT
-        visualizer.(device(ii).tag) = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Viewer);
-    end
-else
-    visualizer = [];
-end
-worker = struct('A', [], 'B', []);
-if config.Default.Use_Worker_Server
-    for ii = 1:N_CLIENT
-        worker.(device(ii).tag) = tcpclient(config.Server.Address.Worker, config.Server.TCP.(device(ii).tag).Worker);
-    end
-end
+% if config.Default.Use_Visualizer
+%     visualizer = struct;
+%     for ii = 1:N_CLIENT
+%         visualizer.(device(ii).tag) = tcpclient(config.Server.Address.TCP, config.Server.TCP.(device(ii).tag).Viewer);
+%     end
+% else
+%     visualizer = [];
+% end
+% worker = struct('A', [], 'B', []);
+% if config.Default.Use_Worker_Server
+%     for ii = 1:N_CLIENT
+%         worker.(device(ii).tag) = tcpclient(config.Server.Address.Worker, config.Server.TCP.(device(ii).tag).Worker);
+%     end
+% end
 
 ch = device.getActiveChannels();
 if ~iscell(ch)
@@ -186,19 +195,19 @@ for ii = 1:N_CLIENT
         device(ii).sample_rate);
 end
 
-if config.Default.Use_Visualizer
-    buffer_event_listener = struct;
-    for ii = 1:N_CLIENT
-        tag = device(ii).tag;
-        buffer_event_listener.(tag) = addlistener(buffer.(tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer.(tag), (channels.(tag).UNI(1:4))', true));
-    end
+% if config.Default.Use_Visualizer
+%     buffer_event_listener = struct;
+%     for ii = 1:N_CLIENT
+%         tag = device(ii).tag;
+%         buffer_event_listener.(tag) = addlistener(buffer.(tag), "FrameFilledEvent", @(src, evt)callback.handleStreamBufferFilledEvent__US(src, evt, visualizer.(tag), (channels.(tag).UNI(1:4))', true));
+%     end
 % else
 %     for ii = 1:N_CLIENT
 %         buffer.(device(ii).tag).set_ports(config.Server.UDP, config.Server.UDPHOST);
 %         buffer.(device(ii).tag).init_callback('FrameFilledEvent', 'bip', ...
 %             'BipolarChannelIndices', config.SAGA.(device(ii).tag).Channels.BIP);
 %     end
-end
+% end
 %%
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
@@ -310,6 +319,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     end
                 case 'f'
                     param.f = strrep(tmp_split{2}, '\', '/');
+                case 's'
+                    new_state = lower(tmp_split{2});
+                    param.state = new_state;
+                    
                 otherwise
                     param.(lower(tmp_split{1})) = tmp_split{2};
             end

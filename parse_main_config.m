@@ -85,4 +85,13 @@ for ii = 1:N_CLIENT
     end
 end
 
+if isfield(config, 'GUI')
+    for ii = 1:N_CLIENT
+        tag = TAG(ii);
+        if iscell(config.GUI.Squiggles.(tag))
+            config.GUI.Squiggles.(tag) = cell2mat(config.GUI.Squiggles.(tag));
+        end
+    end
+end
+
 end

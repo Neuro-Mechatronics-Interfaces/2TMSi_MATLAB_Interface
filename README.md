@@ -5,8 +5,7 @@ This repo contains code to run multiple TMSi SAGAs on the same device (or networ
 * [Using Git](#git-basics)
 * [Overview](#instructions)
 * [Serial Numbers](#serial-numbers)
-* [Network Firewall](#firewall)
-  + [Ports I Used](#ports)
+* [Network and Messaging](#network-and-messaging)
 * [Usage](#usage)
   + Note that this is application-specific, and the example deployment is geared towards online data visualization from one particular experiment with two TMSiSAGA where I wanted to see stim-evoked activity on two arrays as a contour.
 
@@ -48,10 +47,19 @@ I've modified the TMSiSAGA package from its original state because I'm meddlesom
 As such, you need to get:
 * The serial number of each SAGA unit
 * A list of "Tags" you want to assign to those serial numbers
-* Open the UDP ports 3030-3035 for MATLAB on Inbound/Outbound rules
-  + Search "Firewall" on Windows and then go to "Advanced Firewall Settings" to modify these
-* Open the TCP/IP ports 5000-5050 for MATLAB on Inbound/Outbound rules
-  + Note that for both these changes, consider only allowing these to be open for specific IP addresses you intend to use on your device network. I don't actually know if that helps from a security standpoint but I hope it does.
+* The TCP/IP and UDP port/firewall rules should prompt you in MATLAB to enable communications (at least in newer versions of MATLAB) on the required ports. If you think you are having issues with Firewall/permissions, try getting everything to run on `127.0.0.1` (localhost) first; it is most-likely some issue with your router or other network configuration.  
+* Determine which script should run the stream service. If you are not sure, use `deploy__nhp_tmsi_sagas.m`. For a more advanced interface, use `deploy__nhp_tmsi_sagas_plus.m`. 
+  + Each of these scripts has a `.bat` file associated with it. The `deploy__nhp_...` scripts are just `try..catch` wrappers to the actual `deploy__tmsi_stream_service<x>.m`. Once you have identified which service/script you want, you should make a desktop shortcut pointed to the appropriate `.bat` file. For example, on a Windows 10 device I have a desktop shortcut `1_deploy_tmsi`. If I right-click it and open Properties, then in `Target:` I have:
+  ```
+  C:\Windows\System32\cmd.exe /k "C:\MyRepos\NML-NHP\2TMSi_MATLAB_Interface\deploy__nhp_tmsi_sagas_plus.bat"
+  ```
+  In `Start in:` I have:
+  ```
+  C:\MyRepos\NML-NHP\2TMSi_MATLAB_Interface
+  ```
+  So the shortcut must run the `.bat` file from this repo in order for everything to work properly.  
+  + If you are using the "normal" service, then check in `parameters.m` to see which `parameters.config` you should update (or better, make a copy of the one it currently points to and then change the value in `parameters.m` to point to the new yaml file you made, where you can set your local changes).  
+  + If you are using the "advanced" service (the one ending in `_plus`), you will update `parameters.config_stream_service_plus` so that it now points to the new copy of whatever file it was previously pointing to.  
 
 ### Serial Numbers ###
 You will need to assign each serial number to a corresponding tag (I use "A", "B", ... etc.). 
@@ -69,31 +77,9 @@ A more comprehensive and hopefully current version of this table is kept on the 
 | SAGA-A    | Mellon 125k  | 1000210037             | 1005210028                  | A                   |
 | SAGA-B    | Mellon 125k  | 1000210036             | 1005210029                  | B                   |
 
-### Firewall ###
-I might just be really bad at IT but I had a hell of a time getting that part to work and then magically walked in the next day and it all worked without me ever changing the code so either we have gremlins (like the good kind?) or it might require a computer restart and then some quiet contemplation of your life's choices (waiting) until the network gods decide to let you use their ports. Anyways, consider yourself warned.
-* Note that I strongly recommend getting a local ethernet network switch and keeping devices off the CMU public ethernet, which seems to cause issues if you leave ports open for too long. 
-* If you do have a local network switch, then I had success setting things up as local network devices using `10.x.y.z` network. 
+### Network and Messaging ###
 
-#### Ports ####
-I've been opening the following UDP ports:
-```(matlab)
-UDP_CONTROLLER_IP = "0.0.0.0";      % This creates the udpport on controller device, listening on any network.
-UDP_STATE_BROADCAST_PORT = 3030;    % UDP port: state
-UDP_NAME_BROADCAST_PORT = 3031;     % UDP port: name
-UDP_EXTRA_BROADCAST_PORT = 3032;    % UDP port: extra
-UDP_TASK_BROADCAST_PORT  = 3033;    % UDP port: task
-UDP_DATA_BROADCAST_PORT  = 3034;    % UDP port: data
-UDP_CONTROLLER_RECV_PORT = 3035;    % UDP port: receiver (controller)
-```  
-
-For TCP, I used the following ports and addresses (which probably change according to your experimental setup):
-```(matlab)
-BROADCAST_ADDRESS = "192.168.1.255";    % Broadcast address for local ethernet switch (may be deprecated)
-SERVER_ADDRESS = "128.2.244.60";        % Host machine for TMSiSAGA ("Stream Server")
-WORKER_ADDRESS = "128.2.244.29";        % Max desktop processing ("Data Server")
-SERVER_PORT_CONTROLLER = 5000;                   % Server port for CONTROLLER
-SERVER_PORT_DATA = struct('A', 5020, 'B', 5021); % Ports for DATA servers. % Assign by TMSiSAGA tag ('A', 'B', .. etc)
-```
+Since this has gotten a little out-of-hand, I'm moving it into a [separate markdown document](NETWORK.md).
 
 ## Usage ##
 _NOTE: ORDER OF OPERATIONS MATTERS FOR THESE SCRIPTS!  

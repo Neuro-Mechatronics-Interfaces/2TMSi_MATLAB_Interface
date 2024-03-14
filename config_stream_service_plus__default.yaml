@@ -1,0 +1,94 @@
+#CONFIG_STREAM_SERVICE_PLUS__DEFAULT.YAML  Set the configuration for TMSiSAGA units to be used as "A" and "B"
+#
+# These header notes are split up according to the top-level fields.
+#
+# -- SAGA --
+#  -> Currently, only supports 2 SAGA at a time.
+#  -> Valid options for "Unit" property of each are:
+#     - "SAGA1"
+#     - "SAGA2"
+#     - "SAGA3"
+#     - "SAGA4"
+#     - "SAGA5"
+#     - "SAGAA"
+#     - "SAGAB"
+#
+# MAKE SURE TO KEEP TRACK OF WHICH UNIT IS ASSIGNED TAG "A" AND "B"
+#   -> THIS IS CRITICAL FOR KEEPING TRACK OF WHICH LEADS WENT WHERE!
+#
+# TO ONLY USE 1 SAGA, SET `Enable: false` ON THE CORRESPONDING UNIT.
+
+SAGA:
+ A: 
+   Enable: true
+   FileType: ".mat"
+   Unit: "SAGAA"
+   Trigger:
+    Channel: 73
+    Bit: 1
+   Channels:
+    CREF: 1
+    UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
+    BIP: [66,67,68,69]
+    AUX: [70,71,72]
+    DIG: []
+    ACC_EN: 0  # set to 1 to enable internal accelerometer channels
+    STAT: 74
+    COUNT: 75
+    n: 
+     channels: 75
+     samples: 524288
+ B: 
+   Enable: true
+   Unit: "SAGAB"
+   FileType: ".mat"
+   Trigger:
+    Channel: 73
+    Bit: 1
+   Channels:
+    CREF: 1
+    UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
+    BIP: [66,67,68,69]
+    AUX: [70,71,72]
+    DIG: []
+    ACC_EN: 0  # set to 1 to enable internal accelerometer channels
+    STAT: 74
+    COUNT: 75
+    n: 
+     channels: 75
+     samples: 524288
+Default:
+ Interface: "optical"
+ #Interface: "electrical"
+ Folder: "C:/Data/raw_data"
+ Subject: "Default"
+ Sample_Rate: 4000
+ Sync_Bit: 7
+ File_Type: ".mat"
+ Sample_Loop_Pause_Duration: 0.010
+ Acquisition_Label_State: "default" # For creating different types of transforms
+ N_Rec_Samples: 2097152
+ N_Samples_Calibration: 4000
+ N_Spike_Channels: 16
+ Spike_Detector: true
+GUI:
+ N_Samples: 4000
+ Offset: 50 
+ Squiggles: 
+  Enable: true
+  A: [6]
+  B: [21,42]
+ NEO:
+  Enable: true   
+UDP:
+ Socket:
+  StreamService:
+   Address: "192.168.88.100"
+   Port: 
+    state: 3030
+    name: 3031
+    params: 3036
+TCP:
+ SpikeServer:
+  Address: "0.0.0.0"
+  Port: 6050
