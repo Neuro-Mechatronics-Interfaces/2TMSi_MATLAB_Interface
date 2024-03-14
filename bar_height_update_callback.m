@@ -1,4 +1,4 @@
-function bar_height_update_callback(hBarA, hBarB)
+function bar_height_update_callback(src, hBarA, hBarB)
 %BAR_HEIGHT_UPDATE_CALLBACK Update the heights of the bars according to counts in tcpclient UserData.A.x, UserData.A.y, UserData.B.x, UserData.B.y fields.
 %
 % Example:
@@ -6,9 +6,9 @@ function bar_height_update_callback(hBarA, hBarB)
 %   hB = bar(...);
 %   timerObj = timer('TimerFcn', @(~, ~, client, hA, hB)bar_height_update_callback(src, hA, hB));
 %   timerObj.
-global spikeClient; %#ok<GVMIS> 
-set(hBarA,'XData',spikeClient.UserData.A.x, 'YData', spikeClient.UserData.A.y);
-set(hBarB,'XData',spikeClient.UserData.B.x, 'YData', spikeClient.UserData.B.y);
-drawnow();
 
+set(hBarA,'XData',src.UserData.A.x, 'YData', src.UserData.A.y);
+set(hBarB,'XData',src.UserData.B.x, 'YData', src.UserData.B.y);
+drawnow();
+% disp('Tick');
 end
