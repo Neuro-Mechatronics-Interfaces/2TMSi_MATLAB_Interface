@@ -40,6 +40,7 @@ IMPEDANCE_FIGURE_POSITION = [ 280 160 1200 720; ... % A
 config_file = parameters('config_stream_service_plus');
 fprintf(1, "[TMSi]::Loading configuration file (%s, in main repo folder)...\n", config_file);
 [config, TAG, SN, N_CLIENT] = parse_main_config(config_file);
+addpath('FastICA_25');
 pause(1.5);
 %% Setup device configurations.
 config_device_impedance = struct('ImpedanceMode', true, ...
@@ -181,6 +182,7 @@ param = struct(...
     'n_total', struct('A', numel(config_channels.A.uni), 'B', numel(config_channels.B.uni)), ...
     'sample_rate', config.Default.Sample_Rate, ...
     'spike_detector', config.Default.Spike_Detector, ...
+    'apply_car', config.Default.Apply_CAR, ...
     'hpf', struct('b', [], 'a', []), ...
     'gui', struct('squiggles', struct('enable', config.GUI.Squiggles.Enable, 'fig', [], 'h', [], 'offset', config.GUI.Offset, 'channels', struct('A', [], 'B', []), 'zi', struct('A', [], 'B', []), 'n_samples', config.GUI.N_Samples, 'color', config.GUI.Color), ...
                   'neo', struct('enable', config.GUI.NEO.Enable, 'fig', [], 'h', [], 'saga', "A", 'channel', 1, 'n_samples', config.GUI.N_Samples, 'color', config.GUI.Color, 'state', config.Default.Acquisition_Label_State)), ...
@@ -201,19 +203,12 @@ param.gui.squiggles.channels.A = config.GUI.Squiggles.A;
 param.gui.squiggles.channels.B = config.GUI.Squiggles.B;
 param.gui.squiggles.zi.A = zeros(numel(config.GUI.Squiggles.A),2);
 param.gui.squiggles.zi.B = zeros(numel(config.GUI.Squiggles.B),2);
-[param.hpf.b, param.hpf.a] = butter(2, 10/(param.sample_rate/2), 'high');
+[param.hpf.b, param.hpf.a] = butter(2, config.Default.HPF_Cutoff_Frequency/(param.sample_rate/2), 'high');
 
 ch = device.getActiveChannels();
 if ~iscell(ch)
     ch = {ch};
 end
-% buffer = struct;
-% for ii = 1:N_CLIENT
-%     buffer.(device(ii).tag) = StreamBuffer(ch{ii}, ...
-%         channels.(device(ii).tag).n.samples, ...
-%         device(ii).tag, ...
-%         device(ii).sample_rate);
-% end
 
 param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
 param.gui.neo = init_neo_gui(param.gui.neo, param.threshold.(param.gui.neo.saga).(param.label_state)(param.gui.neo.channel));
@@ -228,6 +223,11 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             sprintf("%s_%04d_%02d_%02d_%%s_0.mat", ...
                                     config.Default.Subject, ...
                                     year(today), month(today), day(today))), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
+    [tmpFolder, tmpFile, ~] = fileparts(fname);
+    if exist(tmpFolder,'dir')==0
+        mkdir(tmpFolder);
+    end
+    
     start(device);
     pause(0.25);
     needs_timestamp = struct;
@@ -254,6 +254,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             else
                 fname = strrep(fullfile(param.save_location, tmp), "\", "/");
             end
+            [tmpFolder, tmpFile, ~] = fileparts(fname);
+            if exist(tmpFolder,'dir')==0
+                mkdir(tmpFolder);
+            end
             fprintf(1, "File name updated: %s\n", fname);
         end
         
@@ -271,6 +275,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 else
                     fname = strrep(fullfile(param.save_location, tmp), "\", "/");
                 end
+                [tmpFolder, tmpFile, ~] = fileparts(fname);
+                if exist(tmpFolder,'dir')==0
+                    mkdir(tmpFolder);
+                end
                 fprintf(1, "File name updated: %s\n", fname);
             end
 
@@ -285,7 +293,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 if needs_timestamp.(device(ii).tag)
                     first_timestamp.(device(ii).tag) =  datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS', 'TimeZone', 'America/New_York') - seconds(size(samples{ii},2)/param.sample_rate);
                 end
-%                 buffer.(device(ii).tag).append(samples{ii});
             end
             % Check for a "control state" update.
             if udp_state_receiver.NumBytesAvailable > 0
@@ -293,14 +300,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 if strcmpi(state, "rec")
                     if ~recording
                         fprintf(1, "[TMSi]::[RUN > REC]: Buffer created, recording in process...\n");
-%                         rec_buffer = struct;
                         rec_file = struct;
                         for ii = 1:N_CLIENT
-%                             rec_buffer.(device(ii).tag) = StreamBuffer( ...
-%                                 ch{ii}, ...
-%                                 param.n_recording_buffer_samples, ...
-%                                 device(ii).tag, ...
-%                                 device(ii).sample_rate);
                             rec_file.(device(ii).tag) = matfile(strrep(fname), "%s", device(ii).tag, 'Writable', true);
                             rec_file.(device(ii).tag).samples = zeros(param.n_channels.(device(ii).tag),0); % Initialize the variable, with no samples in it.
                             rec_file.(device(ii).tag).channels = num2cell(ch{ii});
@@ -324,9 +325,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if recording
                         fprintf(1, "[TMSi]::[REC > RUN]: Recording complete\n\t->\t(%s)\n", fname);
                         for ii = 1:N_CLIENT
-%                             rec_buffer.(device(ii).tag).save(fname);
-%                             delete(rec_buffer.(device(ii).tag));
-%                             save(strrep(fname,'%s',device(ii).tag), 'params', '-append');
                             delete(rec_file.(device(ii).tag));
                         end
                     end
@@ -336,7 +334,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             % If recording, log the samples in the recording buffer. 
             if recording
                 for ii = 1:N_CLIENT
-%                     rec_buffer.(device(ii).tag).append(samples{ii});
                     rec_file.(device(ii).tag).samples(:,(end+1):(end+size(samples{ii,2}))) = samples{ii};
                     if needs_timestamp.(device(ii).tag)
                         rec_file.(device(ii).tag).time = first_timestamp.(device(ii).tag);
@@ -351,9 +348,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if n_cal_samples >= param.n_samples_calibration
                         last_sample = size(samples{ii},2) - (n_cal_samples - param.n_samples_calibration);
                         param.calibration_data.(device(ii).tag).(param.label_state)(:,(param.calibration_samples_acquired.(device(ii).tag)+1):end) = samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,1:last_sample);
-%                         caldata = filtfilt(b,a,param.calibration_data.(device(ii).tag)');
                         caldata = param.calibration_data.(device(ii).tag).(param.label_state)';
+                        if param.apply_car
+                            caldata = caldata - mean(caldata,2);
+                        end
                         neocaldata = caldata(3:end,:).^2 - caldata(1:(end-2),:).^2; 
+                        
                         [param.transform.(device(ii).tag).(param.label_state), score] = pca(neocaldata, 'NumComponents', param.n_spike_channels);
                         param.threshold.(device(ii).tag).(param.label_state) = median(abs(score), 1) * param.threshold_deviations;
                         param.calibrate.(device(ii).tag) = false;
@@ -372,7 +372,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if size(samples{ii},2) > 3
                         [spikecounts.(device(ii).tag), neodata.(device(ii).tag)] = detect_spikes(samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,:), ...
                             param.transform.(device(ii).tag).(param.label_state), ...
-                            param.threshold.(device(ii).tag).(param.label_state));
+                            param.threshold.(device(ii).tag).(param.label_state), ...
+                            param.apply_car);
                         if tcp_spike_server.Connected
                             spike_data = struct('SAGA', device(ii).tag, 'n', spikecounts.(device(ii).tag), 'neodata', round(neodata.(device(ii).tag),1));
                             writeline(tcp_spike_server, jsonencode(spike_data));
@@ -390,7 +391,11 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             sample_counts = samples{ii}(config.SAGA.(device(ii).tag).Channels.COUNT,:);
                             i_assign = rem([sample_counts-1, sample_counts(end)], param.gui.squiggles.n_samples)+1;
                             for iCh = 1:numel(param.gui.squiggles.channels.(device(ii).tag))
-                                [ytmp, param.gui.squiggles.zi.(device(ii).tag)(iCh,:)] = filter(param.hpf.b, param.hpf.a, samples{ii}(param.gui.squiggles.channels.(device(ii).tag)(iCh),:), param.gui.squiggles.zi.(device(ii).tag)(iCh,:));
+                                if apply_car
+                                    [ytmp, param.gui.squiggles.zi.(device(ii).tag)(iCh,:)] = filter(param.hpf.b, param.hpf.a, samples{ii}(param.gui.squiggles.channels.(device(ii).tag)(iCh),:) - mean(samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,:), 1), param.gui.squiggles.zi.(device(ii).tag)(iCh,:));
+                                else
+                                    [ytmp, param.gui.squiggles.zi.(device(ii).tag)(iCh,:)] = filter(param.hpf.b, param.hpf.a, samples{ii}(param.gui.squiggles.channels.(device(ii).tag)(iCh),:), param.gui.squiggles.zi.(device(ii).tag)(iCh,:));
+                                end
                                 param.gui.squiggles.h.(device(ii).tag)(iCh).YData(i_assign) = [ytmp + tmp_offset, nan];
                                 tmp_offset = tmp_offset + param.gui.squiggles.offset;
                             end

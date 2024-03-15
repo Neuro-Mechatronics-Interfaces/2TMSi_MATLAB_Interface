@@ -10,6 +10,9 @@ parameter_syntax = strsplit(parameter_data, '.');
 parameter_code = lower(parameter_syntax{1});
 parameter_value = parameter_syntax{2};
 switch parameter_code
+    case 'a' % CAR
+        param.apply_car = strcmpi(parameter_value, "1");
+        fprintf(1,'[TMSi]\t->\t[n]: Apply CAR = %s\n', parameter_value);
     case 'z' % Save Parameters
         param.save_params = strcmpi(parameter_value, "1");
         fprintf(1,'[TMSi]\t->\t[n]: Save Parameters = %s\n', parameter_value);
