@@ -28,7 +28,7 @@ neo.h = struct;
 neo.h.xline = xline(ax, neo.n_samples/2, ...
     'k:', seconds_2_str(0.5));
 if isinf(threshold)
-    threshold = nan;
+    threshold = 0;
 end
 neo.h.yline = yline(ax, threshold, 'r--', "Threshold");
 neo.h.data = plot(ax, 1:neo.n_samples, nan(1, neo.n_samples));

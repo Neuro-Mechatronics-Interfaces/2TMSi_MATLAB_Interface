@@ -182,22 +182,24 @@ param = struct(...
     'sample_rate', config.Default.Sample_Rate, ...
     'spike_detector', config.Default.Spike_Detector, ...
     'hpf', struct('b', [], 'a', []), ...
-    'gui', struct('squiggles', struct('enable', config.GUI.Squiggles.Enable, 'fig', [], 'h', [], 'offset', config.GUI.Offset, 'channels', struct('A', [], 'B', []), 'zi', struct('A', [], 'B', []), 'n_samples', config.GUI.N_Samples), ...
+    'gui', struct('squiggles', struct('enable', config.GUI.Squiggles.Enable, 'fig', [], 'h', [], 'offset', config.GUI.Offset, 'channels', struct('A', [], 'B', []), 'zi', struct('A', [], 'B', []), 'n_samples', config.GUI.N_Samples, 'color', config.GUI.Color), ...
                   'neo', struct('enable', config.GUI.NEO.Enable, 'fig', [], 'h', [], 'saga', "A", 'channel', 1, 'n_samples', config.GUI.N_Samples)), ...
     'calibrate', struct('A', true, 'B', true), ...
     'calibration_samples_acquired', struct('A', 0, 'B', 0),  ...
-    'calibration_data', struct('A', randn(numel(config_channels.A.uni), config.Default.N_Samples_Calibration), 'B', randn(numel(config_channels.B.uni), config.Default.N_Samples_Calibration)), ...
+    'calibration_data', struct('A', struct('default', randn(numel(config_channels.A.uni), config.Default.N_Samples_Calibration)), ...
+                               'B', struct('default', randn(numel(config_channels.B.uni), config.Default.N_Samples_Calibration))), ...
     'save_location', strrep(config.Default.Folder,'\','/'),  ...            % Save folder
     'pause_duration', config.Default.Sample_Loop_Pause_Duration, ...
     'label_state', config.Default.Acquisition_Label_State, ...
     'transform', struct('A', struct('default', init_n_channel_transform(config.Default.N_Spike_Channels)), ...
                         'B', struct('default', init_n_channel_transform(config.Default.N_Spike_Channels))), ...
     'threshold', struct('A', struct('default', inf(1,config.Default.N_Spike_Channels)), ...
-                        'B', struct('default', inf(1,config.Default.N_Spike_Channels))));
+                        'B', struct('default', inf(1,config.Default.N_Spike_Channels))), ...
+    'threshold_deviations', config.Default.Threshold_Deviations);
 param.gui.squiggles.channels.A = config.GUI.Squiggles.A;
 param.gui.squiggles.channels.B = config.GUI.Squiggles.B;
-param.gui.squiggles.zi.A = zeros(2,numel(config.GUI.Squiggles.A));
-param.gui.squiggles.zi.B = zeros(2,numel(config.GUI.Squiggles.B));
+param.gui.squiggles.zi.A = zeros(numel(config.GUI.Squiggles.A),2);
+param.gui.squiggles.zi.B = zeros(numel(config.GUI.Squiggles.B),2);
 [param.hpf.b, param.hpf.a] = butter(2, 10/(param.sample_rate/2), 'high');
 
 ch = device.getActiveChannels();
@@ -222,7 +224,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     state = "idle";
     fname = strrep(fullfile(param.save_location, ...
                             config.Default.Subject, ...
-                            sprintf("%s_%04d_%02d_%02d_%%s_%%d.mat", ...
+                            sprintf("%s_%04d_%02d_%02d_%%s_0.mat", ...
                                     config.Default.Subject, ...
                                     year(today), month(today), day(today))), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
     recording = false;
@@ -296,6 +298,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         for ii = 1:N_CLIENT
                             rec_buffer.(device(ii).tag).save(fname);
                             delete(rec_buffer.(device(ii).tag));
+                            params = rmfield(param, "gui");
+                            save(strrep(fname,'%s',device(ii).tag), 'params', '-append');
                         end
                     end
                     recording = false;
@@ -313,17 +317,18 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     n_cal_samples = param.calibration_samples_acquired.(device(ii).tag) + size(samples{ii},2);
                     if n_cal_samples >= param.n_samples_calibration
                         last_sample = size(samples{ii},2) - (n_cal_samples - param.n_samples_calibration);
-                        param.calibration_data.(device(ii).tag)(:,(param.calibration_samples_acquired.(device(ii).tag)+1):end) = samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,1:last_sample);
+                        param.calibration_data.(device(ii).tag).(param.label_state)(:,(param.calibration_samples_acquired.(device(ii).tag)+1):end) = samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,1:last_sample);
 %                         caldata = filtfilt(b,a,param.calibration_data.(device(ii).tag)');
-                        caldata = param.calibration_data.(device(ii).tag)';
+                        caldata = param.calibration_data.(device(ii).tag).(param.label_state)';
                         neocaldata = caldata(3:end,:).^2 - caldata(1:(end-2),:).^2; 
                         [param.transform.(device(ii).tag).(param.label_state), score] = pca(neocaldata, 'NumComponents', param.n_spike_channels);
-                        param.threshold.(device(ii).tag) = median(abs(score)) * 6.5;
+                        param.threshold.(device(ii).tag).(param.label_state) = median(abs(score), 1) * param.threshold_deviations;
                         param.calibrate.(device(ii).tag) = false;
                         param.gui.neo = init_neo_gui(param.gui.neo, param.threshold.(param.gui.neo.saga).(param.label_state)(param.gui.neo.channel));
                         fprintf(1,'[TMSi]::[Calibration]::SAGA-%s "%s" calibration complete.\n', device(ii).tag, param.label_state);
                     else
-                        s(:,(param.calibration_samples_acquired.(device(ii).tag)+1):n_cal_samples) = samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,:);
+                        param.calibration_data.(device(ii).tag).(param.label_state)(:,(param.calibration_samples_acquired.(device(ii).tag)+1):n_cal_samples) = samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,:);
+                        param.calibration_samples_acquired.(device(ii).tag) = n_cal_samples;
                     end
                 end
             end
@@ -346,12 +351,15 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             % Handle updating the "Squiggles" GUI if required
             if param.gui.squiggles.enable
                 if isvalid(param.gui.squiggles.fig)
+                    tmp_offset = 0;
                     for ii = 1:N_CLIENT
                         if size(samples{ii},2) > 0
                             sample_counts = samples{ii}(config.SAGA.(device(ii).tag).Channels.COUNT,:);
                             i_assign = rem([sample_counts-1, sample_counts(end)], param.gui.squiggles.n_samples)+1;
                             for iCh = 1:numel(param.gui.squiggles.channels.(device(ii).tag))
-                                squiggles.h.(device(ii).tag)(iCh,i_assign) = [samples{ii}(param.gui.squiggles.channels.(device(ii).tag)(iCh),:), nan];
+                                [ytmp, param.gui.squiggles.zi.(device(ii).tag)(iCh,:)] = filter(param.hpf.b, param.hpf.a, samples{ii}(param.gui.squiggles.channels.(device(ii).tag)(iCh),:), param.gui.squiggles.zi.(device(ii).tag)(iCh,:));
+                                param.gui.squiggles.h.(device(ii).tag)(iCh).YData(i_assign) = [ytmp + tmp_offset, nan];
+                                tmp_offset = tmp_offset + param.gui.squiggles.offset;
                             end
                         else
                             sample_counts = [];
@@ -360,7 +368,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if ~isempty(sample_counts)
                         i_ts = rem(sample_counts,param.gui.squiggles.n_samples) == round(param.gui.squiggles.n_samples/2);
                         if sum(i_ts) == 1
-                            param.gui.squiggles.h.xline.Label = seconds_2_str(samples{ii}(config.SAGA.A.Channels.COUNT, i_ts)/param.sample_rate);
+                            param.gui.squiggles.h.xline.Label = seconds_2_str(sample_counts(i_ts)/param.sample_rate);
                         end
                     end
                 else
@@ -375,9 +383,14 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 if isvalid(param.gui.neo.fig)
                     iTag = TAG == param.gui.neo.saga;
                     if size(samples{iTag},2) > 3
-                        ineo = rem(samples{iTag}(config.SAGA.(param.gui.neo.saga).Channels.COUNT,2:end)'-1, param.gui.neo.n_samples)+1;
+                        sample_counts = samples{iTag}(config.SAGA.(param.gui.neo.saga).Channels.COUNT,2:end);
+                        i_assign = rem(sample_counts-1, param.gui.neo.n_samples)+1;
                         y = [neodata.(param.gui.neo.saga)(:,param.gui.neo.channel); nan];
-                        param.gui.neo.h.data.YData(ineo) = y;
+                        param.gui.neo.h.data.YData(i_assign) = y;
+                        i_ts = rem(sample_counts,param.gui.neo.n_samples) == round(param.gui.neo.n_samples/2);
+                        if sum(i_ts) == 1
+                            param.gui.neo.h.xline.Label = seconds_2_str(sample_counts(i_ts)/param.sample_rate);
+                        end
                     end
                 else
                     param.gui.neo.fig = [];
@@ -389,7 +402,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             drawnow;
         end % END: while running or recording
         while udp_state_receiver.NumBytesAvailable > 0
-            state = readline(udp_state_receiver);
+            tmpState = lower(string(readline(udp_state_receiver)));
+            if ismember(tmpState, ["rec", "idle", "quit", "imp", "run"])
+                state = tmpState;
+            else
+                fprintf("[TMSi]::[STATE] Tried to assign incorrect state (%s) -- check sender port.\n", tmpState);
+            end
             if strcmpi(state, "rec")
                 if ~recording
                     fprintf(1, "[TMSi]::[IDLE > REC]: Buffer created, recording in process...\n");
