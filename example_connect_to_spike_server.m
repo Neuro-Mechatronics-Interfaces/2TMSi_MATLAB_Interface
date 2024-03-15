@@ -12,7 +12,7 @@ spikeClient = tcpclient(config.TCP.SpikeServer.Address, ...
                    config.TCP.SpikeServer.Port);
 timerObj = timer('ExecutionMode', 'fixedRate', ...
                  'Name', 'Spike-Server-Bar-Callback-Timer-0', ...
-                 'Period', 0.5);
+                 'Period', 0.030);
 timerObj.UserData = struct(...
     'A', struct('x', (1:config.Default.N_Spike_Channels)', ...
                 'y', zeros(config.Default.N_Spike_Channels,1)), ...
@@ -24,13 +24,13 @@ fig = figure('Color','w','Name','Spike Counts', ...
     'MenuBar','none');
 L = tiledlayout(fig, 1, 2);
 ax = nexttile(L);
-set(ax,'NextPlot','add','FontName','Tahoma','XColor','k','YColor','k');
-hA = bar(ax, timerObj.UserData.A.x, timerObj.UserData.A.y);
+set(ax,'NextPlot','add','FontName','Tahoma','XColor','k','YColor','k','YLim',[0 100]);
+hA = bar(ax, timerObj.UserData.A.x, timerObj.UserData.A.y,'FaceColor',config.GUI.Color.A);
 title(ax,'SAGA-A Counts','FontName','Tahoma','Color','k');
 
 ax = nexttile(L);
-set(ax,'NextPlot','add','FontName','Tahoma','XColor','k','YColor','k');
-hB = bar(ax, timerObj.UserData.B.x, timerObj.UserData.B.y);
+set(ax,'NextPlot','add','FontName','Tahoma','XColor','k','YColor','k','YLim',[0 100]);
+hB = bar(ax, timerObj.UserData.B.x, timerObj.UserData.B.y, 'FaceColor', config.GUI.Color.B);
 title(ax,'SAGA-B Counts','FontName','Tahoma','Color','k');
 
 timerObj.TimerFcn = @(src,~)bar_height_update_callback(src, hA, hB);
