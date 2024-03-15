@@ -31,7 +31,12 @@ if isinf(threshold)
     threshold = 0;
 end
 neo.h.yline = yline(ax, threshold, 'r--', "Threshold");
-neo.h.data = plot(ax, 1:neo.n_samples, nan(1, neo.n_samples));
-title(ax, "Spikes (NEO) GUI", 'FontName', 'Tahoma', 'Color', 'k');
+neo.h.data = plot(ax, 1:neo.n_samples, nan(1, neo.n_samples), 'Color', neo.color.(neo.saga));
+neo.h.title = title(ax, ...
+    sprintf("NEO Stream %s-%02d", neo.saga, neo.channel), ...
+    'FontName', 'Tahoma', 'Color', neo.color(neo.saga));
+neo.h.subtitle = subtitle(ax, ...
+    sprintf("Calibration: %s", neo.state), 'FontName','Tahoma', ...
+    'Color', [0.65 0.65 0.65]);
 
 end

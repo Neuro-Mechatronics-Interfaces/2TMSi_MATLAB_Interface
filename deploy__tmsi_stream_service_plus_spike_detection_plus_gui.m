@@ -175,7 +175,7 @@ tcp_spike_server = tcpserver("0.0.0.0", ... % Allow any IP to connect
                              config.TCP.SpikeServer.Port);
 
 param = struct(...
-    'n_recording_buffer_samples', config.Default.N_Rec_Samples, ...             % Number of samples in buffer
+    'n_channels', struct('A', [], 'B', []), ...
     'n_spike_channels', config.Default.N_Spike_Channels, ...
     'n_samples_calibration', config.Default.N_Samples_Calibration, ...
     'n_total', struct('A', numel(config_channels.A.uni), 'B', numel(config_channels.B.uni)), ...
@@ -183,12 +183,13 @@ param = struct(...
     'spike_detector', config.Default.Spike_Detector, ...
     'hpf', struct('b', [], 'a', []), ...
     'gui', struct('squiggles', struct('enable', config.GUI.Squiggles.Enable, 'fig', [], 'h', [], 'offset', config.GUI.Offset, 'channels', struct('A', [], 'B', []), 'zi', struct('A', [], 'B', []), 'n_samples', config.GUI.N_Samples, 'color', config.GUI.Color), ...
-                  'neo', struct('enable', config.GUI.NEO.Enable, 'fig', [], 'h', [], 'saga', "A", 'channel', 1, 'n_samples', config.GUI.N_Samples)), ...
+                  'neo', struct('enable', config.GUI.NEO.Enable, 'fig', [], 'h', [], 'saga', "A", 'channel', 1, 'n_samples', config.GUI.N_Samples, 'color', config.GUI.Color, 'state', config.Default.Acquisition_Label_State)), ...
     'calibrate', struct('A', true, 'B', true), ...
     'calibration_samples_acquired', struct('A', 0, 'B', 0),  ...
     'calibration_data', struct('A', struct('default', randn(numel(config_channels.A.uni), config.Default.N_Samples_Calibration)), ...
                                'B', struct('default', randn(numel(config_channels.B.uni), config.Default.N_Samples_Calibration))), ...
     'save_location', strrep(config.Default.Folder,'\','/'),  ...            % Save folder
+    'save_params', config.Default.Save_Parameters, ...
     'pause_duration', config.Default.Sample_Loop_Pause_Duration, ...
     'label_state', config.Default.Acquisition_Label_State, ...
     'transform', struct('A', struct('default', init_n_channel_transform(config.Default.N_Spike_Channels)), ...
@@ -206,13 +207,13 @@ ch = device.getActiveChannels();
 if ~iscell(ch)
     ch = {ch};
 end
-buffer = struct;
-for ii = 1:N_CLIENT
-    buffer.(device(ii).tag) = StreamBuffer(ch{ii}, ...
-        channels.(device(ii).tag).n.samples, ...
-        device(ii).tag, ...
-        device(ii).sample_rate);
-end
+% buffer = struct;
+% for ii = 1:N_CLIENT
+%     buffer.(device(ii).tag) = StreamBuffer(ch{ii}, ...
+%         channels.(device(ii).tag).n.samples, ...
+%         device(ii).tag, ...
+%         device(ii).sample_rate);
+% end
 
 param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
 param.gui.neo = init_neo_gui(param.gui.neo, param.threshold.(param.gui.neo.saga).(param.label_state)(param.gui.neo.channel));
@@ -227,6 +228,18 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             sprintf("%s_%04d_%02d_%02d_%%s_0.mat", ...
                                     config.Default.Subject, ...
                                     year(today), month(today), day(today))), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
+    start(device);
+    pause(0.25);
+    needs_timestamp = struct;
+    first_timestamp = struct;
+    for ii = 1:N_CLIENT % Determine number of channels definitively
+        samples{ii} = device(ii).sample();
+        param.n_channels.(device(ii).tag) = size(samples{ii},1);
+        needs_timestamp.(device(ii).tag) = false;
+        first_timestamp.(device(ii).tag) = datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS', 'TimeZone', 'America/New_York');
+    end
+    stop(device);
+    
     recording = false;
     running = false;
     fprintf(1, "\n\t\t->\t[%s] SAGA LOOP BEGIN\t\t<-\n\n",string(datetime('now')));
@@ -269,7 +282,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
 
             for ii = 1:N_CLIENT
                 [samples{ii}, num_sets] = device(ii).sample();
-                buffer.(device(ii).tag).append(samples{ii});
+                if needs_timestamp.(device(ii).tag)
+                    first_timestamp.(device(ii).tag) =  datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS', 'TimeZone', 'America/New_York') - seconds(size(samples{ii},2)/param.sample_rate);
+                end
+%                 buffer.(device(ii).tag).append(samples{ii});
             end
             % Check for a "control state" update.
             if udp_state_receiver.NumBytesAvailable > 0
@@ -277,13 +293,25 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 if strcmpi(state, "rec")
                     if ~recording
                         fprintf(1, "[TMSi]::[RUN > REC]: Buffer created, recording in process...\n");
-                        rec_buffer = struct;
+%                         rec_buffer = struct;
+                        rec_file = struct;
                         for ii = 1:N_CLIENT
-                            rec_buffer.(device(ii).tag) = StreamBuffer( ...
-                                ch{ii}, ...
-                                param.n_recording_buffer_samples, ...
-                                device(ii).tag, ...
-                                device(ii).sample_rate);
+%                             rec_buffer.(device(ii).tag) = StreamBuffer( ...
+%                                 ch{ii}, ...
+%                                 param.n_recording_buffer_samples, ...
+%                                 device(ii).tag, ...
+%                                 device(ii).sample_rate);
+                            rec_file.(device(ii).tag) = matfile(strrep(fname), "%s", device(ii).tag, 'Writable', true);
+                            rec_file.(device(ii).tag).samples = zeros(param.n_channels.(device(ii).tag),0); % Initialize the variable, with no samples in it.
+                            rec_file.(device(ii).tag).channels = num2cell(ch{ii});
+                            rec_file.(device(ii).tag).sample_rate = param.sample_rate;
+                            needs_timestamp.(device(ii).tag) = true;
+                            if param.save_params
+                                params = rmfield(param, "gui");
+                                rec_file.(device(ii).tag).params = params;
+                            else
+                                rec_file.(device(ii).tag).params = [];
+                            end
                         end
                     end
                     recording = true;
@@ -296,10 +324,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if recording
                         fprintf(1, "[TMSi]::[REC > RUN]: Recording complete\n\t->\t(%s)\n", fname);
                         for ii = 1:N_CLIENT
-                            rec_buffer.(device(ii).tag).save(fname);
-                            delete(rec_buffer.(device(ii).tag));
-                            params = rmfield(param, "gui");
-                            save(strrep(fname,'%s',device(ii).tag), 'params', '-append');
+%                             rec_buffer.(device(ii).tag).save(fname);
+%                             delete(rec_buffer.(device(ii).tag));
+%                             save(strrep(fname,'%s',device(ii).tag), 'params', '-append');
+                            delete(rec_file.(device(ii).tag));
                         end
                     end
                     recording = false;
@@ -308,7 +336,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             % If recording, log the samples in the recording buffer. 
             if recording
                 for ii = 1:N_CLIENT
-                    rec_buffer.(device(ii).tag).append(samples{ii});
+%                     rec_buffer.(device(ii).tag).append(samples{ii});
+                    rec_file.(device(ii).tag).samples(:,(end+1):(end+size(samples{ii,2}))) = samples{ii};
+                    if needs_timestamp.(device(ii).tag)
+                        rec_file.(device(ii).tag).time = first_timestamp.(device(ii).tag);
+                        needs_timestamp.(device(ii).tag) = false;
+                    end
                 end
             end
             % Handle any calibration/spike detection.
@@ -411,12 +444,25 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             if strcmpi(state, "rec")
                 if ~recording
                     fprintf(1, "[TMSi]::[IDLE > REC]: Buffer created, recording in process...\n");
-                    rec_buffer = struct;
+%                     rec_buffer = struct;
+                    rec_file = struct;
                     for ii = 1:N_CLIENT
-                        rec_buffer.(device(ii).tag) = StreamBuffer(ch{ii}, ...
-                            param.n_recording_buffer_samples, ...
-                            device(ii).tag, ...
-                            device(ii).sample_rate);
+%                         rec_buffer.(device(ii).tag) = StreamBuffer( ...
+%                             ch{ii}, ...
+%                             param.n_recording_buffer_samples, ...
+%                             device(ii).tag, ...
+%                             device(ii).sample_rate);
+                        rec_file.(device(ii).tag) = matfile(strrep(fname), "%s", device(ii).tag, 'Writable', true);
+                        rec_file.(device(ii).tag).samples = zeros(param.n_channels.(device(ii).tag),0); % Initialize the variable, with no samples in it.
+                        rec_file.(device(ii).tag).channels = num2cell(ch{ii});
+                        rec_file.(device(ii).tag).sample_rate = param.sample_rate;
+                        needs_timestamp.(device(ii).tag) = true;
+                        if param.save_params
+                            params = rmfield(param, "gui");
+                            rec_file.(device(ii).tag).params = params;
+                        else
+                            rec_file.(device(ii).tag).params = [];
+                        end
                     end
                 end
                 recording = true;
@@ -484,7 +530,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     recording = false;
     running = false;
     disconnect(device);
-    clear client worker buffer buffer_event_listener udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
+    clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     close all force;
 catch me
@@ -492,7 +538,7 @@ catch me
     stop(device);
     disconnect(device);
     warning(me.message);
-    clear client worker buffer buffer_event_listener udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
+    clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     close all force;
     fprintf(1, '\n\n-->\tTMSi stream stopped at %s\t<--\n\n', ...

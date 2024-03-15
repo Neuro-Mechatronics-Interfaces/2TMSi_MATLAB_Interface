@@ -35,9 +35,6 @@ SAGA:
     ACC_EN: 0  # set to 1 to enable internal accelerometer channels
     STAT: 74
     COUNT: 75
-    n: 
-     channels: 75
-     samples: 524288
  B: 
    Enable: true
    Unit: "SAGAB"
@@ -54,9 +51,6 @@ SAGA:
     ACC_EN: 0  # set to 1 to enable internal accelerometer channels
     STAT: 74
     COUNT: 75
-    n: 
-     channels: 75
-     samples: 524288
 Default:
  Interface: "optical"
  #Interface: "electrical"
@@ -67,11 +61,11 @@ Default:
  File_Type: ".mat"
  Sample_Loop_Pause_Duration: 0.010
  Acquisition_Label_State: "default" # For creating different types of transforms
- N_Rec_Samples: 2097152
  N_Samples_Calibration: 2000
  N_Spike_Channels: 16
  Spike_Detector: true
  Threshold_Deviations: 10
+ Save_Parameters: true
 GUI:
  Color:
   A: "r"

@@ -29,6 +29,7 @@ squiggles.h.xline = xline(ax, squiggles.n_samples/2, ...
     'k:', seconds_2_str(0.5));
 squiggles.h.A = plot(ax, 1:squiggles.n_samples, nan(numel(squiggles.channels.A),squiggles.n_samples), 'Color', squiggles.color.A);
 squiggles.h.B = plot(ax, 1:squiggles.n_samples, nan(numel(squiggles.channels.B),squiggles.n_samples), 'Color', squiggles.color.B);
-title(ax, "Squiggles GUI", 'FontName', 'Tahoma', 'Color', 'k');
+title(ax, sprintf("A: %s | B: %s", squiggles.color.A, squiggles.color.B), ...
+    'FontName', 'Tahoma', 'Color', 'k');
 
 end

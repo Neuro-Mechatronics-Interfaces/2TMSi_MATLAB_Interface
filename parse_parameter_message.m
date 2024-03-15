@@ -10,23 +10,9 @@ parameter_syntax = strsplit(parameter_data, '.');
 parameter_code = lower(parameter_syntax{1});
 parameter_value = parameter_syntax{2};
 switch parameter_code
-    case 'n' % Number of Buffer Samples
-        param.n_recording_buffer_samples = str2double(parameter_value);
-        n_sec = floor(param.n_recording_buffer_samples / device(1).sample_rate);
-        if n_sec < 60
-            fprintf(1,'[TMSi]\t->\t[n]: Set for %d-second recordings.\n', floor(n_sec));
-        else
-            fprintf(1,'[TMSi]\t->\t[n]: Set for %d-minute recordings.\n', floor(n_sec/60));
-        end
-    case 't' % Give time in seconds (Buffer Samples)
-        n_samples = round(str2double(parameter_value) * device(1).sample_rate);
-        param.n_recording_buffer_samples = 2^nextpow2(n_samples);
-        n_sec = floor(param.n_recording_buffer_samples / device(1).sample_rate);
-        if n_sec < 60
-            fprintf(1,'[TMSi]\t->\t[n]: Set for %d-second recordings.\n', floor(n_sec));
-        else
-            fprintf(1,'[TMSi]\t->\t[n]: Set for %d-minute recordings.\n', floor(n_sec/60));
-        end
+    case 'z' % Save Parameters
+        param.save_params = strcmpi(parameter_value, "1");
+        fprintf(1,'[TMSi]\t->\t[n]: Save Parameters = %s\n', parameter_value);
     case 'f' % Save Location
         param.save_location = strrep(parameter_value, '\', '/');
         fprintf(1,'[TMSi]\t->\t[n]: Save Location = %s\n', parameter_value);
