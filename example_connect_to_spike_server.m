@@ -37,7 +37,7 @@ timerObj.UserData = struct(...
 
 % % Main figure: show spike rates
 figRates = figure('Color','w','Name','Spike Rates', ...
-    'Position', [41         423        1087         556], ...
+    'Position', [4064        -790        1087         556], ...
     'ToolBar','none', ...
     'MenuBar','none');
 L = tiledlayout(figRates, 1, 2);
@@ -55,7 +55,7 @@ title(ax,'SAGA-B Rates','FontName','Tahoma','Color','k');
 figInstruct = uifigure( ...
     'Name','Instructions',...
     'Color','k', ...
-    'Position',[356   240   560    83]);
+    'Position',[1161         572         560          83]);
 instructionProgress = uiprogressdlg(figInstruct, 'Indeterminate', 'on', 'Message', 'Loading...');
 
 timerObj.TimerFcn = @(src,~)bar_height_update_callback(src, hA, hB);
@@ -79,20 +79,20 @@ writeline(udpSender, 'run', ...
 
 pause(0.050);
 
-instructionProgress.Message = 'Calibrating: MOVE FINGERS!';
+instructionProgress.Message = 'Calibrating: MOVE WRIST NOT FINGERS!';
 instructionProgress.Indeterminate = 'off';
 instructionProgress.Value = 0;
 
 drawnow();
 pause(0.050);
 
-writeline(udpSender, 'c.Main:20000', ...
+writeline(udpSender, 'c.static3:40000', ...
     config.UDP.Socket.StreamService.Address, ...
     config.UDP.Socket.StreamService.Port.params);
 
-for ii = 1:20
+for ii = 1:40
     pause(0.25)
-    instructionProgress.Value = ii/20;
+    instructionProgress.Value = ii/40;
     drawnow();
 end
 
