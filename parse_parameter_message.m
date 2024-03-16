@@ -17,7 +17,9 @@ switch parameter_code
         parameter_command = strsplit(parameter_value, ':');
         new_state = matlab.lang.makeValidName(lower(parameter_command{1}));
         param.calibration_state = new_state;
-        param.n_samples_calibration = round(str2double(parameter_command{2}));
+        if numel(parameter_command) > 1
+            param.n_samples_calibration = round(str2double(parameter_command{2}));
+        end
         if isfield(param.transform.A, new_state)
             param.n_spike_channels = numel(param.threshold.A.(new_state));
         else
@@ -61,7 +63,9 @@ switch parameter_code
         parameter_command = strsplit(parameter_value, ':');
         new_state = matlab.lang.makeValidName(lower(parameter_command{1}));
         param.label_state = new_state;
-        param.n_samples_label = round(str2double(parameter_command{2}));
+        if numel(parameter_command) > 1
+            param.n_samples_label = round(str2double(parameter_command{2}));
+        end
         param = init_new_label(param, new_state);
         fprintf(1,'[TMSi]\t->\t[n]: Label State:Samples = %s\n', parameter_value);
     case 'o' % Squiggles offsets
