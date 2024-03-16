@@ -13,6 +13,8 @@ if apply_car
 end
 neo = (samples(:, 3:end).^2 - samples(:, 1:(end-2)).^2)';
 neo = neo * transform;
-rate = sum(neo > threshold, 1)./(size(samples,1) ./ sample_rate);
+supra = neo > threshold;
+supra(sum(supra,2) > (0.25*size(supra,2)),:) = 0;
+rate = sum(supra, 1)./(size(samples,1) ./ sample_rate);
 
 end
