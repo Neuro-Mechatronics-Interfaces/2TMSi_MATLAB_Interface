@@ -309,7 +309,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         fprintf(1, "[TMSi]::[RUN > REC]: Buffer created, recording in process...\n");
                         rec_file = struct;
                         for ii = 1:N_CLIENT
-                            rec_file.(device(ii).tag) = matfile(strrep(fname), "%s", device(ii).tag, 'Writable', true);
+                            rec_file.(device(ii).tag) = matfile(strrep(fname, "%s", device(ii).tag), 'Writable', true);
                             rec_file.(device(ii).tag).samples = zeros(param.n_channels.(device(ii).tag),0); % Initialize the variable, with no samples in it.
                             rec_file.(device(ii).tag).channels = num2cell(ch{ii});
                             rec_file.(device(ii).tag).sample_rate = param.sample_rate;
@@ -479,7 +479,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     fprintf(1, "[TMSi]::[IDLE > REC]: Buffer created, recording in process...\n");
                     rec_file = struct;
                     for ii = 1:N_CLIENT
-                        rec_file.(device(ii).tag) = matfile(strrep(fname), "%s", device(ii).tag, 'Writable', true);
+                        rec_file.(device(ii).tag) = matfile(strrep(fname, "%s", device(ii).tag), 'Writable', true);
                         rec_file.(device(ii).tag).samples = zeros(param.n_channels.(device(ii).tag),0); % Initialize the variable, with no samples in it.
                         rec_file.(device(ii).tag).channels = num2cell(ch{ii});
                         rec_file.(device(ii).tag).sample_rate = param.sample_rate;
