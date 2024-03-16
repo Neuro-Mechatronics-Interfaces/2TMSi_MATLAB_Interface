@@ -119,6 +119,9 @@ writeline(udpSender, 'run', ...
     config.UDP.Socket.StreamService.Address, ...
     config.UDP.Socket.StreamService.Port.state);
 
+delete(instructionProgress);
+delete(figInstruct);
+
 % stop(timerObj);
 % delete(udpSender);
 % delete(timerObj);
