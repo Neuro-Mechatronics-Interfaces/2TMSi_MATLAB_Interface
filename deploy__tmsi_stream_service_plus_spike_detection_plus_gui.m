@@ -192,7 +192,7 @@ param = struct(...
     'calibration_samples_acquired', struct('A', 0, 'B', 0),  ...
     'calibration_data', struct('A', struct(config.Default.Calibration_State, randn(numel(config_channels.A.uni), config.Default.N_Samples_Calibration)), ...
                            'B', struct(config.Default.Calibration_State, randn(numel(config_channels.B.uni), config.Default.N_Samples_Calibration))), ...
-    'label', struct('A', true, 'B', true), ...
+    'label', struct('A', false, 'B', false), ...
     'label_state', config.Default.Label_State, ...
     'labeled_samples_acquired', struct('A', 0, 'B', 0), ...
     'labeled_data', struct('A', struct(config.Default.Label_State, randn(numel(config_channels.A.uni), config.Default.N_Samples_Label)), ...
@@ -236,11 +236,16 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     end
     
     start(device);
-    pause(0.25);
+    pause(1.0);
     needs_timestamp = struct;
     first_timestamp = struct;
+    
     for ii = 1:N_CLIENT % Determine number of channels definitively
-        samples{ii} = device(ii).sample();
+        [samples{ii}, num_sets] = device(ii).sample();
+        while (num_sets < 1)
+            fprintf(1,'[TMSi]::[INIT] Waiting for SAGA-%s to generate samples...\n', device(ii).tag);
+            pause(0.5);
+        end
         param.n_channels.(device(ii).tag) = size(samples{ii},1);
         needs_timestamp.(device(ii).tag) = false;
         first_timestamp.(device(ii).tag) = datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS', 'TimeZone', 'America/New_York');
@@ -311,7 +316,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         for ii = 1:N_CLIENT
                             rec_file.(device(ii).tag) = matfile(strrep(fname, "%s", device(ii).tag), 'Writable', true);
                             rec_file.(device(ii).tag).samples = zeros(param.n_channels.(device(ii).tag),0); % Initialize the variable, with no samples in it.
-                            rec_file.(device(ii).tag).channels = num2cell(ch{ii});
+                            rec_file.(device(ii).tag).channels = ch{ii}.toStruct();
                             rec_file.(device(ii).tag).sample_rate = param.sample_rate;
                             needs_timestamp.(device(ii).tag) = true;
                             if param.save_params
@@ -342,10 +347,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             % If recording, log the samples in the recording buffer. 
             if recording
                 for ii = 1:N_CLIENT
-                    rec_file.(device(ii).tag).samples(:,(end+1):(end+size(samples{ii,2}))) = samples{ii};
-                    if needs_timestamp.(device(ii).tag)
-                        rec_file.(device(ii).tag).time = first_timestamp.(device(ii).tag);
-                        needs_timestamp.(device(ii).tag) = false;
+                    if ~isempty(samples{ii})
+                        rec_file.(device(ii).tag).samples(:,(end+1):(end+size(samples{ii},2))) = samples{ii};
+                        if needs_timestamp.(device(ii).tag)
+                            rec_file.(device(ii).tag).time = first_timestamp.(device(ii).tag);
+                            needs_timestamp.(device(ii).tag) = false;
+                        end
                     end
                 end
             end
@@ -382,7 +389,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         last_sample = size(samples{ii},2) - (n_lab_samples - param.n_samples_label);
                         param.labeled_data.(device(ii).tag).(param.label_state)(:,(param.labeled_samples_acquired.(device(ii).tag)+1):end) = samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,1:last_sample);
                         param.label.(device(ii).tag) = false;
-                        fprintf(1,'[TMSi]::[Calibration]::SAGA-%s "%s" label complete.\n', device(ii).tag, param.label_state);
+                        fprintf(1,'[TMSi]::[Labeling]::SAGA-%s "%s" label complete.\n', device(ii).tag, param.label_state);
                     else
                         param.labeled_data.(device(ii).tag).(param.label_state)(:,(param.labeled_samples_acquired.(device(ii).tag)+1):n_lab_samples) = samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,:);
                         param.labeled_samples_acquired.(device(ii).tag) = n_lab_samples;
@@ -404,7 +411,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             writeline(tcp_spike_server, jsonencode(spike_data));
                         end
                         if recording
-                            rec_file.(device(ii).tag).spikes(end+1) = spike_data;
+                            rec_file.(device(ii).tag).spikes(end+1,1) = spike_data;
                         end
                     end
                 end
@@ -419,7 +426,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             sample_counts = samples{ii}(config.SAGA.(device(ii).tag).Channels.COUNT,:);
                             i_assign = rem([sample_counts-1, sample_counts(end)], param.gui.squiggles.n_samples)+1;
                             for iCh = 1:numel(param.gui.squiggles.channels.(device(ii).tag))
-                                if apply_car
+                                if param.apply_car
                                     [ytmp, param.gui.squiggles.zi.(device(ii).tag)(iCh,:)] = filter(param.hpf.b, param.hpf.a, samples{ii}(param.gui.squiggles.channels.(device(ii).tag)(iCh),:) - mean(samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,:), 1), param.gui.squiggles.zi.(device(ii).tag)(iCh,:));
                                 else
                                     [ytmp, param.gui.squiggles.zi.(device(ii).tag)(iCh,:)] = filter(param.hpf.b, param.hpf.a, samples{ii}(param.gui.squiggles.channels.(device(ii).tag)(iCh),:), param.gui.squiggles.zi.(device(ii).tag)(iCh,:));
@@ -481,7 +488,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     for ii = 1:N_CLIENT
                         rec_file.(device(ii).tag) = matfile(strrep(fname, "%s", device(ii).tag), 'Writable', true);
                         rec_file.(device(ii).tag).samples = zeros(param.n_channels.(device(ii).tag),0); % Initialize the variable, with no samples in it.
-                        rec_file.(device(ii).tag).channels = num2cell(ch{ii});
+                        rec_file.(device(ii).tag).channels = ch{ii}.toStruct();
                         rec_file.(device(ii).tag).sample_rate = param.sample_rate;
                         needs_timestamp.(device(ii).tag) = true;
                         if param.save_params
@@ -566,6 +573,7 @@ catch me
     stop(device);
     disconnect(device);
     warning(me.message);
+    disp(me.stack);
     clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     close all force;
