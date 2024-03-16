@@ -230,9 +230,13 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             sprintf("%s_%04d_%02d_%02d_%%s_0.mat", ...
                                     config.Default.Subject, ...
                                     year(today), month(today), day(today))), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
-    [tmpFolder, tmpFile, ~] = fileparts(fname);
+    
+    [tmpFolder, tmpFile, tmpExt] = fileparts(fname);
     if exist(tmpFolder,'dir')==0
         mkdir(tmpFolder);
+    end
+    if strlength(tmpExt) == 0
+        fname = strcat(string(fname), ".mat");
     end
     
     start(device);
@@ -266,9 +270,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             else
                 fname = strrep(fullfile(param.save_location, tmp), "\", "/");
             end
-            [tmpFolder, tmpFile, ~] = fileparts(fname);
+            [tmpFolder, tmpFile, tmpExt] = fileparts(fname);
             if exist(tmpFolder,'dir')==0
                 mkdir(tmpFolder);
+            end
+            if strlength(tmpExt) == 0
+                fname = strcat(string(fname), ".mat");
             end
             fprintf(1, "File name updated: %s\n", fname);
         end
@@ -287,9 +294,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 else
                     fname = strrep(fullfile(param.save_location, tmp), "\", "/");
                 end
-                [tmpFolder, tmpFile, ~] = fileparts(fname);
+                [tmpFolder, tmpFile, tmpExt] = fileparts(fname);
                 if exist(tmpFolder,'dir')==0
                     mkdir(tmpFolder);
+                end
+                if strlength(tmpExt) == 0
+                    fname = strcat(string(fname), ".mat");
                 end
                 fprintf(1, "File name updated: %s\n", fname);
             end
@@ -370,7 +380,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         neocaldata = caldata(3:end,:).^2 - caldata(1:(end-2),:).^2; 
                         
                         [param.transform.(device(ii).tag).(param.calibration_state), score] = pca(neocaldata, 'NumComponents', param.n_spike_channels);
-                        param.threshold.(device(ii).tag).(param.calibration_state) = median(abs(score), 1) * param.threshold_deviations;
+                        param.threshold.(device(ii).tag).(param.calibration_state) = median(abs(neocaldata * param.transform.(device(ii).tag).(param.calibration_state)), 1) * param.threshold_deviations;
                         param.calibrate.(device(ii).tag) = false;
                         param.gui.neo = init_neo_gui(param.gui.neo, param.threshold.(param.gui.neo.saga).(param.calibration_state)(param.gui.neo.channel));
                         fprintf(1,'[TMSi]::[Calibration]::SAGA-%s "%s" calibration complete.\n', device(ii).tag, param.calibration_state);

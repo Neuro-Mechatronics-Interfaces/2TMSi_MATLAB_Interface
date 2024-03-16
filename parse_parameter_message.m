@@ -100,6 +100,20 @@ switch parameter_code
         fprintf(1,'[TMSi]\t->\t[%s]: SQUIGGLES GUI Channels = %s\n', parameter_code, parameter_value);
     case 'x' % Set spike detection/threshold deviations
         param.threshold_deviations = str2double(parameter_value);
+        caldata = param.calibration_data.A.(param.calibration_state)';
+        if param.apply_car
+            caldata = caldata - mean(caldata,2);
+        end
+        neocaldata = caldata(3:end,:).^2 - caldata(1:(end-2),:).^2; 
+        param.threshold.A.(param.calibration_state) = median(abs(neocaldata * param.transform.A.(param.calibration_state)), 1) * param.threshold_deviations;
+
+        caldata = param.calibration_data.B.(param.calibration_state)';
+        if param.apply_car
+            caldata = caldata - mean(caldata,2);
+        end
+        neocaldata = caldata(3:end,:).^2 - caldata(1:(end-2),:).^2; 
+        param.threshold.B.(param.calibration_state) = median(abs(neocaldata * param.transform.B.(param.calibration_state)), 1) * param.threshold_deviations;
+
         param.spike_detector = abs(param.threshold_deviations) > eps; % If threshold is zero, then turn off spike detection
         param.gui.neo.enable = param.spike_detector;
         param.gui.neo = init_neo_gui(param.gui.neo, param.threshold.(param.gui.neo.saga).(param.calibration_state)(param.gui.neo.channel));
