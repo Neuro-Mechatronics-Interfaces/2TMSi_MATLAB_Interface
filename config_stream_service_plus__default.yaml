@@ -55,13 +55,17 @@ Default:
  Interface: "optical"
  #Interface: "electrical"
  Folder: "C:/Data/raw_data"
+ HPF_Cutoff_Frequency: 10 # Hz
+ Apply_CAR: true
  Subject: "Default"
  Sample_Rate: 4000
  Sync_Bit: 7
  File_Type: ".mat"
- Sample_Loop_Pause_Duration: 0.010
- Acquisition_Label_State: "default" # For creating different types of transforms
+ Sample_Loop_Pause_Duration: 0.020
+ Calibration_State: "main"
  N_Samples_Calibration: 20000
+ Label_State: "default" 
+ N_Samples_Label: 8000
  N_Spike_Channels: 16
  Spike_Detector: true
  Threshold_Deviations: 10
