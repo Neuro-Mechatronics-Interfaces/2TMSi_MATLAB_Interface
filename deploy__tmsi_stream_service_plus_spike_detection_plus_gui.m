@@ -213,7 +213,7 @@ end
 param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
 param.gui.neo = init_neo_gui(param.gui.neo, param.threshold.(param.gui.neo.saga).(param.label_state)(param.gui.neo.channel));
 neodata = struct('A', [], 'B', []);
-spikecounts = struct('A',[],'B',[]);
+spike_rates = struct('A',[],'B',[]);
 
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
@@ -313,6 +313,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             else
                                 rec_file.(device(ii).tag).params = [];
                             end
+                            rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1));
                         end
                     end
                     recording = true;
@@ -370,13 +371,17 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             if param.spike_detector
                 for ii = 1:N_CLIENT
                     if size(samples{ii},2) > 3
-                        [spikecounts.(device(ii).tag), neodata.(device(ii).tag)] = detect_spikes(samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,:), ...
+                        [spike_rates.(device(ii).tag), neodata.(device(ii).tag)] = detect_spikes(samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,:), ...
                             param.transform.(device(ii).tag).(param.label_state), ...
                             param.threshold.(device(ii).tag).(param.label_state), ...
-                            param.apply_car);
+                            param.apply_car, ...
+                            param.sample_rate);
+                        spike_data = struct('SAGA', device(ii).tag, 'rate', spike_rates.(device(ii).tag), 'n', size(samples{ii},2));
                         if tcp_spike_server.Connected
-                            spike_data = struct('SAGA', device(ii).tag, 'n', spikecounts.(device(ii).tag), 'neodata', round(neodata.(device(ii).tag),1));
                             writeline(tcp_spike_server, jsonencode(spike_data));
+                        end
+                        if recording
+                            rec_file.(device(ii).tag).spikes(end+1) = spike_data;
                         end
                     end
                 end
@@ -468,6 +473,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         else
                             rec_file.(device(ii).tag).params = [];
                         end
+                        rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1));
                     end
                 end
                 recording = true;
