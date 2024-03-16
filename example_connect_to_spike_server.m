@@ -26,12 +26,12 @@ L = tiledlayout(fig, 1, 2);
 ax = nexttile(L);
 set(ax,'NextPlot','add','FontName','Tahoma','XColor','k','YColor','k','YLim',[0 100]);
 hA = bar(ax, timerObj.UserData.A.x, timerObj.UserData.A.y,'FaceColor',config.GUI.Color.A);
-title(ax,'SAGA-A Counts','FontName','Tahoma','Color','k');
+title(ax,'SAGA-A Rates','FontName','Tahoma','Color','k');
 
 ax = nexttile(L);
 set(ax,'NextPlot','add','FontName','Tahoma','XColor','k','YColor','k','YLim',[0 100]);
 hB = bar(ax, timerObj.UserData.B.x, timerObj.UserData.B.y, 'FaceColor', config.GUI.Color.B);
-title(ax,'SAGA-B Counts','FontName','Tahoma','Color','k');
+title(ax,'SAGA-B Rates','FontName','Tahoma','Color','k');
 
 timerObj.TimerFcn = @(src,~)bar_height_update_callback(src, hA, hB);
 spikeClient.UserData = timerObj;
