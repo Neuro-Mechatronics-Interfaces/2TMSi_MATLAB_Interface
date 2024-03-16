@@ -22,6 +22,7 @@ switch parameter_code
         end
         if isfield(param.transform.A, new_state)
             param.n_spike_channels = numel(param.threshold.A.(new_state));
+            param.past_rates = struct('A', zeros(1, param.n_spike_channels), 'B', zeros(1, param.n_spike_channels));
         else
             param = init_new_calibration(param, new_state);
         end
@@ -74,6 +75,7 @@ switch parameter_code
         fprintf(1,'[TMSi]\t->\t[%s]: Squiggles Line Offset = %s (uV)\n', parameter_code, parameter_value);
     case 'p' % Number of spike channels (rows in transform matrix)
         param.n_spike_channels = round(str2double(parameter_value));
+        param.past_rates = struct('A', zeros(1, param.n_spike_channels), 'B', zeros(1, param.n_spike_channels));
         param = init_new_calibration(param, param.calibration_state);
         fprintf(1,'[TMSi]\t->\t[%s]: Spike Channels = %s\n', parameter_code, parameter_value);
     case 'q' % s**Q**uiggles GUI command
@@ -98,8 +100,11 @@ switch parameter_code
             param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
         end
         fprintf(1,'[TMSi]\t->\t[%s]: SQUIGGLES GUI Channels = %s\n', parameter_code, parameter_value);
+    case 'r' % Set rate smoothing
+        param.rate_smoothing_alpha = str2double(parameter_value)/1000;
+        fprintf(1,'[TMSi]\t->\t[%s]: Rate Smoothing Alpha = %4.3f\n', parameter_code, param.rate_smoothing_alpha);
     case 'x' % Set spike detection/threshold deviations
-        param.threshold_deviations = str2double(parameter_value);
+        param.threshold_deviations = str2double(parameter_value)/1000;
         caldata = param.calibration_data.A.(param.calibration_state)';
         if param.apply_car
             caldata = caldata - mean(caldata,2);

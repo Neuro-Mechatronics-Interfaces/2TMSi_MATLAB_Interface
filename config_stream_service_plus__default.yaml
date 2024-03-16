@@ -66,10 +66,11 @@ Default:
  N_Samples_Calibration: 20000
  Label_State: "default" 
  N_Samples_Label: 8000
- N_Spike_Channels: 16
+ N_Spike_Channels: 24
  Spike_Detector: true
- Threshold_Deviations: 10
+ Threshold_Deviations: 2.5
  Save_Parameters: true
+ Rate_Smoothing_Alpha: 0.35
 GUI:
  Color:
   A: "r"
