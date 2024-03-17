@@ -112,8 +112,15 @@ switch parameter_code
         param.rate_smoothing_alpha = str2double(parameter_value)/1000;
         fprintf(1,'[TMSi]\t->\t[%s]: Rate Smoothing Alpha = %4.3f\n', parameter_code, param.rate_smoothing_alpha);
     case 't' % Set accelerometer threshold
-        param.threshold_pose = str2double(parameter_value) / 100;
-        fprintf(1,'[TMSi]\t->\t[%s]: Pose Threshold = %4.2f\n', parameter_code, param.threshold_pose);
+        command_chunks = strsplit(parameter_value, ':');
+        param.threshold_pose = str2double(command_chunks{1}) / 100;
+        if numel(command_chunks) > 1
+            param.pose_smoothing_alpha = str2double(command_chunks{2}) / 1000;
+        end
+        if numel(command_chunks) > 2
+            param.deadzone_pose = str2double(command_chunks{3});
+        end
+        fprintf(1,'[TMSi]\t->\t[%s]: Pose Threshold = %4.2f | Alpha = %5.3f | Deadzone = %d\n', parameter_code, param.threshold_pose, param.pose_smoothing_alpha, param.deadzone_pose);
     case 'x' % Set spike detection/threshold deviations
         param.threshold_deviations = str2double(parameter_value)/1000;
         caldata = apply_car(param.calibration_data.A.(param.calibration_state)', param.car_mode, 2);

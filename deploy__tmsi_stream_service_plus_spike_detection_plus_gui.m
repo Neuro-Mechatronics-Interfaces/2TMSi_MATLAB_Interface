@@ -215,7 +215,9 @@ param = struct(...
                         'B', struct(config.Default.Calibration_State, inf(1,config.Default.N_Spike_Channels))), ...
     'threshold_deviations', config.Default.Threshold_Deviations, ...
     'threshold_artifact', config.Default.Artifact_Channel_Proportion_Threshold, ...
-    'threshold_pose', config.Default.Pose_Threshold);
+    'threshold_pose', config.Default.Pose_Threshold, ...
+    'deadzone_pose', config.Default.Pose_Deadzone_Threshold, ...
+    'pose_smoothing_alpha', config.Default.Pose_Smoothing_Alpha);
 if param.gui.squiggles.thumb.enable && ((~ismember(param.gui.squiggles.thumb.channel.left, config.SAGA.(param.gui.squiggles.thumb.saga).Channels.BIP)) || (~ismember(param.gui.squiggles.thumb.channel.right, config.SAGA.(param.gui.squiggles.thumb.saga).Channels.BIP)))
     disconnect(device);
     lib.cleanUp();
@@ -445,13 +447,17 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             param.sample_rate, ...
                             param.threshold_artifact);
                         param.past_rates.(device(ii).tag) = param.rate_smoothing_alpha.*param.past_rates.(device(ii).tag) + (1-param.rate_smoothing_alpha).*tmp_rates;
-                        if sum(pose_vec) == 0
+                        [max_pose, acc_pose_val] = max(pose_vec);
+                        if max_pose < param.deadzone_pose
                             acc_pose = "Rest";
                         else
-                            [~, acc_pose_val] = max(pose_vec);
                             acc_pose = string(TMSiAccPose(acc_pose_val));
                         end
-                        updatePose(param.gui.squiggles, acc_pose);
+                        if ~isempty(param.gui.squiggles.fig)
+                            if isvalid(param.gui.squiggles.fig)
+                                updatePose(param.gui.squiggles, acc_pose);
+                            end
+                        end
                         spike_data = struct('SAGA', device(ii).tag, 'rate', param.past_rates.(device(ii).tag), 'n', size(samples{ii},2), 'pose', acc_pose);
                         if tcp_spike_server.Connected
                             writeline(tcp_spike_server, jsonencode(spike_data));
@@ -504,16 +510,19 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         iDistal = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX([1,4]); 
                         iMedial = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX([2,5]); 
                         iSuperior = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX([3,6]);     
-                        param.gui.squiggles.h.Acc.Distal.YData(i_assign.(param.gui.squiggles.acc.saga)) = [samples{iTag}(iDistal(1),:) - samples{iTag}(iDistal(2),:), nan];
-                        param.gui.squiggles.h.Acc.Medial.YData(i_assign.(param.gui.squiggles.acc.saga)) = [samples{iTag}(iMedial(1),:) - samples{iTag}(iMedial(2),:) + 10, nan];
-                        param.gui.squiggles.h.Acc.Superior.YData(i_assign.(param.gui.squiggles.acc.saga)) = [samples{iTag}(iSuperior(1),:) - samples{iTag}(iSuperior(2),:) + 20, nan];
+                        distalData = samples{iTag}(iDistal(1),:) - samples{iTag}(iDistal(2),:);
+                        medialData = samples{iTag}(iMedial(1),:) - samples{iTag}(iMedial(2),:);
+                        superiorData = samples{iTag}(iSuperior(1),:) - samples{iTag}(iSuperior(2),:);
+                        param.gui.squiggles.h.Acc.Distal.YData(i_assign.(param.gui.squiggles.acc.saga)) = [distalData, nan];
+                        param.gui.squiggles.h.Acc.Medial.YData(i_assign.(param.gui.squiggles.acc.saga)) = [medialData + 7, nan];
+                        param.gui.squiggles.h.Acc.Superior.YData(i_assign.(param.gui.squiggles.acc.saga)) = [superiorData + 14, nan];
                         % TODO: Update "Pose" estimation here
-                        pose_vec = [sum(param.gui.squiggles.h.Acc.Distal.YData > param.threshold_pose); ...
-                                    sum((-param.gui.squiggles.h.Acc.Distal.YData) > param.threshold_pose); ...
-                                    sum((param.gui.squiggles.h.Acc.Medial.YData-10) > param.threshold_pose); ...
-                                    sum((-(param.gui.squiggles.h.Acc.Medial.YData-10)) > param.threshold_pose); ...
-                                    sum((param.gui.squiggles.h.Acc.Superior.YData-20) > param.threshold_pose); ...
-                                    sum((-(param.gui.squiggles.h.Acc.Superior.YData-20)) > param.threshold_pose)];
+                        pose_vec = param.pose_smoothing_alpha.*pose_vec + (1-param.pose_smoothing_alpha).*([sum(distalData > param.threshold_pose); ...
+                                    sum((-distalData) > param.threshold_pose); ...
+                                    sum(medialData > param.threshold_pose); ...
+                                    sum((-medialData) > param.threshold_pose); ...
+                                    sum(superiorData > param.threshold_pose); ...
+                                    sum((-superiorData) > param.threshold_pose)]);
 
                     end
                     if param.gui.squiggles.thumb.enable && ~isempty(i_assign.(param.gui.squiggles.thumb.saga))
@@ -650,7 +659,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     disconnect(device);
     clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
-%     close all force;
+    close all force;
 catch me
     % Stop both devices.
     stop(device);
@@ -659,7 +668,7 @@ catch me
     disp(me.stack);
     clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
-%     close all force;
+    close all force;
     fprintf(1, '\n\n-->\tTMSi stream stopped at %s\t<--\n\n', ...
         string(datetime('now')));
 end

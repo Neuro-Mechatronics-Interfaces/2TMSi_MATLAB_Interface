@@ -15,8 +15,8 @@ if ~squiggles.enable
     return;
 end
 
-cA = validatecolor(squiggles.color.A);
-cB = validatecolor(squiggles.color.B);
+cA = validatecolor(squiggles.color.A) * 0.7 + ones(1,3).*0.1;
+cB = validatecolor(squiggles.color.B) * 0.7 + ones(1,3).*0.1;
 x_init = 1:squiggles.n_samples;
 y_init = nan(1, squiggles.n_samples);
 n_tot = numel(squiggles.channels.A) + numel(squiggles.channels.B);
@@ -44,13 +44,13 @@ squiggles.h.A = gobjects(numel(squiggles.channels.A),1);
 for ii = 1:numel(squiggles.channels.A)
     squiggles.h.A(ii) = line(ax, x_init, y_init, ...
         'LineWidth', 0.25, ...
-        'Color', cA .* (0.75*(floor((squiggles.channels.A(ii)-2)/32))));
+        'Color', cA + ones(1,3).*(floor((squiggles.channels.A(ii)-2)/32)).*0.2);
 end
 squiggles.h.B = gobjects(numel(squiggles.channels.B),1);
 for ii = 1:numel(squiggles.channels.B)
     squiggles.h.B(ii) = line(ax, x_init, y_init, ...
         'LineWidth', 0.25, ...
-        'Color', cB .* (0.75*(floor((squiggles.channels.B(ii)-2)/32))));
+        'Color', cB + ones(1,3).*(floor((squiggles.channels.B(ii)-2)/32)).*0.2);
 end
 
 if squiggles.acc.enable
@@ -58,7 +58,7 @@ if squiggles.acc.enable
     set(ax,...
         'NextPlot','add','FontName','Tahoma', ...
         'XLim',[1, squiggles.n_samples], 'XTick', [], ...
-        'XColor','none','YColor','none', 'YLim', [-5, 25]);
+        'XColor','none','YColor','none', 'YLim', [-3.5, 17.5]);
     title(ax, "Acc: \color{black}Distal | \color[rgb]{0.33,0.33,0.33}Medial \color{black} | \color[rgb]{0.66,0.66,0.66}Superior ", 'FontName', 'Tahoma');
     squiggles.h.Pose = subtitle(ax, "Pose: Unknown", 'FontName', 'Tahoma', 'Color', [0.65 0.65 0.65]); % Can update using `updatePose(squiggles, "MID");` for example
     squiggles.h.Acc.Distal = line(ax, x_init, y_init, 'Color', 'k', 'LineWidth', 1.25);
@@ -76,8 +76,8 @@ if squiggles.thumb.enable
         'XLim',[1, squiggles.n_samples], 'XTick', [], ...
         'XColor','none','YColor','none', ...
         'YLim', [-squiggles.offset, squiggles.offset*3]);
-    cLeft = cA*0.5;
-    cRight = cB*0.5;
+    cLeft = cA + ones(1,3).*0.2;
+    cRight = cB + ones(1,3).*0.2;
     title(ax, sprintf("\\color[rgb]{%3.1f,%3.1f,%3.1f}Left Thumb \\color{black} | \\color[rgb]{%3.1f,%3.1f,%3.1f}Right Thumb", ...
         cLeft(1),cLeft(2),cLeft(3),cRight(1),cRight(2),cRight(3)), 'FontName', 'Tahoma');
 
