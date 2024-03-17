@@ -2,7 +2,7 @@ function squiggles = init_squiggles_gui(squiggles, options)
 %INIT_SQUIGGLES_GUI  Initialize GUI for stream "time line squiggles"
 arguments
     squiggles
-    options.FigurePosition (1,4) double = [137, 103, 710, 813];
+    options.FigurePosition (1,4) double = [150, 300, 720, 400];
 end
 
 if ~isempty(squiggles.fig)
@@ -15,21 +15,72 @@ if ~squiggles.enable
     return;
 end
 
+cA = validatecolor(squiggles.color.A);
+cB = validatecolor(squiggles.color.B);
+x_init = 1:squiggles.n_samples;
+y_init = nan(size(x_init));
+n_tot = numel(squiggles.channels.A) + numel(squiggles.channels.B);
+y_lim = [-squiggles.offset/2, (n_tot-0.5)*squiggles.offset];
+
 squiggles.fig = figure(...
     'Name', 'TMSi Squiggles', ...
     'Color', 'w', ...
     'Position', options.FigurePosition);
+squiggles.h = struct;
 
-ax = axes(squiggles.fig,...
+L = tiledlayout(squiggles.fig, 5, 1);
+ax = nexttile(L, 1, [5 - double(squiggles.acc.enable) - double(squiggles.thumb.enable) 1]);
+set(ax,...
     'NextPlot','add','FontName','Tahoma', ...
     'XLim',[1, squiggles.n_samples], 'XTick', [], ...
-    'XColor','none','YColor','none');
-squiggles.h = struct;
+    'XColor','none','YColor','none', 'YLim', y_lim);
+title(ax, sprintf("\\color[rgb]{%3.1f,%3.1f,%3.1f}A \\color{black}  |   \\color[rgb]{%3.1f,%3.1f,%3.1f}B", ...
+    cA(1),cA(2),cA(3),cB(1),cB(2),cB(3)), 'FontName', 'Tahoma');
+
+
 squiggles.h.xline = xline(ax, squiggles.n_samples/2, ...
     'k:', seconds_2_str(0.5));
-squiggles.h.A = plot(ax, 1:squiggles.n_samples, nan(numel(squiggles.channels.A),squiggles.n_samples), 'Color', squiggles.color.A);
-squiggles.h.B = plot(ax, 1:squiggles.n_samples, nan(numel(squiggles.channels.B),squiggles.n_samples), 'Color', squiggles.color.B);
-title(ax, sprintf("A: %s | B: %s", squiggles.color.A, squiggles.color.B), ...
-    'FontName', 'Tahoma', 'Color', 'k');
+squiggles.h.A = gobjects(numel(squiggles.channels.A),1);
+for ii = 1:numel(squiggles.channels.A)
+    squiggles.h.A(ii) = line(ax, x_init, y_init, 'Color', cA .* (0.75*(floor((squiggles.channels.A(ii)-2)/32))));
+end
+squiggles.h.B = gobjects(numel(squiggles.channels.B),1);
+for ii = 1:numel(squiggles.channels.B)
+    squiggles.h.B(ii) = line(ax, x_init, y_init, 'Color', cB .* (0.75*(floor((squiggles.channels.B(ii)-2)/32))));
+end
+
+if squiggles.acc.enable
+    ax = nexttile(L, 4, [1 1]);
+    set(ax,...
+        'NextPlot','add','FontName','Tahoma', ...
+        'XLim',[1, squiggles.n_samples], 'XTick', [], ...
+        'XColor','none','YColor','none');
+    title(ax, "Acc: \color{black}Distal | \color[rgb]{0.33,0.33,0.33}Medial \color{black} | \color[rgb]{0.66,0.66,0.66}Superior ", 'FontName', 'Tahoma');
+    squiggles.h.Pose = subtitle(ax, "Pose: Unknown", 'FontName', 'Tahoma', 'Color', [0.65 0.65 0.65]); % Can update using `updatePose(squiggles, "MID");` for example
+    squiggles.h.Acc.Distal = line(ax, x_init, y_init, 'Color', 'k', 'LineWidth', 1.25);
+    squiggles.h.Acc.Medial = line(ax, x_init, y_init, 'Color', [0.33, 0.33, 0.33], 'LineWidth', 1.25);
+    squiggles.h.Acc.Superior = line(ax, x_init, y_init, 'Color', [0.66, 0.66, 0.66], 'LineWidth', 1.25);
+else
+    squiggles.h.Pose = [];
+    squiggles.h.Acc = [];
+end
+
+if squiggles.thumb.enable
+    ax = nexttile(L, 4+double(squiggles.acc.enable), [1 1]);
+    set(ax,...
+        'NextPlot','add','FontName','Tahoma', ...
+        'XLim',[1, squiggles.n_samples], 'XTick', [], ...
+        'XColor','none','YColor','none');
+    cLeft = cA*0.5;
+    cRight = cB*0.5;
+    title(ax, sprintf("\\color[rgb]{%3.1f,%3.1f,%3.1f}Left Thumb \\color{black} | \\color[rgb]{%3.1f,%3.1f,%3.1f}Right Thumb", ...
+        cLeft(1),cLeft(2),cLeft(3),cRight(1),cRight(2),cRight(3)), 'FontName', 'Tahoma');
+
+    squiggles.h.LeftThumb = line(ax, x_init, y_init, 'Color', cLeft, 'LineWidth', 1.0);
+    squiggles.h.RightThumb = line(ax, x_init, y_init, 'Color', cRight, 'LineWidth', 1.0);
+else
+    squiggles.h.LeftThumb = [];
+    squiggles.h.RightThumb = [];
+end
 
 end

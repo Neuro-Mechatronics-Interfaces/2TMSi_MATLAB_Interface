@@ -11,8 +11,12 @@ parameter_code = lower(parameter_syntax{1});
 parameter_value = parameter_syntax{2};
 switch parameter_code
     case 'a' % CAR
-        param.apply_car = strcmpi(parameter_value, "1");
-        fprintf(1,'[TMSi]\t->\t[%s]: Apply CAR = %s\n', parameter_code, parameter_value);
+        command_chunks = strsplit(parameter_value, ':');
+        param.car_mode = str2double(command_chunks{1});
+        if numel(command_chunks) > 1
+            param.threshold_artifact = str2double(command_chunks{2})/1000;
+        end
+        fprintf(1,'[TMSi]\t->\t[%s]: CAR Mode = %s\n', parameter_code, parameter_value);
     case 'c' % Length of calibration buffer (samples)
         parameter_command = strsplit(parameter_value, ':');
         new_state = matlab.lang.makeValidName(lower(parameter_command{1}));
@@ -105,17 +109,11 @@ switch parameter_code
         fprintf(1,'[TMSi]\t->\t[%s]: Rate Smoothing Alpha = %4.3f\n', parameter_code, param.rate_smoothing_alpha);
     case 'x' % Set spike detection/threshold deviations
         param.threshold_deviations = str2double(parameter_value)/1000;
-        caldata = param.calibration_data.A.(param.calibration_state)';
-        if param.apply_car
-            caldata = caldata - mean(caldata,2);
-        end
+        caldata = apply_car(param.calibration_data.A.(param.calibration_state)', param.car_mode, 2);
         neocaldata = caldata(3:end,:).^2 - caldata(1:(end-2),:).^2; 
         param.threshold.A.(param.calibration_state) = median(abs(neocaldata * param.transform.A.(param.calibration_state)), 1) * param.threshold_deviations;
 
-        caldata = param.calibration_data.B.(param.calibration_state)';
-        if param.apply_car
-            caldata = caldata - mean(caldata,2);
-        end
+        caldata = apply_car(param.calibration_data.B.(param.calibration_state)', param.car_mode, 2);
         neocaldata = caldata(3:end,:).^2 - caldata(1:(end-2),:).^2; 
         param.threshold.B.(param.calibration_state) = median(abs(neocaldata * param.transform.B.(param.calibration_state)), 1) * param.threshold_deviations;
 

@@ -3,7 +3,7 @@ function neo = init_neo_gui(neo, threshold, options)
 arguments
     neo
     threshold (1,1) double
-    options.FigurePosition (1,4) double = [1051, 123, 710, 813];
+    options.FigurePosition (1,4) double = [1050, 100, 720, 800];
 end
 
 if ~isempty(neo.fig)
@@ -29,6 +29,8 @@ neo.h.xline = xline(ax, neo.n_samples/2, ...
     'k:', seconds_2_str(0.5));
 if isinf(threshold)
     threshold = 0;
+else
+    ylim(ax, [-1.5*threshold, 1.5*threshold]);
 end
 neo.h.yline = yline(ax, threshold, 'm--', "Threshold", 'LineWidth', 1.5);
 neo.h.data = plot(ax, ...
