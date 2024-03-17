@@ -28,7 +28,6 @@ switch dim
             case 1
                 data = data - mean(data,1);
             case 2
-                data = nan(size(data));
                 data(1:32,:) = data(1:32,:) - mean(data(1:32,:),1);
                 data(33:64,:) = data(33:64,:) - mean(data(33:64,:),1);
         end
@@ -37,7 +36,6 @@ switch dim
             case 1
                 data = data - mean(data,2);
             case 2
-                data = nan(size(data));
                 data(:,1:32) = data(:,1:32) - mean(data(:,1:32),2);
                 data(:,33:64) = data(:,33:64) - mean(data(:,33:64),2);
         end

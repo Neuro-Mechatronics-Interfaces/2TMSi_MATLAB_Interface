@@ -191,14 +191,14 @@ param = struct(...
     'gui', struct('squiggles', struct('enable', config.GUI.Squiggles.Enable, 'fig', [], 'h', [], 'offset', config.GUI.Offset, ...
                                       'channels', struct('A', [], 'B', []), 'zi', struct('A', [], 'B', []), 'n_samples', config.GUI.N_Samples, 'color', config.GUI.Color, ...
                                       'acc', struct('enable', config.Accelerometer.Enable, 'saga', config.Accelerometer.SAGA), ...
-                                      'thumb', struct('enable', config.Thumb.Enable, 'saga', config.Thumb.SAGA, 'channel', struct('left', config.Thumb.Channel.Left, 'right', config.Thumb.Channel.Right))), ...
+                                      'thumb', struct('enable', config.Thumb.Enable, 'saga', config.Thumb.SAGA, 'channel', struct('left', config.Thumb.Channel.Left, 'right', config.Thumb.Channel.Right), 'zi', struct('left', zeros(1,2), 'right', zeros(1,2)))), ...
                   'neo', struct('enable', config.GUI.NEO.Enable, 'fig', [], 'h', [], 'saga', "A", ...
                                 'channel', 1, 'n_samples', config.GUI.N_Samples, 'color', config.GUI.Color, 'state', config.Default.Calibration_State)), ...
     'calibrate', struct('A', true, 'B', true), ...
     'calibration_state', config.Default.Calibration_State, ...
     'calibration_samples_acquired', struct('A', 0, 'B', 0),  ...
     'calibration_data', struct('A', struct(config.Default.Calibration_State, randn(numel(config_channels.A.uni), config.Default.N_Samples_Calibration)), ...
-                           'B', struct(config.Default.Calibration_State, randn(numel(config_channels.B.uni), config.Default.N_Samples_Calibration))), ...
+                               'B', struct(config.Default.Calibration_State, randn(numel(config_channels.B.uni), config.Default.N_Samples_Calibration))), ...
     'label', struct('A', false, 'B', false), ...
     'label_state', config.Default.Label_State, ...
     'labeled_samples_acquired', struct('A', 0, 'B', 0), ...
@@ -214,7 +214,8 @@ param = struct(...
     'threshold', struct('A', struct(config.Default.Calibration_State, inf(1,config.Default.N_Spike_Channels)), ...
                         'B', struct(config.Default.Calibration_State, inf(1,config.Default.N_Spike_Channels))), ...
     'threshold_deviations', config.Default.Threshold_Deviations, ...
-    'threshold_artifact', config.Default.Artifact_Channel_Proportion_Threshold);
+    'threshold_artifact', config.Default.Artifact_Channel_Proportion_Threshold, ...
+    'threshold_pose', config.Default.Pose_Threshold);
 if param.gui.squiggles.thumb.enable && ((~ismember(param.gui.squiggles.thumb.channel.left, config.SAGA.(param.gui.squiggles.thumb.saga).Channels.BIP)) || (~ismember(param.gui.squiggles.thumb.channel.right, config.SAGA.(param.gui.squiggles.thumb.saga).Channels.BIP)))
     disconnect(device);
     lib.cleanUp();
@@ -266,7 +267,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     first_timestamp = struct;
     counter_offset = 0;
     needs_offset = true;
-    
+    pose_vec = zeros(6,1);
+
     for ii = 1:N_CLIENT % Determine number of channels definitively
         [samples{ii}, num_sets] = device(ii).sample();
         while (num_sets < 1)
@@ -363,7 +365,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             else
                                 rec_file.(device(ii).tag).params = [];
                             end
-                            rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1));
+                            rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1), 'pose', cell(0,1));
                         end
                     end
                     recording = true;
@@ -443,7 +445,14 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             param.sample_rate, ...
                             param.threshold_artifact);
                         param.past_rates.(device(ii).tag) = param.rate_smoothing_alpha.*param.past_rates.(device(ii).tag) + (1-param.rate_smoothing_alpha).*tmp_rates;
-                        spike_data = struct('SAGA', device(ii).tag, 'rate', param.past_rates.(device(ii).tag), 'n', size(samples{ii},2));
+                        if sum(pose_vec) == 0
+                            acc_pose = "Rest";
+                        else
+                            [~, acc_pose_val] = max(pose_vec);
+                            acc_pose = string(TMSiAccPose(acc_pose_val));
+                        end
+                        updatePose(param.gui.squiggles, acc_pose);
+                        spike_data = struct('SAGA', device(ii).tag, 'rate', param.past_rates.(device(ii).tag), 'n', size(samples{ii},2), 'pose', acc_pose);
                         if tcp_spike_server.Connected
                             writeline(tcp_spike_server, jsonencode(spike_data));
                         end
@@ -496,16 +505,24 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         iMedial = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX([2,5]); 
                         iSuperior = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX([3,6]);     
                         param.gui.squiggles.h.Acc.Distal.YData(i_assign.(param.gui.squiggles.acc.saga)) = [samples{iTag}(iDistal(1),:) - samples{iTag}(iDistal(2),:), nan];
-                        param.gui.squiggles.h.Acc.Medial.YData(i_assign.(param.gui.squiggles.acc.saga)) = [samples{iTag}(iMedial(1),:) - samples{iTag}(iMedial(2),:), nan];
-                        param.gui.squiggles.h.Acc.Superior.YData(i_assign.(param.gui.squiggles.acc.saga)) = [samples{iTag}(iSuperior(1),:) - samples{iTag}(iSuperior(2),:), nan];
+                        param.gui.squiggles.h.Acc.Medial.YData(i_assign.(param.gui.squiggles.acc.saga)) = [samples{iTag}(iMedial(1),:) - samples{iTag}(iMedial(2),:) + 10, nan];
+                        param.gui.squiggles.h.Acc.Superior.YData(i_assign.(param.gui.squiggles.acc.saga)) = [samples{iTag}(iSuperior(1),:) - samples{iTag}(iSuperior(2),:) + 20, nan];
                         % TODO: Update "Pose" estimation here
+                        pose_vec = [sum(param.gui.squiggles.h.Acc.Distal.YData > param.threshold_pose); ...
+                                    sum((-param.gui.squiggles.h.Acc.Distal.YData) > param.threshold_pose); ...
+                                    sum((param.gui.squiggles.h.Acc.Medial.YData-10) > param.threshold_pose); ...
+                                    sum((-(param.gui.squiggles.h.Acc.Medial.YData-10)) > param.threshold_pose); ...
+                                    sum((param.gui.squiggles.h.Acc.Superior.YData-20) > param.threshold_pose); ...
+                                    sum((-(param.gui.squiggles.h.Acc.Superior.YData-20)) > param.threshold_pose)];
+
                     end
                     if param.gui.squiggles.thumb.enable && ~isempty(i_assign.(param.gui.squiggles.thumb.saga))
                         iTag = strcmpi(ORDERED_TAG,param.gui.squiggles.thumb.saga);
-                        param.gui.squiggles.h.LeftThumb.YData(i_assign.(param.gui.squiggles.thumb.saga)) = [samples{iTag}(param.gui.squiggles.thumb.channel.left,:), nan];
-                        param.gui.squiggles.h.RightThumb.YData(i_assign.(param.gui.squiggles.thumb.saga)) = [samples{iTag}(param.gui.squiggles.thumb.channel.right,:), nan];
+                        [ytmp, param.gui.squiggles.thumb.zi.left] = filter(param.hpf.b, param.hpf.a, samples{iTag}(param.gui.squiggles.thumb.channel.left,:), param.gui.squiggles.thumb.zi.left);
+                        param.gui.squiggles.h.LeftThumb.YData(i_assign.(param.gui.squiggles.thumb.saga)) = [ytmp, nan];
+                        [ytmp, param.gui.squiggles.thumb.zi.right] = filter(param.hpf.b, param.hpf.a, samples{iTag}(param.gui.squiggles.thumb.channel.right,:), param.gui.squiggles.thumb.zi.right);
+                        param.gui.squiggles.h.RightThumb.YData(i_assign.(param.gui.squiggles.thumb.saga)) = [ytmp + param.gui.squiggles.offset*2, nan];
                     end
-                    
                 else
                     param.gui.squiggles.fig = [];
                     param.gui.squiggles.enable = false;
@@ -516,7 +533,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             % Handle updating the "NEO" (spikes) GUI if required
             if param.gui.neo.enable && param.spike_detector
                 if isvalid(param.gui.neo.fig)
-                    iTag = ORDERED_TAG == param.gui.neo.saga;
+                    iTag = find(ORDERED_TAG == param.gui.neo.saga,1);
                     if size(samples{iTag},2) > 3
                         sample_counts = samples{iTag}(config.SAGA.(param.gui.neo.saga).Channels.COUNT,2:end) + (iTag-1)*counter_offset;
                         i_assign = rem(sample_counts-1, param.gui.neo.n_samples)+1;
@@ -559,7 +576,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         else
                             rec_file.(device(ii).tag).params = [];
                         end
-                        rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1));
+                        rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1), 'pose', cell(0, 1));
                     end
                 end
                 recording = true;
@@ -633,7 +650,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     disconnect(device);
     clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
-    close all force;
+%     close all force;
 catch me
     % Stop both devices.
     stop(device);
@@ -642,7 +659,7 @@ catch me
     disp(me.stack);
     clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
-    close all force;
+%     close all force;
     fprintf(1, '\n\n-->\tTMSi stream stopped at %s\t<--\n\n', ...
         string(datetime('now')));
 end

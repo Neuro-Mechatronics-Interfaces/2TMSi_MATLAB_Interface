@@ -98,6 +98,10 @@ switch parameter_code
                 param.gui.squiggles.zi.(saga_tag) = zeros(numel(param.gui.squiggles.channels.(saga_tag)), 2);
             end
             param.gui.squiggles.enable = true;
+            if ~isempty(param.gui.squiggles.fig)
+                delete(param.gui.squiggles.fig);
+                param.gui.squiggles.fig = [];
+            end
             param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
         else
             param.gui.squiggles.enable = false;
@@ -107,6 +111,9 @@ switch parameter_code
     case 'r' % Set rate smoothing
         param.rate_smoothing_alpha = str2double(parameter_value)/1000;
         fprintf(1,'[TMSi]\t->\t[%s]: Rate Smoothing Alpha = %4.3f\n', parameter_code, param.rate_smoothing_alpha);
+    case 't' % Set accelerometer threshold
+        param.threshold_pose = str2double(parameter_value) / 100;
+        fprintf(1,'[TMSi]\t->\t[%s]: Pose Threshold = %4.2f\n', parameter_code, param.threshold_pose);
     case 'x' % Set spike detection/threshold deviations
         param.threshold_deviations = str2double(parameter_value)/1000;
         caldata = apply_car(param.calibration_data.A.(param.calibration_state)', param.car_mode, 2);

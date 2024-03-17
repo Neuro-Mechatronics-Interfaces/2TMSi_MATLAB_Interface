@@ -74,10 +74,11 @@ Default:
  N_Samples_Label: 8000
  N_Spike_Channels: 24
  Spike_Detector: true
- Threshold_Deviations: 2.5
+ Threshold_Deviations: 4.5
  Save_Parameters: true
  Rate_Smoothing_Alpha: 0.15
- Artifact_Channel_Proportion_Threshold: 0.5
+ Artifact_Channel_Proportion_Threshold: 0.4
+ Pose_Threshold: 3.5
 Accelerometer:
  Enable: true 
  SAGA: "A"
