@@ -15,11 +15,12 @@ t_pause = (options.LabelSamples / options.SampleRate) / options.NProgressChunk;
 instructionProgress.Indeterminate = 'off';
 
 for ii = 1:size(seq,1)
+    
     writeline(udpSender, ...
         sprintf('l.%s:%d', seq{ii,2}, options.LabelSamples), ...
         address, ...
         port);
-    pause(0.025);
+%     pause(0.025);
     instructionProgress.Value = 0;
     instructionProgress.Message = seq{ii,1};
     drawnow();
