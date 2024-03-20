@@ -1,0 +1,116 @@
+#CONFIG_STREAM_SERVICE_PLUS__DEFAULT.YAML  Set the configuration for TMSiSAGA units to be used as "A" and "B"
+#
+# These header notes are split up according to the top-level fields.
+#
+# -- SAGA --
+#  -> Currently, only supports 2 SAGA at a time.
+#  -> Valid options for "Unit" property of each are:
+#     - "SAGA1"
+#     - "SAGA2"
+#     - "SAGA3"
+#     - "SAGA4"
+#     - "SAGA5"
+#     - "SAGAA"
+#     - "SAGAB"
+#
+# MAKE SURE TO KEEP TRACK OF WHICH UNIT IS ASSIGNED TAG "A" AND "B"
+#   -> THIS IS CRITICAL FOR KEEPING TRACK OF WHICH LEADS WENT WHERE!
+#
+# TO ONLY USE 1 SAGA, SET `Enable: false` ON THE CORRESPONDING UNIT.
+
+SAGA:
+ A: 
+   Enable: true
+   FileType: ".mat"
+   Unit: "SAGA1"
+   Array: 
+    Type: "Textile"
+    Location: "A1: Left Flexors | A2: Left Extensors"
+   Trigger:
+    Channel: 73
+    Bit: 1
+   Channels:
+    CREF: 1
+    UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
+    BIP: [66]
+    AUX: [67,68,69,70,71,72]
+    DIG: []
+    ACC_EN: 0  # set to 1 to enable internal accelerometer channels
+    STAT: 74
+    COUNT: 75
+ B: 
+   Enable: true
+   Unit: "SAGA5"
+   FileType: ".mat"
+   Array: 
+    Type: "Textile"
+    Location: "B1: Right Flexors | B2: Right Extensors"
+   Trigger:
+    Channel: 73
+    Bit: 1
+   Channels:
+    CREF: 1
+    UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
+    BIP: [66,67,68,69]
+    AUX: [70,71,72]
+    DIG: []
+    ACC_EN: 0  # set to 1 to enable internal accelerometer channels
+    STAT: 74
+    COUNT: 75
+Default:
+ # Interface: "optical"
+ Interface: "electrical"
+ Folder: "C:/Users/Daily/TempData"
+ HPF_Cutoff_Frequency: 10 # Hz
+ CAR_Mode: 1 # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids
+ Subject: "Default"
+ Sample_Rate: 4000
+ Sync_Bit: 7
+ File_Type: ".mat"
+ Sample_Loop_Pause_Duration: 0.020
+ Calibration_State: "main"
+ N_Samples_Calibration: 20000
+ Label_State: "default" 
+ N_Samples_Label: 8000
+ N_Spike_Channels: 24
+ Spike_Detector: true
+ Threshold_Deviations: 2.5
+ Save_Parameters: true
+ Rate_Smoothing_Alpha: 0.15
+ Artifact_Channel_Proportion_Threshold: 0.4
+ Pose_Threshold: 1.5
+ Pose_Smoothing_Alpha: 0.25
+ Pose_Deadzone_Threshold: 5
+Accelerometer:
+ Enable: true 
+ SAGA: "A"
+Thumb: 
+ SAGA: "B"
+ Enable: true
+ Channel:
+  Left: 66
+  Right: 67
+GUI:
+ Color:
+  A: "r"
+  B: "b"
+ N_Samples: 4000
+ Offset: 250 
+ Squiggles: 
+  Enable: true
+  A: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
+  B: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
+ NEO:
+  Enable: true   
+UDP:
+ Socket:
+  StreamService:
+   Address: "192.168.88.100"
+   Port: 
+    state: 3030
+    name: 3031
+    params: 3036
+TCP:
+ SpikeServer:
+  Address: "192.168.88.100"
+  Port: 6050
