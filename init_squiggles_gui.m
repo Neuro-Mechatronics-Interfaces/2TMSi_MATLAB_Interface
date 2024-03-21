@@ -28,8 +28,9 @@ squiggles.fig = figure(...
     'Position', options.FigurePosition);
 squiggles.h = struct;
 
-L = tiledlayout(squiggles.fig, 8, 1);
-ax = nexttile(L, 1, [8 - double(squiggles.acc.enable) - double(squiggles.thumb.enable), 1]);
+L = tiledlayout(squiggles.fig, 9, 1);
+nRowsMain = 9 - double(squiggles.acc.enable) - double(squiggles.thumb.enable) - double(squiggles.triggers.enable);
+ax = nexttile(L, 1, [nRowsMain, 1]);
 set(ax,...
     'NextPlot','add','FontName','Tahoma', ...
     'XLim',[1, squiggles.n_samples], 'XTick', [], ...
@@ -54,7 +55,7 @@ for ii = 1:numel(squiggles.channels.B)
 end
 
 if squiggles.acc.enable
-    ax = nexttile(L, 7, [1 1]);
+    ax = nexttile(L, nRowsMain+1, [1 1]);
     set(ax,...
         'NextPlot','add','FontName','Tahoma', ...
         'XLim',[1, squiggles.n_samples], 'XTick', [], ...
@@ -70,7 +71,7 @@ else
 end
 
 if squiggles.thumb.enable
-    ax = nexttile(L, 7+double(squiggles.acc.enable), [1 1]);
+    ax = nexttile(L, nRowsMain+1+double(squiggles.acc.enable), [1 1]);
     set(ax,...
         'NextPlot','add','FontName','Tahoma', ...
         'XLim',[1, squiggles.n_samples], 'XTick', [], ...
@@ -86,6 +87,25 @@ if squiggles.thumb.enable
 else
     squiggles.h.LeftThumb = [];
     squiggles.h.RightThumb = [];
+end
+
+if squiggles.triggers.enable
+        ax = nexttile(L, nRowsMain+1+double(squiggles.acc.enable)+double(squiggles.thumb.enable), [1 1]);
+    set(ax,...
+        'NextPlot','add','FontName','Tahoma', ...
+        'XLim',[1, squiggles.n_samples], 'XTick', [], ...
+        'XColor','none','YColor','none', ...
+        'YLim', [0, 300]);
+    cLeft = cA;
+    cRight = cB;
+    title(ax, sprintf("\\color[rgb]{%3.1f,%3.1f,%3.1f}A Triggers \\color{black} | \\color[rgb]{%3.1f,%3.1f,%3.1f}B Triggers", ...
+        cLeft(1),cLeft(2),cLeft(3),cRight(1),cRight(2),cRight(3)), 'FontName', 'Tahoma');
+
+    squiggles.h.Triggers.A = line(ax, x_init, y_init, 'Color', cLeft, 'LineWidth', 1.0);
+    squiggles.h.Triggers.B = line(ax, x_init, y_init, 'Color', cRight, 'LineWidth', 1.0);
+else
+    squiggles.h.Triggers.A = [];
+    squiggles.h.Triggers.B = [];
 end
 % fprintf(1,'[TMSi]::[Squiggles] GUI initialized.\n');
 end

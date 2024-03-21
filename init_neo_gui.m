@@ -29,7 +29,7 @@ neo.h.xline = xline(ax, neo.n_samples/2, ...
     'k:', seconds_2_str(0.5));
 if isinf(threshold) || isnan(threshold)
     threshold = 0;
-else
+elseif abs(threshold) > eps
     ylim(ax, [-1.5*threshold, 1.5*threshold]);
 end
 neo.h.yline = yline(ax, threshold, 'm--', "Threshold", 'LineWidth', 1.5);

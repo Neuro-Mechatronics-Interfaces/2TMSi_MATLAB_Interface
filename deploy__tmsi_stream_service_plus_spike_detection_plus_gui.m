@@ -29,6 +29,9 @@ switch getenv("COMPUTERNAME")
     case 'NMLNHP-DELL-C01'
         IMPEDANCE_FIGURE_POSITION = [ 280 160 1200 720; ... % A
                                      2120 100 1200 720];    % B
+    case 'NMLVR'
+        IMPEDANCE_FIGURE_POSITION = [120   450   900   750; ... % A
+                                     1020  450   900   750];     % B
     otherwise
         IMPEDANCE_FIGURE_POSITION = [ 100 300 200 200; ...  % A
                                       300 300 200 200];     % B
@@ -64,11 +67,6 @@ config_device = struct('Dividers', {{'uni', 0; 'bip', 0}}, ...
     'ReferenceMethod', 'common',...
     'SyncOutDivider', -1, ...
     'SyncOutDutyCycle', 500);
-% config_channels = struct('uni', 1:64, ...
-%     'bip', 1:4, ...
-%     'dig', 0, ...
-%     'acc', 0, ...
-%     'aux', 1:3);
 config_channels = struct(...
     'A', ...
         struct( ...
@@ -190,8 +188,9 @@ param = struct(...
     'hpf', struct('b', [], 'a', []), ...
     'gui', struct('squiggles', struct('enable', config.GUI.Squiggles.Enable, 'fig', [], 'h', [], 'offset', config.GUI.Offset, ...
                                       'channels', struct('A', [], 'B', []), 'zi', struct('A', [], 'B', []), 'n_samples', config.GUI.N_Samples, 'color', config.GUI.Color, ...
-                                      'acc', struct('enable', config.Accelerometer.Enable, 'saga', config.Accelerometer.SAGA), ...
-                                      'thumb', struct('enable', config.Thumb.Enable, 'saga', config.Thumb.SAGA, 'channel', struct('left', config.Thumb.Channel.Left, 'right', config.Thumb.Channel.Right), 'zi', struct('left', zeros(1,2), 'right', zeros(1,2)))), ...
+                                      'acc', struct('enable', config.Accelerometer.Enable, 'differential', config.Accelerometer.Differential, 'saga', config.Accelerometer.SAGA), ...
+                                      'thumb', struct('enable', config.Thumb.Enable, 'saga', config.Thumb.SAGA, 'channel', struct('left', config.Thumb.Channel.Left, 'right', config.Thumb.Channel.Right), 'zi', struct('left', zeros(1,2), 'right', zeros(1,2))), ...
+                                      'triggers', struct('enable', config.Triggers.Enable)), ...
                   'neo', struct('enable', config.GUI.NEO.Enable, 'fig', [], 'h', [], 'saga', "A", ...
                                 'channel', 1, 'n_samples', config.GUI.N_Samples, 'color', config.GUI.Color, 'state', config.Default.Calibration_State)), ...
     'calibrate', struct('A', true, 'B', true), ...
@@ -224,11 +223,11 @@ if param.gui.squiggles.thumb.enable && ((~ismember(param.gui.squiggles.thumb.cha
     close all force;
     error("[TMSi]::[Thumb Config Error]::Enabled thumb bipolars but configured channels are not BIP for SAGA %s (check %s)", param.thumb.saga, config_file);
 end
-if param.gui.squiggles.acc.enable && (numel(config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX) < 6)
+if param.gui.squiggles.acc.enable && param.gui.squiggles.acc.differential && (numel(config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX) < 6)
     disconnect(device);
     lib.cleanUp();
     close all force;
-    error("[TMSi]::[Acc Config Error]::Enabled differential accelerometers, but not enough SAGA %s channels are configured for AUX (check %s)", param.acc.saga, config_file);
+    error("[TMSi]::[Acc Config Error]::Enabled differential accelerometers, but not enough SAGA %s channels are configured for AUX (check %s)", param.gui.squiggles.acc.saga, config_file);
 end
 param.gui.squiggles.channels.A = config.GUI.Squiggles.A;
 param.gui.squiggles.channels.B = config.GUI.Squiggles.B;
@@ -249,11 +248,12 @@ neodata = struct('A', [], 'B', []);
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
     state = "idle";
+    dt = datetime("today","Format","uuuu-MM-dd","Locale","system");
     fname = strrep(fullfile(param.save_location, ...
                             config.Default.Subject, ...
                             sprintf("%s_%04d_%02d_%02d_%%s_0.mat", ...
                                     config.Default.Subject, ...
-                                    year(today), month(today), day(today))), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
+                                    year(dt), month(dt), day(dt))), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
     
     [tmpFolder, tmpFile, tmpExt] = fileparts(fname);
     if exist(tmpFolder,'dir')==0
@@ -507,12 +507,21 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     end
                     if param.gui.squiggles.acc.enable && ~isempty(i_assign.(param.gui.squiggles.acc.saga))
                         iTag = strcmpi(ORDERED_TAG,param.gui.squiggles.acc.saga);
-                        iDistal = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX([1,4]); 
-                        iMedial = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX([2,5]); 
-                        iSuperior = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX([3,6]);     
-                        distalData = samples{iTag}(iDistal(1),:) - samples{iTag}(iDistal(2),:);
-                        medialData = samples{iTag}(iMedial(1),:) - samples{iTag}(iMedial(2),:);
-                        superiorData = samples{iTag}(iSuperior(1),:) - samples{iTag}(iSuperior(2),:);
+                        if param.gui.squiggles.acc.differential
+                            iDistal = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX([1,4]); 
+                            iMedial = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX([2,5]); 
+                            iSuperior = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX([3,6]); 
+                            distalData = samples{iTag}(iDistal(1),:) - samples{iTag}(iDistal(2),:);
+                            medialData = samples{iTag}(iMedial(1),:) - samples{iTag}(iMedial(2),:);
+                            superiorData = samples{iTag}(iSuperior(1),:) - samples{iTag}(iSuperior(2),:);  
+                        else
+                            iDistal = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX(1); 
+                            iMedial = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX(2); 
+                            iSuperior = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX(3);  
+                            distalData = samples{iTag}(iDistal,:);
+                            medialData = samples{iTag}(iMedial,:);
+                            superiorData = samples{iTag}(iSuperior,:);
+                        end
                         param.gui.squiggles.h.Acc.Distal.YData(i_assign.(param.gui.squiggles.acc.saga)) = [distalData, nan];
                         param.gui.squiggles.h.Acc.Medial.YData(i_assign.(param.gui.squiggles.acc.saga)) = [medialData + 7, nan];
                         param.gui.squiggles.h.Acc.Superior.YData(i_assign.(param.gui.squiggles.acc.saga)) = [superiorData + 14, nan];
@@ -531,6 +540,13 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         param.gui.squiggles.h.LeftThumb.YData(i_assign.(param.gui.squiggles.thumb.saga)) = [ytmp, nan];
                         [ytmp, param.gui.squiggles.thumb.zi.right] = filter(param.hpf.b, param.hpf.a, samples{iTag}(param.gui.squiggles.thumb.channel.right,:), param.gui.squiggles.thumb.zi.right);
                         param.gui.squiggles.h.RightThumb.YData(i_assign.(param.gui.squiggles.thumb.saga)) = [ytmp + param.gui.squiggles.offset*2, nan];
+                    end
+                    if param.gui.squiggles.triggers.enable 
+                        for ii = 1:N_CLIENT
+                            if ~isempty(i_assign.(device(ii).tag))
+                                param.gui.squiggles.h.Triggers.(device(ii).tag).YData(i_assign.(device(ii).tag)) = [samples{ii}(config.SAGA.(device(ii).tag).Trigger.Channel,:) + 150*(ii-1), nan];
+                            end
+                        end
                     end
                 else
                     param.gui.squiggles.fig = [];
