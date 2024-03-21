@@ -24,8 +24,8 @@ SAGA:
    FileType: ".mat"
    Unit: "SAGA1"
    Array: 
-    Type: "Textile"
-    Location: "A1: Left Flexors | A2: Left Extensors"
+    Type: "Large Grid"
+    Location: "A: Flexors"
    Trigger:
     Channel: 73
     Bit: 1
@@ -43,8 +43,8 @@ SAGA:
    Unit: "SAGA5"
    FileType: ".mat"
    Array: 
-    Type: "Textile"
-    Location: "B1: Right Flexors | B2: Right Extensors"
+    Type: "Large Grid"
+    Location: "B: Extensors"
    Trigger:
     Channel: 73
     Bit: 1
@@ -61,12 +61,13 @@ Default:
  # Interface: "optical"
  Interface: "electrical"
  Folder: "C:/Users/Daily/TempData"
- HPF_Cutoff_Frequency: 10 # Hz
+ HPF_Cutoff_Frequency: 300 # Hz
  CAR_Mode: 1 # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids
  Subject: "Default"
  Sample_Rate: 4000
  Sync_Bit: 7
  File_Type: ".mat"
+ N_Samples_Recording: 240000 # Save/pre-allocate in 1-minute chunks.
  Sample_Loop_Pause_Duration: 0.020
  Calibration_State: "main"
  N_Samples_Calibration: 20000

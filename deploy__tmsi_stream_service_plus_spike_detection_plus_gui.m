@@ -179,6 +179,9 @@ tcp_spike_server = tcpserver("0.0.0.0", ... % Allow any IP to connect
 param = struct(...
     'n_channels', struct('A', [], 'B', []), ...
     'n_spike_channels', config.Default.N_Spike_Channels, ...
+    'n_samples_recording', config.Default.N_Samples_Recording, ...
+    'recording_samples_acquired', struct('A', 0, 'B', 0), ...
+    'recording_chunk_offset', struct('A', 0, 'B', 0), ...
     'n_samples_calibration', config.Default.N_Samples_Calibration, ...
     'n_samples_label', config.Default.N_Samples_Label, ...
     'n_total', struct('A', numel(config_channels.A.uni), 'B', numel(config_channels.B.uni)), ...
@@ -357,7 +360,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         rec_file = struct;
                         for ii = 1:N_CLIENT
                             rec_file.(device(ii).tag) = matfile(strrep(fname, "%s", device(ii).tag), 'Writable', true);
-                            rec_file.(device(ii).tag).samples = zeros(param.n_channels.(device(ii).tag),0); % Initialize the variable, with no samples in it.
+                            rec_file.(device(ii).tag).samples = nan(param.n_channels.(device(ii).tag),param.n_samples_recording); % Initialize the variable, with no samples in it.
                             rec_file.(device(ii).tag).channels = ch{ii}.toStruct();
                             rec_file.(device(ii).tag).sample_rate = param.sample_rate;
                             needs_timestamp.(device(ii).tag) = true;
@@ -367,7 +370,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             else
                                 rec_file.(device(ii).tag).params = [];
                             end
-                            rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1), 'pose', cell(0,1));
+                            param.recording_samples_acquired = struct('A', 0, 'B', 0);
+                            param.recording_chunk_offset = struct('A', 0, 'B', 0);
+                            % rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1), 'pose', cell(0,1));
                         end
                     end
                     recording = true;
@@ -390,7 +395,21 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             if recording
                 for ii = 1:N_CLIENT
                     if ~isempty(samples{ii})
-                        rec_file.(device(ii).tag).samples(:,(end+1):(end+size(samples{ii},2))) = samples{ii};
+                        n_rec_samples = param.recording_samples_acquired.(device(ii).tag) + size(samples{ii},2);
+                        if n_rec_samples >= param.n_samples_recording
+                            n_ch = param.n_channels.(device(ii).tag);
+                            rec_file.(device(ii).tag).samples(1:n_ch,(end+1):(end+size(samples{ii},2))) = samples{ii};
+                            last_sample = size(samples{ii},2) - (n_rec_samples - param.n_samples_recording);
+                            rec_file.(device(ii).tag).samples(1:n_ch,(param.recording_samples_acquired.(device(ii).tag)+1+param.recording_chunk_offset.(device(ii).tag)):end) = samples{ii}(:,1:last_sample);
+                            param.recording_chunk_offset.(device(ii).tag) = param.recording_chunk_offset.(device(ii).tag) + param.n_samples_recording;
+                            n_samples_remaining = size(samples{ii},2)-last_sample + 1;
+                            rec_file.(device(ii).tag).samples(1:n_ch,(end+1):(end+param.n_samples_recording)) = nan(n_ch,param.n_samples_recording); % Increase recording size on disk
+                            rec_file.(device(ii).tag).samples(1:n_ch,(1+param.recording_chunk_offset.(device(ii).tag)):n_samples_remaining) = samples{ii}(:,(last_sample+1):end);
+                            param.recording_samples_acquired.(device(ii).tag) = n_samples_remaining;
+                        else
+                            rec_file.(device(ii).tag).samples(:,(param.recording_samples_acquired.(device(ii).tag)+1):n_cal_samples) = samples{ii};
+                            param.recording_samples_acquired.(device(ii).tag) = n_rec_samples;
+                        end
                         if needs_timestamp.(device(ii).tag)
                             rec_file.(device(ii).tag).time = first_timestamp.(device(ii).tag);
                             needs_timestamp.(device(ii).tag) = false;
@@ -462,9 +481,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         if tcp_spike_server.Connected
                             writeline(tcp_spike_server, jsonencode(spike_data));
                         end
-                        if recording
-                            rec_file.(device(ii).tag).spikes(end+1,1) = spike_data;
-                        end
+                        % if recording
+                        %     rec_file.(device(ii).tag).spikes(end+1,1) = spike_data;
+                        % end
                     end
                 end
             end
@@ -601,7 +620,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         else
                             rec_file.(device(ii).tag).params = [];
                         end
-                        rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1), 'pose', cell(0, 1));
+                        % rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1), 'pose', cell(0, 1));
+                        param.recording_samples_acquired = struct('A', 0, 'B', 0);
+                        param.recording_chunk_offset = struct('A', 0, 'B', 0);
                     end
                 end
                 recording = true;
