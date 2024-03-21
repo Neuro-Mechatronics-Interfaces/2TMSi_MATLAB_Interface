@@ -254,7 +254,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     dt = datetime("today","Format","uuuu-MM-dd","Locale","system");
     fname = strrep(fullfile(param.save_location, ...
                             config.Default.Subject, ...
-                            sprintf("%s_%04d_%02d_%02d_%%s_0.mat", ...
+                            sprintf("%s_%04d_%02d_%02d_%%s_0.poly5", ...
                                     config.Default.Subject, ...
                                     year(dt), month(dt), day(dt))), "\", "/");  % fname should always have "%s" in it so that array is added by the StreamBuffer object save method.
     
@@ -263,13 +263,15 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
         mkdir(tmpFolder);
     end
     if strlength(tmpExt) == 0
-        fname = strcat(string(fname), ".mat");
+        fname = strcat(string(fname), ".poly5");
+    else
+        fname = strrep(fname, tmpExt, ".poly5");
     end
     
     start(device);
     pause(1.0);
-    needs_timestamp = struct;
-    first_timestamp = struct;
+    % needs_timestamp = struct;
+    % first_timestamp = struct;
     counter_offset = 0;
     needs_offset = true;
     pose_vec = zeros(6,1);
@@ -281,8 +283,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             pause(0.5);
         end
         param.n_channels.(device(ii).tag) = size(samples{ii},1);
-        needs_timestamp.(device(ii).tag) = false;
-        first_timestamp.(device(ii).tag) = datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS', 'TimeZone', 'America/New_York');
+        % needs_timestamp.(device(ii).tag) = false;
+        % first_timestamp.(device(ii).tag) = datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS', 'TimeZone', 'America/New_York');
     end
     stop(device);
     
@@ -305,7 +307,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 mkdir(tmpFolder);
             end
             if strlength(tmpExt) == 0
-                fname = strcat(string(fname), ".mat");
+                fname = strcat(string(fname), ".poly5");
+            else
+                fname = strrep(fname, tmpExt, ".poly5");
             end
             fprintf(1, "File name updated: %s\n", fname);
         end
@@ -329,7 +333,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     mkdir(tmpFolder);
                 end
                 if strlength(tmpExt) == 0
-                    fname = strcat(string(fname), ".mat");
+                    fname = strcat(string(fname), ".poly5");
+                else
+                    fname = strrep(fname, tmpExt, ".poly5");
                 end
                 fprintf(1, "File name updated: %s\n", fname);
             end
@@ -343,9 +349,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             num_sets = zeros(numel(device),1);
             for ii = 1:N_CLIENT
                 [samples{ii}, num_sets(ii)] = device(ii).sample();
-                if needs_timestamp.(device(ii).tag)
-                    first_timestamp.(device(ii).tag) =  datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS', 'TimeZone', 'America/New_York') - seconds(size(samples{ii},2)/param.sample_rate);
-                end
+                % if needs_timestamp.(device(ii).tag)
+                %     first_timestamp.(device(ii).tag) =  datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS', 'TimeZone', 'America/New_York') - seconds(size(samples{ii},2)/param.sample_rate);
+                % end
                 if needs_offset && (ii > 1) && (num_sets(1) > 0) && (num_sets(ii) > 0)
                     counter_offset = samples{1}(config.SAGA.(device(1).tag).Channels.COUNT, end) - samples{ii}(config.SAGA.(device(ii).tag).Channels.COUNT, end);
                     needs_offset = false;
@@ -359,19 +365,20 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         fprintf(1, "[TMSi]::[RUN > REC]: Buffer created, recording in process...\n");
                         rec_file = struct;
                         for ii = 1:N_CLIENT
-                            rec_file.(device(ii).tag) = matfile(strrep(fname, "%s", device(ii).tag), 'Writable', true);
-                            rec_file.(device(ii).tag).samples = nan(param.n_channels.(device(ii).tag),param.n_samples_recording); % Initialize the variable, with no samples in it.
-                            rec_file.(device(ii).tag).channels = ch{ii}.toStruct();
-                            rec_file.(device(ii).tag).sample_rate = param.sample_rate;
-                            needs_timestamp.(device(ii).tag) = true;
-                            if param.save_params
-                                params = rmfield(param, "gui");
-                                rec_file.(device(ii).tag).params = params;
-                            else
-                                rec_file.(device(ii).tag).params = [];
-                            end
-                            param.recording_samples_acquired = struct('A', 0, 'B', 0);
-                            param.recording_chunk_offset = struct('A', 0, 'B', 0);
+                            rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",device(ii).tag), device(ii).sample_rate, ch{ii}.toStruct());
+                            % rec_file.(device(ii).tag) = matfile(strrep(fname, "%s", device(ii).tag), 'Writable', true);
+                            % rec_file.(device(ii).tag).samples = nan(param.n_channels.(device(ii).tag),param.n_samples_recording); % Initialize the variable, with no samples in it.
+                            % rec_file.(device(ii).tag).channels = ch{ii}.toStruct();
+                            % rec_file.(device(ii).tag).sample_rate = param.sample_rate;
+                            % needs_timestamp.(device(ii).tag) = true;
+                            % if param.save_params
+                            %     params = rmfield(param, "gui");
+                            %     rec_file.(device(ii).tag).params = params;
+                            % else
+                            %     rec_file.(device(ii).tag).params = [];
+                            % end
+                            % param.recording_samples_acquired = struct('A', 0, 'B', 0);
+                            % param.recording_chunk_offset = struct('A', 0, 'B', 0);
                             % rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1), 'pose', cell(0,1));
                         end
                     end
@@ -385,7 +392,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if recording
                         fprintf(1, "[TMSi]::[REC > RUN]: Recording complete\n\t->\t(%s)\n", fname);
                         for ii = 1:N_CLIENT
-                            delete(rec_file.(device(ii).tag));
+                            % delete(rec_file.(device(ii).tag));
+                            rec_file.(device(ii).tag).close();
                         end
                     end
                     recording = false;
@@ -395,25 +403,25 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             if recording
                 for ii = 1:N_CLIENT
                     if ~isempty(samples{ii})
-                        n_rec_samples = param.recording_samples_acquired.(device(ii).tag) + size(samples{ii},2);
-                        if n_rec_samples >= param.n_samples_recording
-                            n_ch = param.n_channels.(device(ii).tag);
-                            rec_file.(device(ii).tag).samples(1:n_ch,(end+1):(end+size(samples{ii},2))) = samples{ii};
-                            last_sample = size(samples{ii},2) - (n_rec_samples - param.n_samples_recording);
-                            rec_file.(device(ii).tag).samples(1:n_ch,(param.recording_samples_acquired.(device(ii).tag)+1+param.recording_chunk_offset.(device(ii).tag)):end) = samples{ii}(:,1:last_sample);
-                            param.recording_chunk_offset.(device(ii).tag) = param.recording_chunk_offset.(device(ii).tag) + param.n_samples_recording;
-                            n_samples_remaining = size(samples{ii},2)-last_sample + 1;
-                            rec_file.(device(ii).tag).samples(1:n_ch,(end+1):(end+param.n_samples_recording)) = nan(n_ch,param.n_samples_recording); % Increase recording size on disk
-                            rec_file.(device(ii).tag).samples(1:n_ch,(1+param.recording_chunk_offset.(device(ii).tag)):n_samples_remaining) = samples{ii}(:,(last_sample+1):end);
-                            param.recording_samples_acquired.(device(ii).tag) = n_samples_remaining;
-                        else
-                            rec_file.(device(ii).tag).samples(:,(param.recording_samples_acquired.(device(ii).tag)+1):n_cal_samples) = samples{ii};
-                            param.recording_samples_acquired.(device(ii).tag) = n_rec_samples;
-                        end
-                        if needs_timestamp.(device(ii).tag)
-                            rec_file.(device(ii).tag).time = first_timestamp.(device(ii).tag);
-                            needs_timestamp.(device(ii).tag) = false;
-                        end
+                        % n_rec_samples = param.recording_samples_acquired.(device(ii).tag) + size(samples{ii},2);
+                        % if n_rec_samples >= param.n_samples_recording
+                        %     n_ch = param.n_channels.(device(ii).tag);
+                        %     last_sample = size(samples{ii},2) - (n_rec_samples - param.n_samples_recording);
+                        %     rec_file.(device(ii).tag).samples(1:n_ch,(param.recording_samples_acquired.(device(ii).tag)+1+param.recording_chunk_offset.(device(ii).tag)):end) = samples{ii}(:,1:last_sample);
+                        %     param.recording_chunk_offset.(device(ii).tag) = param.recording_chunk_offset.(device(ii).tag) + param.n_samples_recording;
+                        %     n_samples_remaining = size(samples{ii},2)-last_sample;
+                        %     rec_file.(device(ii).tag).samples(1:n_ch,(end+1):(end+param.n_samples_recording)) = nan(n_ch,param.n_samples_recording); % Increase recording size on disk
+                        %     rec_file.(device(ii).tag).samples(1:n_ch,(1+param.recording_chunk_offset.(device(ii).tag)):(n_samples_remaining+param.recording_chunk_offset.(device(ii).tag))) = samples{ii}(:,(last_sample+1):end);
+                        %     param.recording_samples_acquired.(device(ii).tag) = n_samples_remaining;
+                        % else
+                        %     rec_file.(device(ii).tag).samples(:,((param.recording_samples_acquired.(device(ii).tag)+1):n_rec_samples)+param.recording_chunk_offset.(device(ii).tag)) = samples{ii};
+                        %     param.recording_samples_acquired.(device(ii).tag) = n_rec_samples;
+                        % end
+                        % if needs_timestamp.(device(ii).tag)
+                        %     rec_file.(device(ii).tag).time = first_timestamp.(device(ii).tag);
+                        %     needs_timestamp.(device(ii).tag) = false;
+                        % end
+                        rec_file.(device(ii).tag).append(samples{ii});
                     end
                 end
             end
@@ -609,20 +617,21 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     fprintf(1, "[TMSi]::[IDLE > REC]: Buffer created, recording in process...\n");
                     rec_file = struct;
                     for ii = 1:N_CLIENT
-                        rec_file.(device(ii).tag) = matfile(strrep(fname, "%s", device(ii).tag), 'Writable', true);
-                        rec_file.(device(ii).tag).samples = zeros(param.n_channels.(device(ii).tag),0); % Initialize the variable, with no samples in it.
-                        rec_file.(device(ii).tag).channels = ch{ii}.toStruct();
-                        rec_file.(device(ii).tag).sample_rate = param.sample_rate;
-                        needs_timestamp.(device(ii).tag) = true;
-                        if param.save_params
-                            params = rmfield(param, "gui");
-                            rec_file.(device(ii).tag).params = params;
-                        else
-                            rec_file.(device(ii).tag).params = [];
-                        end
-                        % rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1), 'pose', cell(0, 1));
-                        param.recording_samples_acquired = struct('A', 0, 'B', 0);
-                        param.recording_chunk_offset = struct('A', 0, 'B', 0);
+                        rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",device(ii).tag), device(ii).sample_rate, ch{ii}.toStruct());
+                        % rec_file.(device(ii).tag) = matfile(strrep(fname, "%s", device(ii).tag), 'Writable', true);
+                        % rec_file.(device(ii).tag).samples = zeros(param.n_channels.(device(ii).tag),0); % Initialize the variable, with no samples in it.
+                        % rec_file.(device(ii).tag).channels = ch{ii}.toStruct();
+                        % rec_file.(device(ii).tag).sample_rate = param.sample_rate;
+                        % % needs_timestamp.(device(ii).tag) = true;
+                        % if param.save_params
+                        %     params = rmfield(param, "gui");
+                        %     rec_file.(device(ii).tag).params = params;
+                        % else
+                        %     rec_file.(device(ii).tag).params = [];
+                        % end
+                        % % rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1), 'pose', cell(0, 1));
+                        % param.recording_samples_acquired = struct('A', 0, 'B', 0);
+                        % param.recording_chunk_offset = struct('A', 0, 'B', 0);
                     end
                 end
                 recording = true;
