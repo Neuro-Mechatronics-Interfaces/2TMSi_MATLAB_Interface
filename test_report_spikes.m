@@ -7,7 +7,8 @@ data = jsondecode(src.readline);
 %     end
 % end
 src.UserData.Timer.UserData.(data.SAGA).x = (1:numel(data.rate))';
-src.UserData.Timer.UserData.(data.SAGA).y = data.rate;
+tmpRate = data.rate';
+src.UserData.Timer.UserData.(data.SAGA).y = (tmpRate(:))';
 nTotalUpdate = numel(src.UserData.Timer.UserData.A.y) + numel(src.UserData.Timer.UserData.B.y);
 src.UserData.Timer.UserData.CurrentReportedPose = TMSiAccPose.(data.pose);
 if nTotalUpdate ~= src.UserData.Timer.UserData.NTotal
