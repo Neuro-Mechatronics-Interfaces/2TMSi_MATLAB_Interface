@@ -1,4 +1,4 @@
-#CONFIG_STREAM_SERVICE_PLUS__DEFAULT.YAML  Set the configuration for TMSiSAGA units to be used as "A" and "B"
+#CONFIG_VR.YAML  Set the configuration for TMSiSAGA units to be used as "A" and "B" -- FOR "_PLUS" version ONLY
 #
 # These header notes are split up according to the top-level fields.
 #
@@ -77,7 +77,7 @@ Default:
  Spike_Detector: true
  Threshold_Deviations: 2.5
  Save_Parameters: true
- Rate_Smoothing_Alpha: 0.15
+ Rate_Smoothing_Alpha: [0.01, 0.15, 0.9] 
  Artifact_Channel_Proportion_Threshold: 0.4
  Pose_Threshold: 1.5
  Pose_Smoothing_Alpha: 0.25
@@ -106,6 +106,8 @@ GUI:
   B: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
  NEO:
   Enable: true   
+  SAGA: "A"
+  Channel: 1
 UDP:
  Socket:
   StreamService:
@@ -118,3 +120,6 @@ TCP:
  SpikeServer:
   Address: "192.168.88.100"
   Port: 6050
+ ControlServer:
+  Address: "192.168.88.102"
+  Port: 6051

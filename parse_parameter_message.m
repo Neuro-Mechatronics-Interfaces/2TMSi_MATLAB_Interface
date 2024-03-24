@@ -26,7 +26,7 @@ switch parameter_code
         end
         if isfield(param.transform.A, new_state)
             param.n_spike_channels = numel(param.threshold.A.(new_state));
-            param.past_rates = struct('A', zeros(1, param.n_spike_channels), 'B', zeros(1, param.n_spike_channels));
+            param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels), 'B', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels));
         else
             param = init_new_calibration(param, new_state);
         end
@@ -79,7 +79,7 @@ switch parameter_code
         fprintf(1,'[TMSi]\t->\t[%s]: Squiggles Line Offset = %s (uV)\n', parameter_code, parameter_value);
     case 'p' % Number of spike channels (rows in transform matrix)
         param.n_spike_channels = round(str2double(parameter_value));
-        param.past_rates = struct('A', zeros(1, param.n_spike_channels), 'B', zeros(1, param.n_spike_channels));
+        param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels), 'B', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels));
         param = init_new_calibration(param, param.calibration_state);
         fprintf(1,'[TMSi]\t->\t[%s]: Spike Channels = %s\n', parameter_code, parameter_value);
     case 'q' % s**Q**uiggles GUI command
@@ -109,8 +109,14 @@ switch parameter_code
         end
         fprintf(1,'[TMSi]\t->\t[%s]: SQUIGGLES GUI Channels = %s\n', parameter_code, parameter_value);
     case 'r' % Set rate smoothing
-        param.rate_smoothing_alpha = str2double(parameter_value)/1000;
-        fprintf(1,'[TMSi]\t->\t[%s]: Rate Smoothing Alpha = %4.3f\n', parameter_code, param.rate_smoothing_alpha);
+        command_chunks = strsplit(parameter_value, ',');
+        n_smooth_kernel = numel(command_chunks);
+        param.rate_smoothing_alpha = nan(n_smooth_kernel,1);
+        for ii = 1:n_smooth_kernel
+            param.rate_smoothing_alpha(ii) = str2double(command_chunks{ii})/1000;
+        end
+        param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels), 'B', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels));
+        fprintf(1,['[TMSi]\t->\t[%s]: Rate Smoothing Alpha = ' strjoin(repmat({'%4.3f'}, 1, numel(param.rate_smoothing_alpha)),  ', ') '\n'], parameter_code, param.rate_smoothing_alpha);
     case 't' % Set accelerometer threshold
         command_chunks = strsplit(parameter_value, ':');
         param.threshold_pose = str2double(command_chunks{1}) / 100;

@@ -109,4 +109,10 @@ if isfield(config, 'GUI')
     end
 end
 
+if isfield(config.Default, 'Rate_Smoothing_Alpha')
+    if iscell(config.Default.Rate_Smoothing_Alpha)
+        config.Default.Rate_Smoothing_Alpha = cell2mat(config.Default.Rate_Smoothing_Alpha);
+    end
+end
+
 end
