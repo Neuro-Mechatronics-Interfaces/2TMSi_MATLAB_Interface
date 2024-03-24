@@ -8,9 +8,10 @@ else
 end
 
 SUBJ = "Max";
-YYYY = year(today);
-MM = month(today);
-DD = day(today);
+dt = datetime('today', 'TimeZone', 'America/New_York');
+YYYY = year(dt);
+MM = month(dt);
+DD = day(dt);
 SEQUENCE = {'Move right index only.', 'r_d2'; ...
             'Move right ring only.', 'r_d4'; ...
             'Move left index only.', 'l_d2'; ...
