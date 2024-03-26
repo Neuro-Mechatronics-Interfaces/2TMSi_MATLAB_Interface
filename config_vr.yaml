@@ -126,3 +126,6 @@ TCP:
  RMSServer:
   Address: "192.168.88.100"
   Port: 6052
+ XBoxServer:
+  Address: "192.168.88.101"
+  Port: 6053

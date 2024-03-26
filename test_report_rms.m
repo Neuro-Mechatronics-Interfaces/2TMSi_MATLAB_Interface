@@ -1,0 +1,26 @@
+function test_report_rms(src, ~)
+data = jsondecode(src.readline);
+% disp(data);
+% for ii = 1:numel(data.n)
+%     if data.n(ii) > 0
+%         fprintf(1,'%s::Channel-%d=%d spikes\n', evt.AbsoluteTime, ii, data.n(ii));
+%     end
+% end
+src.UserData.Timer.UserData.(data.SAGA).x = 1:64;
+src.UserData.Timer.UserData.(data.SAGA).y = data.rms(1:64)';
+nTotalUpdate = numel(src.UserData.Timer.UserData.A.y) + numel(src.UserData.Timer.UserData.B.y);
+% src.UserData.Timer.UserData.CurrentReportedPose = TMSiAccPose.(data.pose);
+if nTotalUpdate ~= src.UserData.Timer.UserData.NTotal
+    src.UserData.Timer.UserData.NTotal = nTotalUpdate;
+    src.UserData.Timer.UserData.Zprev = zeros(nTotalUpdate, 1);
+    src.UserData.Timer.UserData.Data = struct( ...
+        'Y', zeros(0,1), ...
+        'X', zeros(0, nTotalUpdate), ...
+        'Pose', TMSiAccPose(zeros(0,1)));
+    src.UserData.Timer.UserData.UpdateGraphics = false;
+    src.UserData.Timer.UserData.Calibration = nan(src.UserData.Timer.UserData.NTotal, 1000);
+    src.UserData.Timer.UserData.CalibrationIndex = 1;
+    src.UserData.Timer.UserData.NeedsCalibration = true;
+end
+% refreshdata;
+end

@@ -9,11 +9,16 @@ function bar_height_update_callback(src, hBarA, hBarB, hBarZ, hBarC, hTxt, hTxt2
 
 % disp("Tick");
 if src.UserData.UpdateGraphics
-    set(hBarA,'XData',src.UserData.A.x, 'YData', src.UserData.A.y);
-    set(hBarB,'XData',src.UserData.B.x, 'YData', src.UserData.B.y);
-    if nargin > 3
-        set(hTxt, 'String', string(src.UserData.CurrentReportedPose));
+    if isa(hBarA,'matlab.graphics.chart.primitive.Bar')
+        set(hBarA,'XData',src.UserData.A.x, 'YData', src.UserData.A.y);
+        set(hBarB,'XData',src.UserData.B.x, 'YData', src.UserData.B.y);
+    else
+        hBarA.CData = reshape(src.UserData.A.y,8,8);
+        hBarB.CData = reshape(src.UserData.B.y,8,8);
     end
+    % if nargin > 3
+    %     set(hTxt, 'String', string(src.UserData.CurrentReportedPose));
+    % end
 end
 % drawnow();
 
@@ -30,7 +35,7 @@ if src.UserData.NeedsCalibration
         src.UserData.T = src.UserData.coeff(:,1:12)./max(abs(src.UserData.coeff(:,1:12)),[],1);
         plot_controller_coeffs(src);
         src.UserData.UpdateGraphics = true;
-        start(src);
+        % start(src);
     end
     return;
 end
@@ -39,25 +44,26 @@ if nargin < 7
     return;
 end
 
-if nargin > 8
-    src.UserData.Zprev = 0.25 .* predict(src.UserData.AutoEnc, ([src.UserData.A.y, src.UserData.B.y])') + 0.25.*src.UserData.Zprev;
-    predicted = net(src.UserData.Zprev);
-    [~,idx] = max(predicted);
-    set(hTxt2,'String',Label(idx));
-else
-    src.UserData.Zprev = 0.25 .* predict(src.UserData.AutoEnc, ([src.UserData.A.y, src.UserData.B.y])') + 0.25.*src.UserData.Zprev;
-end
-cmd_raw = (src.UserData.Zprev)' * src.UserData.T;
+% if nargin > 8
+%     src.UserData.Zprev = 0.25 .* predict(src.UserData.AutoEnc, ([src.UserData.A.y, src.UserData.B.y])') + 0.25.*src.UserData.Zprev;
+%     predicted = net(src.UserData.Zprev);
+%     [~,idx] = max(predicted);
+%     set(hTxt2,'String',Label(idx));
+% else
+%     src.UserData.Zprev = 0.25 .* predict(src.UserData.AutoEnc, ([src.UserData.A.y, src.UserData.B.y])') + 0.25.*src.UserData.Zprev;
+% end
+src.UserData.Zprev = [src.UserData.A.y, src.UserData.B.y];
+cmd_raw = src.UserData.Zprev * src.UserData.T;
 if src.UserData.UpdateGraphics
     set(hBarZ,'XData',(1:numel(src.UserData.Zprev))', 'YData', src.UserData.Zprev);
-    set(hBarC,'XData',1:size(src.UserData.T,2),'YData',abs(cmd_raw));
+    set(hBarC,'XData',1:size(src.UserData.T,2),'YData',cmd_raw);
 end
 
 if src.UserData.ControlServer.Connected && (numel(src.UserData.EigenPairs) >= 2)
     
     data = struct('axis', nan(size(src.UserData.EigenPairs,1),1), 'button', zeros(4,1));
     for iRow = 1:size(src.UserData.EigenPairs,1)
-        data.axis(iRow) = abs(cmd_raw(src.UserData.EigenPairs(iRow,1))) - abs(cmd_raw(src.UserData.EigenPairs(iRow,2)));
+        data.axis(iRow) = sum(cmd_raw(src.UserData.EigenPairs{iRow}));
     end
     [~,iMax] = max(abs(cmd_raw(8:11)));
     data.button(iMax) = 1;
