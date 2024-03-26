@@ -18,6 +18,10 @@ if nTotalUpdate ~= src.UserData.Timer.UserData.NTotal
         'Y', zeros(0,1), ...
         'X', zeros(0, nTotalUpdate), ...
         'Pose', TMSiAccPose(zeros(0,1)));
+    src.UserData.Timer.UserData.UpdateGraphics = false;
+    src.UserData.Timer.UserData.Calibration = nan(src.UserData.Timer.UserData.NTotal, 1000);
+    src.UserData.Timer.UserData.CalibrationIndex = 1;
+    src.UserData.Timer.UserData.NeedsCalibration = true;
 end
 % refreshdata;
 end
