@@ -176,6 +176,8 @@ udp_param_receiver = udpport("byte", ...
     "EnablePortSharing", false);
 tcp_spike_server = tcpserver("0.0.0.0", ... % Allow any IP to connect
                              config.TCP.SpikeServer.Port);
+tcp_rms_server = tcpserver("0.0.0.0", ...
+                            config.TCP.RMSServer.Port);
 param = struct(...
     'n_channels', struct('A', [], 'B', []), ...
     'n_spike_channels', config.Default.N_Spike_Channels, ...
@@ -496,6 +498,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         spike_data = struct('SAGA', device(ii).tag, 'rate', param.past_rates.(device(ii).tag), 'n', size(samples{ii},2), 'pose', acc_pose);
                         if tcp_spike_server.Connected
                             writeline(tcp_spike_server, jsonencode(spike_data));
+                        end
+                        if tcp_rms_server.Connected
+                            rms_data = struct('SAGA', device(ii).tag, 'rms', rms(samples{ii},2), 'n', size(samples{ii}, 2));
+                            writeline(tcp_rms_server, jsonencode(rms_data));
                         end
                         % if recording
                         %     rec_file.(device(ii).tag).spikes(end+1,1) = spike_data;

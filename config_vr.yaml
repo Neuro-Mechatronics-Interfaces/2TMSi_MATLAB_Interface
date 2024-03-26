@@ -123,3 +123,6 @@ TCP:
  ControlServer:
   Address: "192.168.88.101"
   Port: 6051
+ RMSServer:
+  Address: "192.168.88.100"
+  Port: 6052
