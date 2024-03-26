@@ -78,9 +78,12 @@ switch parameter_code
         param.gui.squiggles.offset = str2double(parameter_value);
         fprintf(1,'[TMSi]\t->\t[%s]: Squiggles Line Offset = %s (uV)\n', parameter_code, parameter_value);
     case 'p' % Number of spike channels (rows in transform matrix)
-        param.n_spike_channels = round(str2double(parameter_value));
-        param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels), 'B', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels));
-        param = init_new_calibration(param, param.calibration_state);
+        % param.n_spike_channels = round(str2double(parameter_value));
+        % param.n_spike_channels = 64;
+        % param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels), 'B', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels));
+        % param = init_new_calibration(param, param.calibration_state);
+        command_chunks = strsplit(parameter_value, ":");
+        
         fprintf(1,'[TMSi]\t->\t[%s]: Spike Channels = %s\n', parameter_code, parameter_value);
     case 'q' % s**Q**uiggles GUI command
         command_chunks = strsplit(parameter_value, ":");
@@ -131,11 +134,13 @@ switch parameter_code
         param.threshold_deviations = str2double(parameter_value)/1000;
         caldata = apply_car(param.calibration_data.A.(param.calibration_state)', param.car_mode, 2);
         neocaldata = caldata(3:end,:).^2 - caldata(1:(end-2),:).^2; 
-        param.threshold.A.(param.calibration_state) = median(abs(neocaldata * param.transform.A.(param.calibration_state)), 1) * param.threshold_deviations;
+        % param.threshold.A.(param.calibration_state) = median(abs(neocaldata * param.transform.A.(param.calibration_state)), 1) * param.threshold_deviations;
+        param.threshold.A.(param.calibration_state) = median(abs(neocaldata), 1) * param.threshold_deviations;
 
         caldata = apply_car(param.calibration_data.B.(param.calibration_state)', param.car_mode, 2);
         neocaldata = caldata(3:end,:).^2 - caldata(1:(end-2),:).^2; 
-        param.threshold.B.(param.calibration_state) = median(abs(neocaldata * param.transform.B.(param.calibration_state)), 1) * param.threshold_deviations;
+        % param.threshold.B.(param.calibration_state) = median(abs(neocaldata * param.transform.B.(param.calibration_state)), 1) * param.threshold_deviations;
+        param.threshold.B.(param.calibration_state) = median(abs(neocaldata), 1) * param.threshold_deviations;
 
         param.spike_detector = abs(param.threshold_deviations) > eps; % If threshold is zero, then turn off spike detection
         param.gui.neo.enable = param.spike_detector;
