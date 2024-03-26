@@ -23,7 +23,7 @@ end
 % drawnow();
 
 if src.UserData.NeedsCalibration
-    src.UserData.Calibration(:, src.UserData.CalibrationIndex) = ([src.UserData.A.y, src.UserData.B.y])';
+    src.UserData.Calibration(:, src.UserData.CalibrationIndex) = ([src.UserData.A.y; src.UserData.B.y]);
     src.UserData.CalibrationIndex = src.UserData.CalibrationIndex + 1;
     if src.UserData.CalibrationIndex > size(src.UserData.Calibration,2)
         src.UserData.NeedsCalibration = false;
@@ -52,7 +52,7 @@ end
 % else
 %     src.UserData.Zprev = 0.25 .* predict(src.UserData.AutoEnc, ([src.UserData.A.y, src.UserData.B.y])') + 0.25.*src.UserData.Zprev;
 % end
-src.UserData.Zprev = [src.UserData.A.y, src.UserData.B.y];
+src.UserData.Zprev = [src.UserData.A.y; src.UserData.B.y]';
 cmd_raw = src.UserData.Zprev * src.UserData.T;
 if src.UserData.UpdateGraphics
     set(hBarZ,'XData',(1:numel(src.UserData.Zprev))', 'YData', src.UserData.Zprev);
@@ -68,6 +68,22 @@ if src.UserData.ControlServer.Connected && (numel(src.UserData.EigenPairs) >= 2)
     [~,iMax] = max(abs(cmd_raw(8:11)));
     data.button(iMax) = 1;
     writeline(src.UserData.ControlServer, jsonencode(data));
+end
+
+cmd = '';
+for iVal = 1:size(src.UserData.XBoxKeys,1)
+    if src.UserData.XBoxKeys{iVal,2} == "X"
+        cmd = [cmd, sprintf('%s:0.0,',src.UserData.XBoxKeys{iVal,1})];
+        continue;
+    end
+    val = src.UserData.(src.UserData.XBoxKeys{iVal,2}).y(src.UserData.XBoxKeys{iVal,3}) * src.UserData.XBoxKeys{iVal,4};
+    cmd = [cmd, sprintf('%s:%0.1f,',src.UserData.XBoxKeys{iVal,1},val)];
+end
+cmd(end) = [];
+disp(cmd);
+if src.UserData.XBoxServer.Connected
+
+    writeline(src.UserData.XBoxServer, cmd);
 end
 
 % k = numel(src.UserData.Data.Y) + 1;
