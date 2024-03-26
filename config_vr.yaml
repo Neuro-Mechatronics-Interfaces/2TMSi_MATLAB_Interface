@@ -83,7 +83,7 @@ Default:
  Pose_Smoothing_Alpha: 0.25
  Pose_Deadzone_Threshold: 5
 Accelerometer:
- Enable: true
+ Enable: false
  Differential: false 
  SAGA: "A"
 Thumb: 
