@@ -1,5 +1,5 @@
-function bar_height_update_callback(src, hBarA, hBarB, hBarZ, hBarC, hTxt, hTxt2, net, Label)
-%BAR_HEIGHT_UPDATE_CALLBACK Update the heights of the bars according to counts in tcpclient UserData.A.x, UserData.A.y, UserData.B.x, UserData.B.y fields.
+function listener_timer_callback(src, hBarA, hBarB, hBarZ, hBarC, hTxt, hTxt2, net, Label)
+%LISTENER_TIMER_CALLBACK Update the heights of the bars according to counts in tcpclient UserData.A.x, UserData.A.y, UserData.B.x, UserData.B.y fields.
 %
 % Example:
 %   hA = bar(...);

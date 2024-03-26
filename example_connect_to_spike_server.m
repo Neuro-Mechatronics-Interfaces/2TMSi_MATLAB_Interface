@@ -124,8 +124,8 @@ hC = bar(ax, 1:12, zeros(1,12),'EdgeColor','none','FaceColor','m');
 %     'Position',[1161         572         560          83]);
 % instructionProgress = uiprogressdlg(figInstruct, 'Indeterminate', 'on', 'Message', 'Loading...');
 
-% timerObj.TimerFcn = @(src,~)bar_height_update_callback(src, hA, hB, hZ, hTxt, hTxt2, autoEnc, net, Label);
-timerObj.TimerFcn = @(src,~)bar_height_update_callback(src, hA, hB, hZ, hC, hTxt, hTxt2);
+% timerObj.TimerFcn = @(src,~)listener_timer_callback(src, hA, hB, hZ, hTxt, hTxt2, autoEnc, net, Label);
+timerObj.TimerFcn = @(src,~)listener_timer_callback(src, hA, hB, hZ, hC, hTxt, hTxt2);
 timerObj.UserData.ControlServer = tcpserver("0.0.0.0", config.TCP.ControlServer.Port);
 % spikeClient.UserData = struct('Timer', timerObj);
 rmsClient.UserData = struct('Timer', timerObj);
