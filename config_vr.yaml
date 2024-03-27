@@ -73,7 +73,7 @@ Default:
  N_Samples_Calibration: 20000
  Label_State: "default" 
  N_Samples_Label: 8000
- N_Spike_Channels: 24
+ N_Spike_Channels: 64
  Spike_Detector: true
  Threshold_Deviations: 2.5
  Save_Parameters: true
