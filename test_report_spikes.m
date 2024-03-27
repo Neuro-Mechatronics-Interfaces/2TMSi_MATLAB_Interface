@@ -6,9 +6,9 @@ data = jsondecode(src.readline);
 %         fprintf(1,'%s::Channel-%d=%d spikes\n', evt.AbsoluteTime, ii, data.n(ii));
 %     end
 % end
-src.UserData.Timer.UserData.(data.SAGA).x = (1:numel(data.rate))';
+% src.UserData.Timer.UserData.(data.SAGA).x = (1:numel(data.rate))';
 tmpRate = data.rate';
-src.UserData.Timer.UserData.(data.SAGA).y = (tmpRate(:))';
+src.UserData.Timer.UserData.(data.SAGA).y = (tmpRate(:));
 nTotalUpdate = numel(src.UserData.Timer.UserData.A.y) + numel(src.UserData.Timer.UserData.B.y);
 src.UserData.Timer.UserData.CurrentReportedPose = TMSiAccPose.(data.pose);
 if nTotalUpdate ~= src.UserData.Timer.UserData.NTotal

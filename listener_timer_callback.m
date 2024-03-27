@@ -80,7 +80,7 @@ for iVal = 1:size(src.UserData.XBoxKeys,1)
     cmd = [cmd, sprintf('%s:%0.1f,',src.UserData.XBoxKeys{iVal,1},val)];
 end
 cmd(end) = [];
-disp(cmd);
+% disp(cmd);
 if src.UserData.XBoxServer.Connected
 
     writeline(src.UserData.XBoxServer, cmd);
