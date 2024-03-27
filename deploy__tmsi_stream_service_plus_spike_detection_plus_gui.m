@@ -32,6 +32,9 @@ switch getenv("COMPUTERNAME")
     case 'NMLVR'
         IMPEDANCE_FIGURE_POSITION = [120   450   900   750; ... % A
                                      1020  450   900   750];     % B
+    case 'MAX_LENOVO'
+        IMPEDANCE_FIGURE_POSITION = [2      50   766   829; ...
+                                     770    50   766   829];
     otherwise
         IMPEDANCE_FIGURE_POSITION = [ 100 300 200 200; ...  % A
                                       300 300 200 200];     % B
