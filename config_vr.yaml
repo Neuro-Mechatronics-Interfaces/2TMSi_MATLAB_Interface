@@ -117,6 +117,9 @@ UDP:
     state: 3030
     name: 3031
     params: 3036
+  RecordingControllerGUI:
+   Address: "127.0.0.1"
+   Port: 3050
 TCP:
  SpikeServer:
   # Address: "127.168.88.100"
