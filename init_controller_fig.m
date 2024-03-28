@@ -1,6 +1,6 @@
 function fig = init_controller_fig()
 
-fig = uifigure('Color','w','MenuBar','none','ToolBar','none','Name','TMSi Recording Controller','Position',[100 720  720 100],'Icon',"TMSi.png");
+fig = uifigure('Color','w','MenuBar','none','ToolBar','none','Name','TMSi Recording Controller','Position',[100 720  720 100],'Icon',"redlogo.jpg");
 L = uigridlayout(fig, [2, 6],'BackgroundColor','k');
 L.RowHeight = {'1x', 'fit'};
 L.ColumnWidth = {'1x', '1x', '1x', '1x', '1x', '1x'};

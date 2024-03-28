@@ -302,6 +302,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     
     recording = false;
     running = false;
+    writeline(udp_state_receiver, jsonencode(struct('type', 'status', 'value', 'start')), config.UDP.Socket.RecordingControllerGUI.Address, config.UDP.Socket.RecordingControllerGUI.Port);
     fprintf(1, "\n\t\t->\t[%s] SAGA LOOP BEGIN\t\t<-\n\n",string(datetime('now')));
 
     while ~strcmpi(state, "quit")
@@ -724,10 +725,14 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 if strcmpi(state, "imp")
                     state = "idle";
                 end
+                writeline(udp_state_receiver, jsonencode(struct('type', 'status', 'value', 'resume')), config.UDP.Socket.RecordingControllerGUI.Address, config.UDP.Socket.RecordingControllerGUI.Port);
+    
             end
         end
     end
     stop(device);
+    writeline(udp_state_receiver, jsonencode(struct('type', 'status', 'value', 'stop')), config.UDP.Socket.RecordingControllerGUI.Address, config.UDP.Socket.RecordingControllerGUI.Port);
+    
     state = "idle";
     recording = false;
     running = false;
@@ -739,6 +744,7 @@ catch me
     % Stop both devices.
     stop(device);
     disconnect(device);
+    writeline(udp_state_receiver, jsonencode(struct('type', 'status', 'value', 'stop')), config.UDP.Socket.RecordingControllerGUI.Address, config.UDP.Socket.RecordingControllerGUI.Port);
     warning(me.message);
     disp(me.stack);
     clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
