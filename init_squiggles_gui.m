@@ -50,7 +50,7 @@ for ii = 1:numel(squiggles.channels.A)
         'Color', cA + ones(1,3).*(floor((squiggles.channels.A(ii)-2)/32)).*0.2);
     text(ax, -10, tmp_offset, num2str(squiggles.channels.A(ii)), ...
         'FontSize', 6, 'FontName','Tahoma','Color', cA + ones(1,3).*(floor((squiggles.channels.A(ii)-2)/32)).*0.2)
-    tmp_offset = tmp_offset + param.gui.squiggles.offset;
+    tmp_offset = tmp_offset + squiggles.offset;
 end
 squiggles.h.B = gobjects(numel(squiggles.channels.B),1);
 for ii = 1:numel(squiggles.channels.B)
@@ -59,7 +59,7 @@ for ii = 1:numel(squiggles.channels.B)
         'Color', cB + ones(1,3).*(floor((squiggles.channels.B(ii)-2)/32)).*0.2);
     text(ax, -10, tmp_offset, num2str(squiggles.channels.B(ii)), ...
         'FontSize', 6, 'FontName','Tahoma','Color', cB + ones(1,3).*(floor((squiggles.channels.B(ii)-2)/32)).*0.2)
-    tmp_offset = tmp_offset + param.gui.squiggles.offset;
+    tmp_offset = tmp_offset + squiggles.offset;
 end
 
 if squiggles.acc.enable
