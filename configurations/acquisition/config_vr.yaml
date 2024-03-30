@@ -119,8 +119,8 @@ UDP:
     name: 3031
     params: 3036
   RecordingControllerGUI:
-   # Address: "127.0.0.1"
    Address: "192.168.88.101"
+   # Address: "127.0.0.1"
    Port: 3050
 TCP:
  SpikeServer:
@@ -129,6 +129,7 @@ TCP:
   Port: 6050
  ControlServer:
   Address: "192.168.88.101"
+  # Address: "127.0.0.1"
   Port: 6051
  RMSServer:
   Address: "192.168.88.100"
