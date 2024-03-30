@@ -77,6 +77,8 @@ fig.UserData.UDP.UserData = struct('expect_quit', false, 'running', false, 'name
 configureCallback(fig.UserData.UDP, "terminator", @handleUDPmessage);
 impButton.UserData = struct('run', runButton, 'idle', idleButton, 'quit', quitButton);
 fig.CloseRequestFcn = @handleFigureCloseRequest;
+fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort);
+
 end
 
 function handleFigureCloseRequest(src, ~)
