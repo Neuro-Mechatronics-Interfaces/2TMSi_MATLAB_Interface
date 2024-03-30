@@ -13,12 +13,16 @@ udp_state_receiver = udpport("byte", ...
     "LocalHost", config.UDP.Socket.StreamService.Address, ...
     "LocalPort", config.UDP.Socket.StreamService.Port.state, "EnablePortSharing", true);
 ```  
-State port messages are expected to be new-line terminated byte messages, which should be one of the following: `["idle", "run", "rec", "imp", "quit"]`:  
+State port messages are expected to be new-line terminated byte messages, which should be one of the following: `["idle", "run", "rec", "imp", "quit", "ping"]`:  
 * `idle`: Stops the SAGA64+ device from acquiring new samples. 
 * `run`: Starts the SAGA64+ device acquiring samples and reads them from the device, updating streaming plots if they are enabled. Issues TCP messages via `SpikeServer` but does not save the data. If we were already recording, then this stops the current recording.  
 * `rec`: If the SAGA64+ device is not already acquiring samples, this starts sample acquisition, updates streaming plots, and issues all TCP messages, but also dumps the samples into the recording file specified to the `name` port ([next section](#udp-name-port-messages)). 
 * `imp`: Stops any ongoing recording. Pulls up electrode impedance plots for each SAGA. Once the figure windows are closed, saves the impedances based on the most-recent filename to a separate `_impedances.mat` file for each SAGA, and then goes back to the normal state machine operation. Does not send any TCP messages etc. while this is ongoing.  
 * `quit`: Stop running the state machine loop and shut down the connection to SAGA devices. This should always be called before powering off/disconnecting the SAGA devices, otherwise next time bootup will be a pain in the ass.  
+* `ping`: Query the current state of the state machine loop. Return messages will be sent as indicated by the cases below as newline-terminated byte messages with structure `"res:<state>"` (e.g. `"res:run"`) indicating this is a response to a ping.  
+  + `ping` alone uses default configuration parameters for the return message.
+  + `ping:<address>` (e.g. "ping:192.168.88.101") indicates the address for the return message. 
+  + `ping:<address>:<port>` (e.g. "ping:192.168.88.101:4001") indicates the address and port for the return message. 
 
 ### UDP Name Port Messages ###
 The acquisition script sets up the name port with a udp socket as follows:  

@@ -372,7 +372,25 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             end
             % Check for a "control state" update.
             if udp_state_receiver.NumBytesAvailable > 0
-                state = readline(udp_state_receiver);
+                tmpState = lower(string(readline(udp_state_receiver)));
+                if ismember(tmpState, ["rec", "idle", "quit", "imp", "run"])
+                    state = tmpState;
+                elseif startsWith(tmpState, "ping")
+                    msgParts = strsplit(tmpState, ":");
+                    switch numel(msgParts)
+                        case 1
+                            writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                                config.UDP.Socket.RecordingControllerGUI.Address, config.UDP.Socket.RecordingControllerGUI.Port);
+                        case 2
+                            writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                                msgParts{2}, config.UDP.Socket.RecordingControllerGUI.Port);
+                        case 3
+                            writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                                msgParts{2}, str2double(msgParts{3}));
+                    end
+                else
+                    fprintf("[TMSi]::[STATE] Tried to assign incorrect state (%s) -- check sender port.\n", tmpState);
+                end
                 if strcmpi(state, "rec")
                     if ~recording
                         fprintf(1, "[TMSi]::[RUN > REC]: Buffer created, recording in process...\n");
@@ -607,6 +625,19 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             tmpState = lower(string(readline(udp_state_receiver)));
             if ismember(tmpState, ["rec", "idle", "quit", "imp", "run"])
                 state = tmpState;
+            elseif startsWith(tmpState, "ping")
+                msgParts = strsplit(tmpState, ":");
+                switch numel(msgParts)
+                    case 1
+                        writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                            config.UDP.Socket.RecordingControllerGUI.Address, config.UDP.Socket.RecordingControllerGUI.Port);
+                    case 2
+                        writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                            msgParts{2}, config.UDP.Socket.RecordingControllerGUI.Port);
+                    case 3
+                        writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                            msgParts{2}, str2double(msgParts{3}));
+                end
             else
                 fprintf("[TMSi]::[STATE] Tried to assign incorrect state (%s) -- check sender port.\n", tmpState);
             end
@@ -655,7 +686,25 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
 
                 while any(isvalid(fig)) || ~strcmpi(state, "imp")
                     if udp_state_receiver.NumBytesAvailable > 0
-                        state = readline(udp_state_receiver);
+                        tmpState = lower(string(readline(udp_state_receiver)));
+                        if ismember(tmpState, ["rec", "idle", "quit", "imp", "run"])
+                            state = tmpState;
+                        elseif startsWith(tmpState, "ping")
+                            msgParts = strsplit(tmpState, ":");
+                            switch numel(msgParts)
+                                case 1
+                                    writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                                        config.UDP.Socket.RecordingControllerGUI.Address, config.UDP.Socket.RecordingControllerGUI.Port);
+                                case 2
+                                    writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                                        msgParts{2}, config.UDP.Socket.RecordingControllerGUI.Port);
+                                case 3
+                                    writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                                        msgParts{2}, str2double(msgParts{3}));
+                            end
+                        else
+                            fprintf("[TMSi]::[STATE] Tried to assign incorrect state (%s) -- check sender port.\n", tmpState);
+                        end
                     end
                     for ii = 1:numel(device)
                         if isvalid(fig(ii))

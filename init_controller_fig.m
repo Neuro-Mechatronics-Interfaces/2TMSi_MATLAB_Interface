@@ -35,15 +35,15 @@ fig.UserData.NamePort = config.UDP.Socket.StreamService.Port.name;
 dt = datetime('today','TimeZone','America/New_York');
 tank = sprintf('%s_%04d_%02d_%02d', config.Default.Subject, year(dt), month(dt), day(dt));
 fig.UserData.NameEditField = uieditfield(L, 'text', "Value", sprintf('%s/%s/%s/%s_%%%%s_%%d.poly5', config.Default.Folder, config.Default.Subject, tank, tank), ...
-    "ValueChangedFcn", @nameFieldValueChanged, "FontName", 'Consolas');
+    "ValueChangedFcn", @nameFieldValueChanged, "FontName", 'Consolas','Enable','off');
 fig.UserData.NameEditField.Layout.Row = 1;
 fig.UserData.NameEditField.Layout.Column = [1 5];
 
-fig.UserData.BlockEditField = uieditfield(L, 'numeric', "FontName", "Consolas", "AllowEmpty", false, "Value", 0, "RoundFractionalValues", true, "ValueChangedFcn", @handleBlockEditFieldChange);
+fig.UserData.BlockEditField = uieditfield(L, 'numeric', "FontName", "Consolas", "AllowEmpty", false, "Value", 0, "RoundFractionalValues", true, "ValueChangedFcn", @handleBlockEditFieldChange,'Enable','off');
 fig.UserData.BlockEditField.Layout.Row = 1;
 fig.UserData.BlockEditField.Layout.Column = 6;
 
-runButton = uibutton(L, "Text", "RUN", 'ButtonPushedFcn', @runButtonPushed,'FontName','Tahoma');
+runButton = uibutton(L, "Text", "RUN", 'ButtonPushedFcn', @runButtonPushed,'FontName','Tahoma','Enable','off');
 runButton.Layout.Row = 2;
 runButton.Layout.Column = 1;
 
@@ -55,11 +55,11 @@ stopButton = uibutton(L, "Text", "STOP", 'ButtonPushedFcn', @stopButtonPushed,'F
 stopButton.Layout.Row = 2;
 stopButton.Layout.Column = 3;
 
-idleButton = uibutton(L, "Text", "IDLE", 'ButtonPushedFcn', @idleButtonPushed,'FontName','Tahoma');
+idleButton = uibutton(L, "Text", "IDLE", 'ButtonPushedFcn', @idleButtonPushed,'FontName','Tahoma','Enable','off');
 idleButton.Layout.Row = 2;
 idleButton.Layout.Column = 4;
 
-impButton = uibutton(L, "Text", "IMP", 'ButtonPushedFcn', @impButtonPushed,'FontName','Tahoma');
+impButton = uibutton(L, "Text", "IMP", 'ButtonPushedFcn', @impButtonPushed,'FontName','Tahoma','Enable','off');
 impButton.Layout.Row = 2;
 impButton.Layout.Column = 5;
 impButton.UserData = struct('rec', recButton, 'stop', stopButton);
@@ -124,14 +124,81 @@ end
 function handleUDPmessage(src, ~)
 data = jsondecode(readline(src));
 switch data.type
+    case 'res'
+        switch data.value
+            case 'idle'
+                src.UserData.idle.Enable = 'on';
+                src.UserData.run.Enable = 'on';
+                src.UserData.rec.Enable = 'off';
+                src.UserData.quit.Enable = 'on';
+                src.UserData.stop.Enable = 'off';
+                src.UserData.imp.Enable = 'on';
+                src.UserData.name.Enable = 'on';
+                src.UserData.block.Enable = 'on';
+                src.UserData.expect_quit = false;
+                src.UserData.running = true;
+            case 'imp'
+                src.UserData.idle.Enable = 'off';
+                src.UserData.run.Enable = 'off';
+                src.UserData.rec.Enable = 'off';
+                src.UserData.quit.Enable = 'off';
+                src.UserData.stop.Enable = 'off';
+                src.UserData.imp.Enable = 'off';
+                src.UserData.name.Enable = 'off';
+                src.UserData.block.Enable = 'off';
+                src.UserData.expect_quit = false;
+                src.UserData.running = true;
+            case 'run'
+                src.UserData.idle.Enable = 'on';
+                src.UserData.run.Enable = 'off';
+                src.UserData.rec.Enable = 'on';
+                src.UserData.quit.Enable = 'on';
+                src.UserData.stop.Enable = 'off';
+                src.UserData.imp.Enable = 'off';
+                src.UserData.name.Enable = 'on';
+                src.UserData.block.Enable = 'on';
+                src.UserData.expect_quit = false;
+                src.UserData.running = true;
+            case 'rec'
+                src.UserData.idle.Enable = 'on';
+                src.UserData.run.Enable = 'off';
+                src.UserData.rec.Enable = 'off';
+                src.UserData.quit.Enable = 'on';
+                src.UserData.stop.Enable = 'on';
+                src.UserData.imp.Enable = 'off';
+                src.UserData.name.Enable = 'off';
+                src.UserData.block.Enable = 'off';
+                src.UserData.expect_quit = false;
+                src.UserData.running = true;
+            case 'quit'
+                src.UserData.idle.Enable = 'off';
+                src.UserData.run.Enable = 'off';
+                src.UserData.rec.Enable = 'off';
+                src.UserData.quit.Enable = 'off';
+                src.UserData.stop.Enable = 'off';
+                src.UserData.imp.Enable = 'off';
+                src.UserData.name.Enable = 'off';
+                src.UserData.block.Enable = 'off';
+                src.UserData.running = false;
+                if src.UserData.expect_quit
+                    msgbox("State machine stopped running.");
+                    src.UserData.expect_quit = false;
+                else
+                    errordlg("State machine stopped running unexpectedly!");
+                end
+            otherwise
+                disp("Received message:");
+                disp(data);
+                error("Unhandled state message value: %s\n", data.value);
+        end
     case 'status'
         switch data.value
             case 'start'
                 src.UserData.idle.Enable = 'on';
                 src.UserData.run.Enable = 'on';
-                src.UserData.rec.Enable = 'on';
+                src.UserData.rec.Enable = 'off';
                 src.UserData.quit.Enable = 'on';
-                src.UserData.stop.Enable = 'on';
+                src.UserData.stop.Enable = 'off';
                 src.UserData.imp.Enable = 'on';
                 src.UserData.name.Enable = 'on';
                 src.UserData.block.Enable = 'on';
