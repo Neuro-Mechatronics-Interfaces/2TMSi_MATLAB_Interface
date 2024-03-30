@@ -1,5 +1,5 @@
 function run_test_controller_client(client, options)
-
+%RUN_TEST_CONTROLLER_CLIENT  Issue sequence of test commands to NES/SNES emulator interface. 
 arguments
     client
     options.N = 100;

@@ -7,11 +7,11 @@ function fig = init_controller_fig()
 host_pc = getenv("COMPUTERNAME");
 switch host_pc
     case "MAX_LENOVO" % Max Workstation Laptop (Lenovo ThinkPad D16)
-        POSITION_PIX = [100 720  720 100];
+        POSITION_PIX = [100 720  900 100];
     case "NMLVR"
-        POSITION_PIX = [1500 1200 720 100];
+        POSITION_PIX = [1500 1200 900 100];
     otherwise
-        POSITION_PIX = [150 250  720 100];
+        POSITION_PIX = [150 250  900 100];
 end
 
 fig = uifigure('Color','w',...
@@ -34,10 +34,14 @@ fig.UserData.NamePort = config.UDP.Socket.StreamService.Port.name;
 
 dt = datetime('today','TimeZone','America/New_York');
 tank = sprintf('%s_%04d_%02d_%02d', config.Default.Subject, year(dt), month(dt), day(dt));
-fig.UserData.NameEditField = uieditfield(L, 'text', "Value", sprintf('%s/%s/%s/%s_%%%%s_%%d.poly5', config.Default.Folder, config.Default.Subject, tank, tank), ...
+fig.UserData.SubjEditField = uieditfield(L, 'text', "Value", config.Default.Subject, ...
+    "ValueChangedFcn", @subjFieldValueChanged, "FontName", 'Consolas','Enable','off');
+
+fig.UserData.NameEditField = uieditfield(L, 'text', ...
+    "Value", sprintf('%s/%s/%s/%s_%%%%s_%%d.poly5', config.Default.Folder, config.Default.Subject, tank, tank), ...
     "ValueChangedFcn", @nameFieldValueChanged, "FontName", 'Consolas','Enable','off');
 fig.UserData.NameEditField.Layout.Row = 1;
-fig.UserData.NameEditField.Layout.Column = [1 5];
+fig.UserData.NameEditField.Layout.Column = [2 5];
 
 fig.UserData.BlockEditField = uieditfield(L, 'numeric', "FontName", "Consolas", "AllowEmpty", false, "Value", 0, "RoundFractionalValues", true, "ValueChangedFcn", @handleBlockEditFieldChange,'Enable','off');
 fig.UserData.BlockEditField.Layout.Row = 1;
@@ -73,7 +77,9 @@ quitButton.Layout.Row = 2;
 quitButton.Layout.Column = 6;
 quitButton.UserData = struct('idle', idleButton, 'run', runButton, 'rec', recButton, 'stop', stopButton, 'imp', impButton);
 fig.DeleteFcn = @handleFigureDeletion;
-fig.UserData.UDP.UserData = struct('expect_quit', false, 'running', false, 'name', fig.UserData.NameEditField, 'block', fig.UserData.BlockEditField, 'idle', idleButton, 'run', runButton, 'rec', recButton, 'stop', stopButton, 'imp', impButton, 'quit', quitButton);
+fig.UserData.UDP.UserData = struct('expect_quit', false, 'running', false, ...
+    'subj', fig.UserData.SubjEditField, 'name', fig.UserData.NameEditField, 'block', fig.UserData.BlockEditField, ...
+    'idle', idleButton, 'run', runButton, 'rec', recButton, 'stop', stopButton, 'imp', impButton, 'quit', quitButton);
 configureCallback(fig.UserData.UDP, "terminator", @handleUDPmessage);
 impButton.UserData = struct('run', runButton, 'idle', idleButton, 'quit', quitButton);
 fig.CloseRequestFcn = @handleFigureCloseRequest;
@@ -129,15 +135,19 @@ switch data.type
     case 'res'
         switch data.value
             case 'idle'
-                src.UserData.idle.Enable = 'on';
+                src.UserData.idle.Enable = 'off';
                 src.UserData.run.Enable = 'on';
                 src.UserData.rec.Enable = 'off';
                 src.UserData.quit.Enable = 'on';
                 src.UserData.stop.Enable = 'off';
                 src.UserData.imp.Enable = 'on';
+                src.UserData.subj.Enable = 'on';
                 src.UserData.name.Enable = 'on';
                 src.UserData.block.Enable = 'on';
                 src.UserData.expect_quit = false;
+                if ~src.UserData.running
+                    updateNameCallback(src.UserData.name);
+                end
                 src.UserData.running = true;
             case 'imp'
                 src.UserData.idle.Enable = 'off';
@@ -146,9 +156,13 @@ switch data.type
                 src.UserData.quit.Enable = 'off';
                 src.UserData.stop.Enable = 'off';
                 src.UserData.imp.Enable = 'off';
+                src.UserData.subj.Enable = 'off';
                 src.UserData.name.Enable = 'off';
                 src.UserData.block.Enable = 'off';
                 src.UserData.expect_quit = false;
+                if ~src.UserData.running
+                    updateNameCallback(src.UserData.name);
+                end
                 src.UserData.running = true;
             case 'run'
                 src.UserData.idle.Enable = 'on';
@@ -157,9 +171,13 @@ switch data.type
                 src.UserData.quit.Enable = 'on';
                 src.UserData.stop.Enable = 'off';
                 src.UserData.imp.Enable = 'off';
+                src.UserData.subj.Enable = 'on';
                 src.UserData.name.Enable = 'on';
                 src.UserData.block.Enable = 'on';
                 src.UserData.expect_quit = false;
+                if ~src.UserData.running
+                    updateNameCallback(src.UserData.name);
+                end
                 src.UserData.running = true;
             case 'rec'
                 src.UserData.idle.Enable = 'on';
@@ -168,9 +186,13 @@ switch data.type
                 src.UserData.quit.Enable = 'on';
                 src.UserData.stop.Enable = 'on';
                 src.UserData.imp.Enable = 'off';
+                src.UserData.subj.Enable = 'off';
                 src.UserData.name.Enable = 'off';
                 src.UserData.block.Enable = 'off';
                 src.UserData.expect_quit = false;
+                if ~src.UserData.running
+                    updateNameCallback(src.UserData.name);
+                end
                 src.UserData.running = true;
             case 'quit'
                 src.UserData.idle.Enable = 'off';
@@ -179,6 +201,7 @@ switch data.type
                 src.UserData.quit.Enable = 'off';
                 src.UserData.stop.Enable = 'off';
                 src.UserData.imp.Enable = 'off';
+                src.UserData.subj.Enable = 'off';
                 src.UserData.name.Enable = 'off';
                 src.UserData.block.Enable = 'off';
                 src.UserData.running = false;
@@ -202,15 +225,20 @@ switch data.type
                 src.UserData.quit.Enable = 'on';
                 src.UserData.stop.Enable = 'off';
                 src.UserData.imp.Enable = 'on';
+                src.UserData.subj.Enable = 'on';
                 src.UserData.name.Enable = 'on';
                 src.UserData.block.Enable = 'on';
                 src.UserData.expect_quit = false;
+                if ~src.UserData.running
+                    updateNameCallback(src.UserData.name);
+                end
                 src.UserData.running = true;
             case 'resume'
                 src.UserData.run.Enable = 'on';
                 src.UserData.imp.Enable = 'on';
                 src.UserData.quit.Enable = 'on';
                 src.UserData.name.Enable = 'on';
+                src.UserData.subj.Enable = 'on';
                 src.UserData.block.Enable = 'on';
             case 'stop'
                 src.UserData.idle.Enable = 'off';
@@ -219,6 +247,7 @@ switch data.type
                 src.UserData.quit.Enable = 'off';
                 src.UserData.stop.Enable = 'off';
                 src.UserData.imp.Enable = 'off';
+                src.UserData.subj.Enable = 'off';
                 src.UserData.name.Enable = 'off';
                 src.UserData.block.Enable = 'off';
                 src.UserData.running = false;
@@ -245,6 +274,12 @@ updateNameCallback(src);
 
 end
 
+function subjFieldValueChanged(src, evt)
+s = strrep(src.Parent.Parent.UserData.NameEditField.Value, evt.PreviousValue, evt.Value);
+src.Parent.Parent.UserData.NameEditField.Value = s;
+updateNameCallback(src);
+end
+
 function recButtonPushed(src, ~)
 udpSender = src.Parent.Parent.UserData.UDP;
 writeline(udpSender, 'rec', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
@@ -252,6 +287,7 @@ src.UserData.stop.Enable = 'on';
 src.UserData.idle.Enable = 'off';
 src.UserData.run.Enable = 'off';
 src.Enable = 'off';
+src.Parent.Parent.UserData.SubjEditField.Enable = 'off';
 src.Parent.Parent.UserData.BlockEditField.Enable = 'off';
 src.Parent.Parent.UserData.NameEditField.Enable = 'off';
 end
@@ -263,6 +299,7 @@ src.UserData.rec.Enable = 'on';
 src.Enable = 'off';
 src.UserData.run.Enable = 'off';
 src.UserData.idle.Enable = 'on';
+src.Parent.Parent.UserData.SubjEditField.Enable = 'on';
 src.Parent.Parent.UserData.BlockEditField.Enable = 'on';
 src.Parent.Parent.UserData.NameEditField.Enable = 'on';
 src.Parent.Parent.UserData.BlockEditField.Value = src.Parent.Parent.UserData.BlockEditField.Value + 1;
@@ -277,6 +314,7 @@ src.UserData.rec.Enable = 'on';
 src.UserData.idle.Enable = 'on';
 src.UserData.imp.Enable = 'off';
 src.Enable = 'off';
+src.Parent.Parent.UserData.SubjEditField.Enable = 'on';
 src.Parent.Parent.UserData.BlockEditField.Enable = 'on';
 src.Parent.Parent.UserData.NameEditField.Enable = 'on';
 end
@@ -289,6 +327,7 @@ if udpSender.UserData.running
     src.UserData.run.Enable = 'off';
     src.UserData.idle.Enable = 'off';
     src.UserData.quit.Enable = 'off';
+    src.Parent.Parent.UserData.SubjEditField.Enable = 'off';
     src.Parent.Parent.UserData.BlockEditField.Enable = 'off';
     src.Parent.Parent.UserData.NameEditField.Enable = 'off';
 end
@@ -302,6 +341,7 @@ src.UserData.run.Enable = 'on';
 src.UserData.rec.Enable = 'off';
 src.UserData.stop.Enable = 'off';
 src.UserData.imp.Enable = 'on';
+src.Parent.Parent.UserData.SubjEditField.Enable = 'on';
 src.Parent.Parent.UserData.BlockEditField.Enable = 'on';
 src.Parent.Parent.UserData.NameEditField.Enable = 'on';
 end
