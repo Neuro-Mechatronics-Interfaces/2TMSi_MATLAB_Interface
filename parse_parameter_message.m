@@ -76,13 +76,19 @@ switch parameter_code
         fprintf(1,'[TMSi]\t->\t[%s]: Label State:Samples = %s\n', parameter_code, parameter_value);
     case 'o' % Squiggles offsets
         param.gui.squiggles.offset = str2double(parameter_value);
+        param.gui.squiggles.enable = true;
+        if ~isempty(param.gui.squiggles.fig)
+            delete(param.gui.squiggles.fig);
+            param.gui.squiggles.fig = [];
+        end
+        param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
         fprintf(1,'[TMSi]\t->\t[%s]: Squiggles Line Offset = %s (uV)\n', parameter_code, parameter_value);
     case 'p' % Number of spike channels (rows in transform matrix)
         % param.n_spike_channels = round(str2double(parameter_value));
         % param.n_spike_channels = 64;
         % param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels), 'B', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels));
         % param = init_new_calibration(param, param.calibration_state);
-        command_chunks = strsplit(parameter_value, ":");
+        % command_chunks = strsplit(parameter_value, ":");
         
         fprintf(1,'[TMSi]\t->\t[%s]: Spike Channels = %s\n', parameter_code, parameter_value);
     case 'q' % s**Q**uiggles GUI command
