@@ -10,20 +10,15 @@ function impedance_saver_helper(fname, tag, impedance)
 %           appended. So for example if SAGA-A tag is "A", then use
 %           device.tag to get its tag for this argument. The output
 %           filename corresponding to filename
-%           `Max_2022_10_22_A_4.mat` 
+%           `Max_2022_10_22_A_4.poly5` 
 %               will then be
 %           `Max_2022_10_22_A-impedance_4.mat`
 %   impedance - The actual impedance values to save.
 %
 % See also: Contents
 
-[p, f, e] = fileparts(fname);
-
-if isempty(e)
-    f = strcat(f, ".mat");
-else
-    f = strcat(f, e);
-end
+[p, f, ~] = fileparts(fname);
+f = strcat(f, ".mat");
 
 if contains(f, "%s")
     f = sprintf(f, strcat(tag, "-impedance"));
@@ -41,7 +36,6 @@ else
     fname = fullfile(p, f);
 end
 
-
-time = datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS');
+time = datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS', 'TimeZone', 'America/New_York');
 save(fname, 'impedance', 'time', '-v7.3');
 end

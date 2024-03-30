@@ -1,5 +1,12 @@
 function runInstructionSequence(udpSender, seq, instructionProgress, address, port, options)
 %RUNINSTRUCTIONSEQUENCE Run sequence of instructed commands, indicating state in progress bar.
+%
+% This instruction sequence is meant to run on one device in order to send
+% messages to another process or device running the acquisition state
+% machine.
+%
+% Syntax:
+%   runInstructionSequence(udpSender, seq, instructionProgress, address, port, 'Name', value, ...);
 arguments
     udpSender
     seq (:,2) cell
