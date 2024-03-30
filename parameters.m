@@ -27,6 +27,7 @@ pars = struct;
 % % % Trying to pull the "relevant" ones to the top ... % % %
 % pars.config = "configurations/acquisition/config_125k.yaml";
 pars.config = "configurations/acquisition/config_cart.yaml";
+pars.config_lsl = "configurations/acquisition/config_vr.yaml";
 pars.config_stream_service_plus = "configurations/acquisition/config_vr.yaml";
 % pars.config_stream_service_plus = "configurations/acquisition/config_115L.yaml";
 pars.saga_file = 'configurations/devices/SAGA.json';

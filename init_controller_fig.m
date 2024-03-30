@@ -1,6 +1,23 @@
 function fig = init_controller_fig()
+%INIT_CONTROLLER_FIG Initializes SAGA State Handler UDP graphical control interface.  
+%
+% Syntax: 
+%   fig = init_controller_fig();
 
-fig = uifigure('Color','w','MenuBar','none','ToolBar','none','Name','TMSi Recording Controller','Position',[100 720  720 100],'Icon',"redlogo.jpg");
+host_pc = getenv("COMPUTERNAME");
+switch host_pc
+    case "MAX_LENOVO" % Max Workstation Laptop (Lenovo ThinkPad D16)
+        POSITION_PIX = [100 720  720 100];
+    case "NMLVR"
+        POSITION_PIX = [1500 1200 720 100];
+    otherwise
+        POSITION_PIX = [150 250  720 100];
+end
+
+fig = uifigure('Color','w',...
+    'MenuBar','none','ToolBar','none',...
+    'Name','TMSi Recording Controller',...
+    'Position',POSITION_PIX,'Icon',"redlogo.jpg");
 L = uigridlayout(fig, [2, 6],'BackgroundColor','k');
 L.RowHeight = {'1x', 'fit'};
 L.ColumnWidth = {'1x', '1x', '1x', '1x', '1x', '1x'};

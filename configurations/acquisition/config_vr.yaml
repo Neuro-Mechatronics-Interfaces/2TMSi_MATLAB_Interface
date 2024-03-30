@@ -60,7 +60,8 @@ SAGA:
 Default:
  # Interface: "optical"
  Interface: "electrical"
- Folder: "C:/Data/TMSi"
+ # Folder: "C:/Data/TMSi"
+ Folder: "C:/Users/Daily/TempData"
  HPF_Cutoff_Frequency: 300 # Hz
  CAR_Mode: 1 # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids
  Subject: "Default"
@@ -111,27 +112,29 @@ GUI:
 UDP:
  Socket:
   StreamService:
-   # Address: "192.168.88.100"
-   Address: "127.0.0.1"
+   Address: "192.168.88.100"
+   # Address: "127.0.0.1"
    Port: 
     state: 3030
     name: 3031
     params: 3036
   RecordingControllerGUI:
-   Address: "127.0.0.1"
+   # Address: "127.0.0.1"
+   Address: "192.168.88.101"
    Port: 3050
 TCP:
  SpikeServer:
-  # Address: "127.168.88.100"
-  Address: "127.0.0.1"
+  Address: "127.168.88.100"
+  # Address: "127.0.0.1"
   Port: 6050
  ControlServer:
   Address: "192.168.88.101"
   Port: 6051
  RMSServer:
-  # Address: "192.168.88.100"
-  Address: "127.0.0.1"
+  Address: "192.168.88.100"
+  # Address: "127.0.0.1"
   Port: 6052
  XBoxServer:
   Address: "192.168.88.101"
+  # Address: "127.0.0.1"
   Port: 6053

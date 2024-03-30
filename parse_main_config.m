@@ -33,7 +33,7 @@ function [config, TAG, SN, N_CLIENT, SAGA] = parse_main_config(cfg, saga, option
 
 arguments
     cfg {mustBeTextScalar} = "";
-    saga {mustBeTextScalar} = 'SAGA.json';
+    saga = "";
     options.Verbose (1,1) logical = true;
 end
 
@@ -42,7 +42,12 @@ if strlength(cfg) == 0
 end
 
 if ischar(saga) || isstring(saga)
-    SAGA = io.JSON(saga); 
+    if strlength(saga) == 0
+        saga = parameters('saga_file');
+        SAGA = io.JSON(saga);
+    else
+        SAGA = io.JSON(saga);
+    end 
 else
     SAGA = saga;
 end
