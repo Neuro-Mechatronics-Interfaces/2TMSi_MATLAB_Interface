@@ -502,7 +502,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             writeline(tcp_spike_server, jsonencode(spike_data));
                         end
                         if tcp_rms_server.Connected
-                            rms_data = struct('SAGA', device(ii).tag, 'rms', rms(gradient(reshape((neodata.(device(ii).tag).')./param.neo_max.(device(ii).tag),8,8,n_samp-2)),3), 'n', n_samp);
+                            rms_data = struct('SAGA', device(ii).tag, 'rms', rms(reshape((neodata.(device(ii).tag).')./param.neo_max.(device(ii).tag),8,8,n_samp-2),3), 'n', n_samp);
                             writeline(tcp_rms_server, jsonencode(rms_data));
                         end
                         % if recording
