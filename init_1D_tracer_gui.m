@@ -7,7 +7,7 @@ arguments
     options.Block = 100;
     options.FileString = 'C:/Users/Daily/TempData/%s/%s_%04d_%04d_%02d_%%s_%d';
     options.Subject = 'MCP01';
-    options.RefreshRate = 30; % (frames per second)
+    options.RefreshRate = 10; % (frames per second)
     options.Duration = 30; % Seconds
     options.Frequency = 0.5;  % Hz (for sine signal type)
     options.AxesWidth = 1; % Second
@@ -19,21 +19,24 @@ end
 guiTimer = timer(...
     'Name', '1D-Tracer-Timer', ...
     'Period', round(1/options.RefreshRate,3), ...
-    'ExecutionMode', 'fixedRate', ...
-    'TimerFcn', @gui_1d_timer_callback, ...
-    'StartFcn', @startMicrocontrollerIfPresent, ...
-    'StopFcn', @stopMicrocontrollerAndSave);
+    'BusyMode', 'queue', ...
+    'ExecutionMode', 'fixedSpacing', ...
+    'TimerFcn', @gui_1d_timer_callback ...
+    ... 'StartFcn', @startMicrocontrollerIfPresent, ...
+    ... 'StopFcn', @stopMicrocontrollerAndSave);
+    );
 guiTimer.UserData = struct;
 guiTimer.UserData.Figure = figure('Color','w','Name','1D Tracer GUI', ...
     'Position',[500, 100, 560, 650]);
 guiTimer.UserData.Teensy = [];
-guiTimer.UserData.Axes = axes(guiTimer.UserData.Figure,'NextPlot','add','YLim',[-1-(1.5*options.ErrorTolerance), 1+(1.5*options.ErrorTolerance)],'FontName','Tahoma','XColor','none','YColor','none');
+guiTimer.UserData.Axes = axes(guiTimer.UserData.Figure,'NextPlot','add','YLim',[-0.1-(1.5*options.ErrorTolerance), 1.5+(1.5*options.ErrorTolerance)],'FontName','Tahoma','XColor','none','YColor','none');
 guiTimer.UserData.Text = title(guiTimer.UserData.Axes, "Follow the Line", 'FontName','Tahoma','Color','k');
 t = 0:(1/options.RefreshRate):options.Duration;
+guiTimer.UserData.SpikeClient = [];
 
 switch options.SignalType
     case 'sine'
-        sig = sin(2*pi*options.Frequency.*t);
+        sig = sin(2*pi*options.Frequency.*t)*0.5 + 1;
     case 'interp'
         if isempty(options.Signal)
             error("No signal to interpolate!");

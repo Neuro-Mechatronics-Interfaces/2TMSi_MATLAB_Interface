@@ -13,8 +13,9 @@ if src.UserData.UpdateGraphics
         set(hBarA,'XData',src.UserData.A.x, 'YData', src.UserData.A.y);
         set(hBarB,'XData',src.UserData.B.x, 'YData', src.UserData.B.y);
     else
-        hBarA.CData = reshape(src.UserData.A.y,8,8);
-        hBarB.CData = reshape(src.UserData.B.y,8,8);
+
+        hBarA.CData = interp2(reshape(src.UserData.A.y,8,8), src.UserData.Xq, src.UserData.Yq);
+        hBarB.CData = interp2(reshape(src.UserData.B.y,8,8), src.UserData.Xq, src.UserData.Yq);
     end
     % if nargin > 3
     %     set(hTxt, 'String', string(src.UserData.CurrentReportedPose));

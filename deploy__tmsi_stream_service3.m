@@ -1,7 +1,19 @@
 %DEPLOY__TMSI_STREAM_SERVICE3  Try using LSL for this
 
 clc;
-addpath(genpath('C:\Users\nml\Documents\MyRepos\LSL\LSL\liblsl-Matlab'));
+lslMatlabFolder = fullfile(pwd, '..', 'liblsl-Matlab');
+if exist(lslMatlabFolder,'dir')==0
+    lslMatlabFolder = parameters('liblsl_folder');
+    if exist(lslMatlabFolder, 'dir')==0
+        disp("No valid liblsl-Matlab repository detected on this device.");
+        fprintf(1,'\t->\tTried: "%s"\n', fullfile(pwd, '..', 'liblsl-Matlab'));
+        fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder);
+        disp("Please check parameters.m in the 2TMSi_MATLAB_Interface repository, and try again.");
+        pause(30);
+        error("[TMSi]::Missing liblsl-Matlab repository.");
+    end
+end
+addpath(genpath(lslMatlabFolder)); % Adds liblsl-Matlab
 
 if exist('device', 'var')~=0
     disconnect(device);
@@ -19,7 +31,7 @@ else
 end
 
 %% SET PARAMETERS
-config_file = parameters('config');
+config_file = parameters('config_lsl');
 fprintf(1, "[TMSi]::Loading configuration file (%s, in 2TMSi_MATLAB_Interface repo folder)...\n", config_file);
 [config, TAG, SN, N_CLIENT] = parse_main_config(config_file);
 
@@ -66,17 +78,20 @@ for ii = 1:numel(ordered_tags)
     setSAGA(ch.(ordered_tags(ii)), ordered_tags(ii));
 end
 
+%% Load the LSL library
+lib_lsl = lsl_loadlib();
+
 %% Create LSL outlets
 % make a new stream outlet
 outlet = struct;
 % instantiate the LSL library
-lib_lsl = lsl_loadlib();
+tag_streams = struct('A', 'rms_dec', 'B', 'EXT');
 
 for iDev = 1:numel(device)
     tag = device(iDev).tag;
     fprintf(1,'Creating LSL streaminfo for SAGA-%s...\n',tag);
     info = lsl_streaminfo(lib_lsl,sprintf('SAGA-%s',tag), ...
-        'EMG', 74, 4000, ...
+        tag_streams.(tag), numel(ch.(tag)), 4000, ...
         'cf_double64', ...
         sprintf('SN%s',num2str(device(iDev).data_recorder.serial_number)));
 %     info = lsl_streaminfo(lib_lsl,sprintf('SAGA-%s',tag), ...
@@ -92,8 +107,8 @@ for iDev = 1:numel(device)
         c.append_child_value('type','EMG');
         c.append_child_value('subtype', TMSiSAGA.TMSiUtils.toChannelTypeString(ch.(tag)(iCh).type));
     end    
-    info.desc().append_child_value('manufacturer', 'NML');
-    info.desc().append_child_value('layout', '2Textile');
+    info.desc().append_child_value('manufacturer', 'NMLVR');
+    info.desc().append_child_value('layout', 'Grid_8_x_8');
     disp('Opening outlet...');
     outlet.(tag) = lsl_outlet(info);
 end

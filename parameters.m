@@ -25,13 +25,13 @@ pars = struct;
 % pars.config = strrep(fullfile(pwd, 'Local_Testing_config.yaml'), '\', '/');
 
 % % % Trying to pull the "relevant" ones to the top ... % % %
-% pars.config = "config_125k.yaml";
-pars.config = "config_cart.yaml";
-pars.config_stream_service_plus = "config_vr.yaml";
-% pars.config_stream_service_plus = "config_115L.yaml";
-pars.saga_file = 'SAGA.json';
-% pars.config = "config_125k_delta.yaml";
-% pars.config = "Forrest_2023_04_05_config.yaml";
+% pars.config = "configurations/acquisition/config_125k.yaml";
+pars.config = "configurations/acquisition/config_cart.yaml";
+pars.config_lsl = "configurations/acquisition/config_vr.yaml";
+pars.config_stream_service_plus = "configurations/acquisition/config_vr.yaml";
+% pars.config_stream_service_plus = "configurations/acquisition/config_115L.yaml";
+pars.saga_file = 'configurations/devices/SAGA.json';
+pars.instructions_folder = 'configurations/instructions';
 % pars.generated_data_folder =  strrep('C:\Users\NML\Box\N3_SharpFocus\Phase 3 experiments\generated_data', '\', '/'); % Setting this to human or primate, temporary hard code
 % pars.raw_data_folder = strrep('C:\Users\NML\Box\N3_SharpFocus\Phase 3 experiments\raw_data', '\', '/');
 % pars.generated_data_folder =  strrep('R:\NMLShare\generated_data\human\DARPA_N3', '\', '/'); % Setting this to human or primate, temporary hard code

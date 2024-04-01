@@ -1,6 +1,38 @@
 # 2TMSi_MATLAB_Interface #
 This repo contains code to run multiple TMSi SAGAs on the same device (or network) using MATLAB.
 
+## Quick Start ##  
+Procedure for running 2 TMSi, step-by-step.   
+
+### 1. Start SAGA Device Handler ###
+1. Double-click the "Modify MATLAB parameters" shortcut.  
+  a. Confirm that the parameter for "config_stream_service_plus" is set to "configurations/acquisition/config_vr.yaml" (should be line 30: `pars.config_stream_service_plus = "configurations/acquisition/config_vr.yaml";`).
+  b. If for whatever reason you have a separate configuration you want to run, then make sure the name matches your configuration yaml file.  
+2. Double-click "Modify configuration yaml" shortcut.  
+  a. Ensure that the desired SAGA configuration is enabled (look under SAGA: A: Enable, SAGA: B: Enable).  
+  b. **Critical**: Make sure that the unit for each SAGA is configured to match whatever unit you're using (SAGAA, SAGAB, SAGA1, SAGA2, SAGA3, SAGA4, or SAGA5).  
+  c. **Critical**: Make sure that under "Default: Folder:" the value is set to a folder location that exists on this machine (should be: "C:/Users/Daily/TempData"). Note that this is the root folder where you'll look for any saved output files.  
+  c. (Optional, but recommended): Match up the "Type" and "Location" fields of "Array" under each SAGA so that they make sense with your experiment configuration.  
+  d. If you are running everything from this machine only, then make sure all the sub-fields with network IP addresses are set to "127.0.0.1". Otherwise, assign them as appropriate per your experiment configuration.  
+3. Ensure that both SAGAs are ON.
+4. Ensure that both SAGAs are connected to this host computer via USB.  
+5. Double-click the "Deploy SAGA Handler" shortcut.  
+  a. The SAGA interface should do its thing, eventually producing a message with a timestamp indicating the acquisition state machine is ready (e.g. `->      [30-Mar-2024 12:52:53] SAGA LOOP BEGIN          <-`).  
+  b. If you enabled other interfaces, you should have figures pop up which will start populating with squiggles once you run the device handler from a control interface, which we will set up in the next step.  
+
+### 2. Setup SAGA control interface ###  
+This is the part Max often just does by creating a UDP port in MATLAB (e.g. `udpSender = udpport("byte");`) and then sending byte messages. For further details on message structure, double-click the "SAGA control message details" shortcut. A more user-friendly (but less flexible) option is described in the following guide.  
+1. From the device running the GUI controlling the SAGA devices, double-click the shortcut "Deploy SAGA Handler GUI". 
+2. Update any relevant filename specifications in the text edit field, and set the index to the desired value. A byte message is sent only after the "ValueChanged" event is triggered from the UI edit fields, so you have to make sure to make a change somewhere to ensure the value in the edit field on the first go around matches the file names produced by the SAGA device handler. After that, you should only need to worry about the trial index (which auto-increments when a recording stops), or any ad hoc name changes for other identification purposes. The following values are always appended to the filename, even if you forget to add the "%%s" and "%d" anywhere in the name. Note that you can change the relation of where these format specifiers go, as-desired (otherwise if they are missing they are appended to the end of the filename, just before the ".poly5" extension is added):     
+  a. "%%s" -- This lets the SAGA device handler distinguish files produced by the two SAGAs when saving to disk during recording.  
+  b. "%d" -- This is used locally by the GUI to add in the index. 
+3. Once all leads, references, and grounds are connected, you can preview what they look like by clicking the "RUN" button.  
+4. To measure impedance, toggle back to "IDLE", which should enable the "IMP" button. Click "IMP" to view impedances.
+  a. Close both impedance windows to save the impedances and exit impedance mode.  
+  b. Impedance files are saved with the most-recent filename update (described in step 2), but in a *.mat file with "-impedances" after the "A" or "B" associated with each device.  
+5. At the end, make sure you click "QUIT" to shutdown the SAGA device handler state machine, before you disconnect or power down either of the SAGAs. Failure to do this step causes bootup to take longer the next time around.  
+
+
 ## Contents ##
 * [Using Git](#git-basics)
 * [Overview](#instructions)

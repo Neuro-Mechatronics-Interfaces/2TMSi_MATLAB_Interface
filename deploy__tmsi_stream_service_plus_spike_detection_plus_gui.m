@@ -372,27 +372,31 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             end
             % Check for a "control state" update.
             if udp_state_receiver.NumBytesAvailable > 0
-                state = readline(udp_state_receiver);
+                tmpState = lower(string(readline(udp_state_receiver)));
+                if ismember(tmpState, ["rec", "idle", "quit", "imp", "run"])
+                    state = tmpState;
+                elseif startsWith(tmpState, "ping")
+                    msgParts = strsplit(tmpState, ":");
+                    switch numel(msgParts)
+                        case 1
+                            writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                                config.UDP.Socket.RecordingControllerGUI.Address, config.UDP.Socket.RecordingControllerGUI.Port);
+                        case 2
+                            writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                                msgParts{2}, config.UDP.Socket.RecordingControllerGUI.Port);
+                        case 3
+                            writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                                msgParts{2}, str2double(msgParts{3}));
+                    end
+                else
+                    fprintf("[TMSi]::[STATE] Tried to assign incorrect state (%s) -- check sender port.\n", tmpState);
+                end
                 if strcmpi(state, "rec")
                     if ~recording
                         fprintf(1, "[TMSi]::[RUN > REC]: Buffer created, recording in process...\n");
                         rec_file = struct;
                         for ii = 1:N_CLIENT
                             rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",device(ii).tag), device(ii).sample_rate, ch{ii}.toStruct());
-                            % rec_file.(device(ii).tag) = matfile(strrep(fname, "%s", device(ii).tag), 'Writable', true);
-                            % rec_file.(device(ii).tag).samples = nan(param.n_channels.(device(ii).tag),param.n_samples_recording); % Initialize the variable, with no samples in it.
-                            % rec_file.(device(ii).tag).channels = ch{ii}.toStruct();
-                            % rec_file.(device(ii).tag).sample_rate = param.sample_rate;
-                            % needs_timestamp.(device(ii).tag) = true;
-                            % if param.save_params
-                            %     params = rmfield(param, "gui");
-                            %     rec_file.(device(ii).tag).params = params;
-                            % else
-                            %     rec_file.(device(ii).tag).params = [];
-                            % end
-                            % param.recording_samples_acquired = struct('A', 0, 'B', 0);
-                            % param.recording_chunk_offset = struct('A', 0, 'B', 0);
-                            % rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1), 'pose', cell(0,1));
                         end
                     end
                     recording = true;
@@ -416,24 +420,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             if recording
                 for ii = 1:N_CLIENT
                     if ~isempty(samples{ii})
-                        % n_rec_samples = param.recording_samples_acquired.(device(ii).tag) + size(samples{ii},2);
-                        % if n_rec_samples >= param.n_samples_recording
-                        %     n_ch = param.n_channels.(device(ii).tag);
-                        %     last_sample = size(samples{ii},2) - (n_rec_samples - param.n_samples_recording);
-                        %     rec_file.(device(ii).tag).samples(1:n_ch,(param.recording_samples_acquired.(device(ii).tag)+1+param.recording_chunk_offset.(device(ii).tag)):end) = samples{ii}(:,1:last_sample);
-                        %     param.recording_chunk_offset.(device(ii).tag) = param.recording_chunk_offset.(device(ii).tag) + param.n_samples_recording;
-                        %     n_samples_remaining = size(samples{ii},2)-last_sample;
-                        %     rec_file.(device(ii).tag).samples(1:n_ch,(end+1):(end+param.n_samples_recording)) = nan(n_ch,param.n_samples_recording); % Increase recording size on disk
-                        %     rec_file.(device(ii).tag).samples(1:n_ch,(1+param.recording_chunk_offset.(device(ii).tag)):(n_samples_remaining+param.recording_chunk_offset.(device(ii).tag))) = samples{ii}(:,(last_sample+1):end);
-                        %     param.recording_samples_acquired.(device(ii).tag) = n_samples_remaining;
-                        % else
-                        %     rec_file.(device(ii).tag).samples(:,((param.recording_samples_acquired.(device(ii).tag)+1):n_rec_samples)+param.recording_chunk_offset.(device(ii).tag)) = samples{ii};
-                        %     param.recording_samples_acquired.(device(ii).tag) = n_rec_samples;
-                        % end
-                        % if needs_timestamp.(device(ii).tag)
-                        %     rec_file.(device(ii).tag).time = first_timestamp.(device(ii).tag);
-                        %     needs_timestamp.(device(ii).tag) = false;
-                        % end
                         rec_file.(device(ii).tag).append(samples{ii});
                     end
                 end
@@ -516,7 +502,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             writeline(tcp_spike_server, jsonencode(spike_data));
                         end
                         if tcp_rms_server.Connected
-                            rms_data = struct('SAGA', device(ii).tag, 'rms', rms(del2(reshape((neodata.(device(ii).tag).')./param.neo_max.(device(ii).tag),8,8,n_samp-2)),3), 'n', n_samp);
+                            rms_data = struct('SAGA', device(ii).tag, 'rms', rms(reshape((neodata.(device(ii).tag).')./param.neo_max.(device(ii).tag),8,8,n_samp-2),3), 'n', n_samp);
                             writeline(tcp_rms_server, jsonencode(rms_data));
                         end
                         % if recording
@@ -639,6 +625,19 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             tmpState = lower(string(readline(udp_state_receiver)));
             if ismember(tmpState, ["rec", "idle", "quit", "imp", "run"])
                 state = tmpState;
+            elseif startsWith(tmpState, "ping")
+                msgParts = strsplit(tmpState, ":");
+                switch numel(msgParts)
+                    case 1
+                        writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                            config.UDP.Socket.RecordingControllerGUI.Address, config.UDP.Socket.RecordingControllerGUI.Port);
+                    case 2
+                        writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                            msgParts{2}, config.UDP.Socket.RecordingControllerGUI.Port);
+                    case 3
+                        writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                            msgParts{2}, str2double(msgParts{3}));
+                end
             else
                 fprintf("[TMSi]::[STATE] Tried to assign incorrect state (%s) -- check sender port.\n", tmpState);
             end
@@ -648,20 +647,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     rec_file = struct;
                     for ii = 1:N_CLIENT
                         rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",device(ii).tag), device(ii).sample_rate, ch{ii}.toStruct());
-                        % rec_file.(device(ii).tag) = matfile(strrep(fname, "%s", device(ii).tag), 'Writable', true);
-                        % rec_file.(device(ii).tag).samples = zeros(param.n_channels.(device(ii).tag),0); % Initialize the variable, with no samples in it.
-                        % rec_file.(device(ii).tag).channels = ch{ii}.toStruct();
-                        % rec_file.(device(ii).tag).sample_rate = param.sample_rate;
-                        % % needs_timestamp.(device(ii).tag) = true;
-                        % if param.save_params
-                        %     params = rmfield(param, "gui");
-                        %     rec_file.(device(ii).tag).params = params;
-                        % else
-                        %     rec_file.(device(ii).tag).params = [];
-                        % end
-                        % % rec_file.(device(ii).tag).spikes = struct('SAGA', cell(0,1), 'rate', cell(0,1), 'n', cell(0,1), 'pose', cell(0, 1));
-                        % param.recording_samples_acquired = struct('A', 0, 'B', 0);
-                        % param.recording_chunk_offset = struct('A', 0, 'B', 0);
+                        
                     end
                 end
                 recording = true;
@@ -700,7 +686,25 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
 
                 while any(isvalid(fig)) || ~strcmpi(state, "imp")
                     if udp_state_receiver.NumBytesAvailable > 0
-                        state = readline(udp_state_receiver);
+                        tmpState = lower(string(readline(udp_state_receiver)));
+                        if ismember(tmpState, ["rec", "idle", "quit", "imp", "run"])
+                            state = tmpState;
+                        elseif startsWith(tmpState, "ping")
+                            msgParts = strsplit(tmpState, ":");
+                            switch numel(msgParts)
+                                case 1
+                                    writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                                        config.UDP.Socket.RecordingControllerGUI.Address, config.UDP.Socket.RecordingControllerGUI.Port);
+                                case 2
+                                    writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                                        msgParts{2}, config.UDP.Socket.RecordingControllerGUI.Port);
+                                case 3
+                                    writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                                        msgParts{2}, str2double(msgParts{3}));
+                            end
+                        else
+                            fprintf("[TMSi]::[STATE] Tried to assign incorrect state (%s) -- check sender port.\n", tmpState);
+                        end
                     end
                     for ii = 1:numel(device)
                         if isvalid(fig(ii))
