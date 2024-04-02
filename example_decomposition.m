@@ -13,7 +13,8 @@ GAMMA = 1;
 
 %% Load data and run spike detection
 data = TMSiSAGA.Poly5.read(DATA_FILE);
-uni = data.samples(2:65,:);
+uni_ch = find(startsWith({data.channels.alternative_name},'UNI'));
+uni = data.samples(uni_ch,:);
 [S,uni_d] = uni_2_pks(uni);
 idx = find(S(CH,:));
 [snips,idx] = uni_2_extended(uni, idx);

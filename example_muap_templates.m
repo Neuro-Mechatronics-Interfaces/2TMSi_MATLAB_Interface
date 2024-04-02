@@ -1,7 +1,9 @@
 K = 32;
 CH = 28;
 
-[S,uni_d] = uni_2_pks(data.samples(2:65,:));
+
+uni_ch = find(startsWith({data.channels.alternative_name},'UNI'));
+[S,uni_d] = uni_2_pks(data.samples(uni_ch,:));
 idx = find(S(CH,:));
 [snips,idx] = uni_2_extended(uni, idx);
 Y = tsne(snips);
@@ -12,7 +14,7 @@ iSort = nan(K,2);
 snipdata = cell(K,1);
 for ii = 1:K
     iclus = clus == ii;
-    snipdata{ii} = reshape(snips(iclus,:)',21,64,sum(iclus));
+    snipdata{ii} = reshape(snips(iclus,:)',21,numel(uni_ch),sum(iclus));
 
     iSort(ii,1) = ii;
     itmp = find(clus==ii);

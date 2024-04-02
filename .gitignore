@@ -12,3 +12,7 @@ example__tcp_ip_comms.m
 *.lnk
 
 *.poly5
+
+figures/
+
+Meta/
