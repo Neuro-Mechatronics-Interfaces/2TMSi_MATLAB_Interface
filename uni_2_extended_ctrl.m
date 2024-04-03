@@ -1,12 +1,18 @@
-function [snips, idx] = uni_2_extended(uni, idx, options)
-%UNI_2_EXTENDED Convert unipolar array to extended features snippets array
+function [snips, idx] = uni_2_extended_ctrl(uni, idx, n_samples, options)
+%UNI_2_EXTENDED_CTRL Convert unipolar array to extended features snippets array, specifically for "control" snippets
 
 arguments
     uni (64,:) double
     idx {mustBePositive, mustBeInteger}
+    n_samples {mustBePositive, mustBeInteger} = 2500;
     options.ExcludedChannels {mustBePositive, mustBeInteger} = [];
+    options.AdditionalExcludedSamples {mustBePositive, mustBeInteger} = [];
     options.Vector {mustBeInteger} = -10:10; % Times for extended samples matrix
 end
+
+available_idx = (1-options.Vector(1)):(size(uni,2)-options.Vector(end));
+available_idx = setdiff(available_idx, union(reshape(idx,1,numel(idx)),options.AdditionalExcludedSamples));
+idx = randsample(available_idx,min(n_samples,numel(available_idx)),false);
 
 uni_d = uni - [zeros(64,1), uni(:,(1:(end-1)))];
 uni_d(:,1) = zeros(64,1);

@@ -3,7 +3,7 @@ function [S, uni_d] = uni_2_pks(uni, options)
 arguments
     uni
     options.MinPeakHeight = 15; % microvolts
-    options.MinPeakDistance = 3; % samples
+    options.MinPeakDistance = 8; % samples
 end
 
 uni_d = uni - [zeros(64,1), uni(:,(1:(end-1)))];
