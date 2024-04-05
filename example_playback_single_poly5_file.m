@@ -3,12 +3,15 @@ clear;
 close all force;
 clc;
 
-MY_FILE = 'Max_2024_03_30_B_22.poly5';
+MY_FILE = fullfile(pwd,'Max_2024_03_30_B_22.poly5');
 ALGORITHMIC_LATENCY_ESTIMATE = 0.010; % seconds
 MIN_SAMPLE_DELAY = 0.030; % Pause will be at least this many seconds
-LINE_VERTICAL_OFFSET = 200; % microvolts
+LINE_VERTICAL_OFFSET = 25; % microvolts
 HORIZONTAL_SCALE = 0.25; % seconds
 SAMPLE_RATE_RECORDING = 4000;
+MIN_CHANNELWISE_RMS = 0.1; % microvolts
+RMS_Y_LIM = [0 5];
+MIN_PK_HEIGHT = 7.5;
 
 %% Open file and estimate scaling/offsets
 % Open Poly5 file for reading:
@@ -23,8 +26,9 @@ h_spacing = 0.1*h_scale;
 fig = figure('Color','w',...
     'Name','Sample Reader Interface',...
     'Position',[150   50   720   750]);
-
-ax = axes(fig,'NextPlot','add', ...
+L = tiledlayout(fig,5,1);
+ax = nexttile(L,1,[4 1]);
+set(ax,'NextPlot','add', ...
     'YLim',[-0.5*LINE_VERTICAL_OFFSET, 8.5*LINE_VERTICAL_OFFSET], ...
     'XColor','none','YColor','none', ...
     'XLim',[-10, 8.1*(h_scale+h_spacing)], ...
@@ -50,13 +54,40 @@ for iH = 1:64
                     nan(1,h_scale), ...
                     'Color',cmapdata(iH,:),...
                     'LineWidth',0.5,...
-                    'LineStyle','-');
+                    'LineStyle','-', ...
+                    'Marker', '*', ...
+                    'MarkerEdgeColor', 'r', ...
+                    'MarkerIndices', []);
 end
 past_samples = zeros(64,1);
+% 
+% ax = nexttile(L,5,[1 1]);
+% set(ax,'NextPlot','add','FontName','Tahoma','YLim',RMS_Y_LIM);
+% hb = bar(ax,1:64,zeros(1,64),'EdgeColor','none','FaceColor','r');
+% title(ax,'RMS','FontName','Tahoma');
+
+clus_ax = nexttile(L,5,[1 1]);
+set(clus_ax,'NextPlot','add','FontName','Tahoma','YLim',[0,20],'XLim',[0,h_scale]);
+title(clus_ax,'Sorted','FontName','Tahoma','Color','k');
+hs = gobjects(20,1);
+clus_cols = jet(20);
+for iH = 1:20
+    hs(iH) = scatter(clus_ax,[],[],32,clus_cols(iH,:),"Marker","|","MarkerEdgeColor",clus_cols(iH,:),'LineWidth',1.5);
+end
 
 %% Run loop while figure is open.
 needs_initial_ts = true;
 ts0 = 0;
+[b,a] = butter(3,0.25,'high');
+zi = zeros(3,64);
+% iCh = [1,2,3,4,5,6,9,10,11,12,13,14,15,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,33,34,35,36,37,38,41,42,43,45,46,47,50,54,55,56,57,58,59,61,62,63];
+% iExc = setdiff(1:64,iCh);
+iExc = [8, 40, 52];
+iCh = [1,2,3,4,5,6,9,10,11,12,13,14,15,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,33,34,35,36,37,38,41,42,43,45,46,47,50,54,55,56,57,58,59,61,62,63];
+load('2024-04-04_Extensor-Softmax-Test.mat','net');
+warning('off','signal:findpeaks:largeMinPeakHeight');
+cols = jet(20);
+locs = cell(64,1);
 while isvalid(fig)
     samples = read_next_n_blocks(poly5, 2);
     if needs_initial_ts
@@ -65,14 +96,46 @@ while isvalid(fig)
     end
     time_txt.String = sprintf('T = %07.3fs', samples(end,end)/SAMPLE_RATE_RECORDING - ts0);
     iVec = rem(samples(end,:)-1,h_scale)+1;
-    plot_data = [past_samples, samples(2:65,:)];
-    diff_data = plot_data(:,2:end) -plot_data(:,1:(end-1));
-    diff_data = diff_data - median(diff_data,1);
+    % plot_data = [past_samples, samples(2:65,:)];
+    % diff_data = plot_data(:,2:end) -plot_data(:,1:(end-1));
+    % diff_data = diff_data - median(diff_data,1);
+    [data,zi] = filter(b,a,samples(2:65,:)',zi,1);
+    % data(:,rms(data,1)<MIN_CHANNELWISE_RMS) = nan;
+    data(:,iExc) = nan;
+    data = reshape(del2(reshape(data,[],8,8)),[],64);
     for iH = 1:64
-        h(iH).YData(iVec) = diff_data(iH,:)+LINE_VERTICAL_OFFSET*rem(iH-1,8);
+        h(iH).YData(iVec) = data(:,iH)+LINE_VERTICAL_OFFSET*rem(iH-1,8);
+        % [~,locs] = findpeaks(data(:,iH),'MinPeakHeight', MIN_PK_HEIGHT);
+        locs{iH} = find(abs(data(:,iH)) > MIN_PK_HEIGHT);
+        h(iH).MarkerIndices = setdiff(h(iH).MarkerIndices, iVec);
+        if ~isempty(locs{iH})
+            locs{iH} = locs{iH}([true; diff(locs{iH})>1]);
+            h(iH).MarkerIndices = [h(iH).MarkerIndices, iVec(locs{iH})];
+        end
     end
+    all_locs = unique(vertcat(locs{:}));
+    [~,clus] = max(net(data(all_locs,iCh)'),[],1);
+    for iH = 1:20
+        i_remove = ismember(hs(iH).XData,iVec);
+        i_cur = all_locs(clus==iH);
+        % hs(iH).XData(i_remove) = [];
+        % hs(iH).YData(i_remove) = [];
+        % x = hs(iH).XData;
+        % y = hs(iH).YData;
+        % delete(hs(iH));
+        % hs(iH) = scatter(clus_ax, [x, iVec(i_cur)], [y, ones(1,numel(i_cur)).*iH], ...
+        %     64, 'Marker', '|', 'MarkerEdgeColor', clus_cols(iH,:), 'LineWidth', 1.5);
+        set(hs(iH),...
+            'XData',hs(iH).XData(~i_remove), ...
+            'YData',hs(iH).YData(~i_remove));
+        set(hs(iH),'XData',[hs(iH).XData, iVec(i_cur)], ...
+            'YData',[hs(iH).YData, ones(1,numel(i_cur)).*iH]);
+    end
+    % hb.YData = rms(data,1);
+    pause(0.005);
     drawnow();
-    past_samples = samples(2:65,end);
-    pause(sample_delay);
+    % past_samples = samples(2:65,end);
+    % pause(sample_delay);
 end
+warning('on','signal:findpeaks:largeMinPeakHeight');
 poly5.close();
