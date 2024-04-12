@@ -40,8 +40,9 @@ switch parameter_code
         else
             param = init_new_calibration(param, new_state);
         end
+        param.exclude_by_rms = struct('A', false(1,param.n_spike_channels), 'B', false(1, param.n_spike_channels));
         param.gui.sch.state = new_state;
-        fprintf(1,'[TMSi]\t->\t[%s]: Label State:Samples = %s\n', parameter_code, parameter_value);
+        fprintf(1,'[TMSi]\t->\t[%s]: Calibration States:Samples = %s\n', parameter_code, parameter_value);
     case 'd' % Load classifier file
         if exist(parameter_value, 'file')==0
             fprintf(1,'[TMSi]\t->\t[%s]: No such file: %s\n', parameter_code, parameter_value);
