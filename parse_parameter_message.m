@@ -17,6 +17,16 @@ switch parameter_code
             param.threshold_artifact = str2double(command_chunks{2})/1000;
         end
         fprintf(1,'[TMSi]\t->\t[%s]: CAR Mode = %s\n', parameter_code, parameter_value);
+    case 'b' % Name Tag
+        command_chunks = strsplit(parameter_value, ':');
+        if numel(command_chunks) > 1
+            param.name_tag.(command_chunks{1}) = command_chunks{2};
+            param.gui.squiggles.tag.(command_chunks{1}) = command_chunks{2};
+            param.gui.sch.tag.(command_chunks{1}) = command_chunks{2};
+            fprintf(1,'[TMSi]\t->\t[%s]: Tag.%s\n', parameter_code, parameter_value);
+        else
+            fprintf(1,'[TMSi]\t->\t[%s]: Tag **not** updated (invalid value "%s")\n', parameter_code, parameter_value);
+        end
     case 'c' % Length of calibration buffer (samples)
         parameter_command = strsplit(parameter_value, ':');
         new_state = matlab.lang.makeValidName(lower(parameter_command{1}));
@@ -30,25 +40,49 @@ switch parameter_code
         else
             param = init_new_calibration(param, new_state);
         end
-        param.gui.neo.state = new_state;
+        param.gui.sch.state = new_state;
         fprintf(1,'[TMSi]\t->\t[%s]: Label State:Samples = %s\n', parameter_code, parameter_value);
-    case 'e' % nonlinear **E**nergy operator GUI command
+    case 'd' % Load classifier file
+        if exist(parameter_value, 'file')==0
+            fprintf(1,'[TMSi]\t->\t[%s]: No such file: %s\n', parameter_code, parameter_value);
+            return;
+        end
+        tmp = load(parameter_value);
+        if ~isfield(tmp, 'A') || ~isfield(tmp, 'B')
+            fprintf(1,'[TMSi]\t->\t[%s]: Invalid file format-missing "A" or "B" struct.\n', parameter_code);
+            return;
+        end
+        if ~isempty(tmp.A)
+            if numel(tmp.A.Channels)~=tmp.A.Net.input.size
+                fprintf(1,'[TMSi]\t->\t[%s]: A.Channels does not equal A.Net.input.size.\n', parameter_code);
+                return;
+            end
+        end
+        if ~isempty(tmp.B)
+            if numel(tmp.B.Channels)~=tmp.B.Net.input.size
+                fprintf(1,'[TMSi]\t->\t[%s]: B.Channels does not equal B.Net.input.size.\n', parameter_code);
+                return;
+            end
+        end
+        param.classifier = tmp;
+        fprintf(1,'[TMSi]\t->\t[%s]: Updated using file = %s\n', parameter_code, parameter_value);
+    case 'e' % Single-channel GUI command
         command_chunks = strsplit(parameter_value, ":");
         en = str2double(command_chunks{1})==1;
         if en
             tmp = round(str2double(command_chunks{3}));
             if (tmp <= param.n_spike_channels) && (tmp > 0)
-                param.gui.neo.saga = command_chunks{2};
-                param.gui.neo.channel = tmp;
-                param.gui.neo.enable = true;
-                param.gui.neo = init_neo_gui(param.gui.neo, param.threshold.(param.gui.neo.saga).(param.calibration_state)(param.gui.neo.channel));
+                param.gui.sch.saga = command_chunks{2};
+                param.gui.sch.channel = tmp;
+                param.gui.sch.enable = true;
+                param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
             else
                 warning("Received command: %s\n\t->\tNEO Channel must be in the range [1, %d]", ...
                     parameter_data, param.n_spike_channels);
             end 
         else
-            param.gui.neo.enable = false;
-            param.gui.neo = init_neo_gui(param.gui.neo, param.threshold.(param.gui.neo.saga).(param.calibration_state)(param.gui.neo.channel));
+            param.gui.sch.enable = false;
+            param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
         end
         fprintf(1,'[TMSi]\t->\t[%s]: NEO GUI Channel = %s\n', parameter_code, parameter_value);
     case 'f' % Save Location (folder)
@@ -56,9 +90,9 @@ switch parameter_code
         fprintf(1,'[TMSi]\t->\t[%s]: Save Location = %s\n', parameter_code, parameter_value);
     case 'g' % Number of samples for squiggles and/or NEO figure sweeps
         n_samples = round(str2double(parameter_value));
-        param.gui.neo.n_samples = n_samples;
+        param.gui.sch.n_samples = n_samples;
         param.gui.squiggles.n_samples = n_samples;
-        param.gui.neo = init_neo_gui(param.gui.neo, param.threshold.(param.gui.neo.saga).(param.calibration_state)(param.gui.neo.channel));
+        param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
         param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
         fprintf(1,'[TMSi]\t->\t[%s]: GUI Line Samples = %s\n', parameter_code, parameter_value);
     case 'h' % HPF cutoff frequency
@@ -138,19 +172,12 @@ switch parameter_code
         fprintf(1,'[TMSi]\t->\t[%s]: Pose Threshold = %4.2f | Alpha = %5.3f | Deadzone = %d\n', parameter_code, param.threshold_pose, param.pose_smoothing_alpha, param.deadzone_pose);
     case 'x' % Set spike detection/threshold deviations
         param.threshold_deviations = str2double(parameter_value)/1000;
-        caldata = apply_car(param.calibration_data.A.(param.calibration_state)', param.car_mode, 2);
-        neocaldata = caldata(3:end,:).^2 - caldata(1:(end-2),:).^2; 
-        % param.threshold.A.(param.calibration_state) = median(abs(neocaldata * param.transform.A.(param.calibration_state)), 1) * param.threshold_deviations;
-        param.threshold.A.(param.calibration_state) = median(abs(neocaldata), 1) * param.threshold_deviations;
-
-        caldata = apply_car(param.calibration_data.B.(param.calibration_state)', param.car_mode, 2);
-        neocaldata = caldata(3:end,:).^2 - caldata(1:(end-2),:).^2; 
-        % param.threshold.B.(param.calibration_state) = median(abs(neocaldata * param.transform.B.(param.calibration_state)), 1) * param.threshold_deviations;
-        param.threshold.B.(param.calibration_state) = median(abs(neocaldata), 1) * param.threshold_deviations;
+        param.threshold.A.(param.calibration_state) = median(abs(param.calibration_data.A.(param.calibration_state)), 1) * param.threshold_deviations;
+        param.threshold.B.(param.calibration_state) = median(abs(param.calibration_data.B.(param.calibration_state)), 1) * param.threshold_deviations;
 
         param.spike_detector = abs(param.threshold_deviations) > eps; % If threshold is zero, then turn off spike detection
-        param.gui.neo.enable = param.spike_detector;
-        param.gui.neo = init_neo_gui(param.gui.neo, param.threshold.(param.gui.neo.saga).(param.calibration_state)(param.gui.neo.channel));
+        param.gui.sch.enable = param.spike_detector;
+        param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
         fprintf(1,'[TMSi]\t->\t[%s]: Spike Detection Threshold Deviations = %s\n', parameter_code, parameter_value);
     case 'z' % Save Parameters
         param.save_params = strcmpi(parameter_value, "1");

@@ -1,0 +1,9 @@
+function send_simulated_data(src,~)
+
+writeline(src.UserData.srv, ...
+    jsonencode(struct('Name','synth', ...
+                'Data',round([cos(src.UserData.theta),sin(src.UserData.theta)],3)*25, ...
+                'Time',posixtime())));
+src.UserData.theta = src.UserData.theta + 2*pi*src.Period;
+
+end

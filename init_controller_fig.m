@@ -7,19 +7,19 @@ function fig = init_controller_fig()
 host_pc = getenv("COMPUTERNAME");
 switch host_pc
     case "MAX_LENOVO" % Max Workstation Laptop (Lenovo ThinkPad D16)
-        POSITION_PIX = [100 720  900 100];
+        POSITION_PIX = [100 600  900 250];
     case "NMLVR"
-        POSITION_PIX = [1500 1200 900 100];
+        POSITION_PIX = [1500 1200 900 250];
     otherwise
-        POSITION_PIX = [150 250  900 100];
+        POSITION_PIX = [150 250  900 250];
 end
 
 fig = uifigure('Color','w',...
     'MenuBar','none','ToolBar','none',...
     'Name','TMSi Recording Controller',...
     'Position',POSITION_PIX,'Icon',"redlogo.jpg");
-L = uigridlayout(fig, [2, 6],'BackgroundColor','k');
-L.RowHeight = {'1x', 'fit'};
+L = uigridlayout(fig, [5, 6],'BackgroundColor','k');
+L.RowHeight = {'1x', '1x', '1x', '1x', '1x'};
 L.ColumnWidth = {'1x', '1x', '1x', '1x', '1x', '1x'};
 
 config = load_spike_server_config();
@@ -31,40 +31,83 @@ fig.UserData.Block = 0;
 fig.UserData.Address = config.UDP.Socket.StreamService.Address;
 fig.UserData.StatePort = config.UDP.Socket.StreamService.Port.state;
 fig.UserData.NamePort = config.UDP.Socket.StreamService.Port.name;
+fig.UserData.ParameterPort = config.UDP.Socket.StreamService.Port.params;
 
 dt = datetime('today','TimeZone','America/New_York');
 tank = sprintf('%s_%04d_%02d_%02d', config.Default.Subject, year(dt), month(dt), day(dt));
 fig.UserData.SubjEditField = uieditfield(L, 'text', "Value", config.Default.Subject, ...
     "ValueChangedFcn", @subjFieldValueChanged, "FontName", 'Consolas','Enable','off');
+fig.UserData.SubjEditField.Layout.Row = 1;
+fig.UserData.SubjEditField.Layout.Column = 1;
 
-fig.UserData.NameEditField = uieditfield(L, 'text', ...
-    "Value", sprintf('%s/%s/%s/%s_%%%%s_%%d.poly5', config.Default.Folder, config.Default.Subject, tank, tank), ...
-    "ValueChangedFcn", @nameFieldValueChanged, "FontName", 'Consolas','Enable','off');
-fig.UserData.NameEditField.Layout.Row = 1;
-fig.UserData.NameEditField.Layout.Column = [2 5];
+fig.UserData.TagAEditField = uieditfield(L, 'text', "Value", "A", ...
+    "ValueChangedFcn", @tagFieldValueChanged, "FontName", 'Consolas','Enable','off','UserData',"A", ...
+    'HorizontalAlignment', 'center', 'Placeholder', "A");
+fig.UserData.TagAEditField.Layout.Row = 1;
+fig.UserData.TagAEditField.Layout.Column = [2 3];
+
+fig.UserData.TagBEditField = uieditfield(L, 'text', "Value", "B", ...
+    "ValueChangedFcn", @tagFieldValueChanged, "FontName", 'Consolas','Enable','off','UserData',"B", ...
+    'HorizontalAlignment', 'center', 'Placeholder', "B");
+fig.UserData.TagBEditField.Layout.Row = 1;
+fig.UserData.TagBEditField.Layout.Column = [4 5];
 
 fig.UserData.BlockEditField = uieditfield(L, 'numeric', "FontName", "Consolas", "AllowEmpty", false, "Value", 0, "RoundFractionalValues", true, "ValueChangedFcn", @handleBlockEditFieldChange,'Enable','off');
 fig.UserData.BlockEditField.Layout.Row = 1;
 fig.UserData.BlockEditField.Layout.Column = 6;
 
+fig.UserData.NameEditField = uieditfield(L, 'text', ...
+    "Value", sprintf('%s/%s/%s/%s_%%%%s_%%d.poly5', config.Default.Folder, config.Default.Subject, tank, tank), ...
+    "ValueChangedFcn", @nameFieldValueChanged, "FontName", 'Consolas','Enable','off');
+fig.UserData.NameEditField.Layout.Row = 2;
+fig.UserData.NameEditField.Layout.Column = [1 6];
+
+lab = uilabel(L,"Text", "Offset (μV)", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+lab.Layout.Row = 4;
+lab.Layout.Column = 1;
+fig.UserData.OffsetEditField = uieditfield(L, 'numeric', ...
+    "Value", config.GUI.Offset, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @offsetFieldValueChanged,'RoundFractionalValues','on');
+fig.UserData.OffsetEditField.Layout.Row = 4;
+fig.UserData.OffsetEditField.Layout.Column = 2;
+
+lab = uilabel(L,"Text", "Timescale (samples)", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+lab.Layout.Row = 4;
+lab.Layout.Column = 3;
+fig.UserData.SamplesEditField = uieditfield(L, 'numeric', ...
+    "Value", config.GUI.N_Samples, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @samplesFieldValueChanged, 'RoundFractionalValues','on');
+fig.UserData.SamplesEditField.Layout.Row = 4;
+fig.UserData.SamplesEditField.Layout.Column = 4;
+
+lab = uilabel(L,"Text", "Channel", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+lab.Layout.Row = 4;
+lab.Layout.Column = 5;
+fig.UserData.SamplesEditField = uieditfield(L, 'text', ...
+    "Value", sprintf('%d:%s:%d', config.GUI.Single.Enable, config.GUI.Single.SAGA, config.GUI.Single.Channel), ...
+    "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @channelFieldValueChanged);
+fig.UserData.SamplesEditField.Layout.Row = 4;
+fig.UserData.SamplesEditField.Layout.Column = 6;
+
 runButton = uibutton(L, "Text", "RUN", 'ButtonPushedFcn', @runButtonPushed,'FontName','Tahoma','Enable','off');
-runButton.Layout.Row = 2;
+runButton.Layout.Row = 3;
 runButton.Layout.Column = 1;
 
 recButton = uibutton(L, "Text", "REC", 'ButtonPushedFcn', @recButtonPushed,'FontName','Tahoma', 'Enable', 'off');
-recButton.Layout.Row = 2;
+recButton.Layout.Row = 3;
 recButton.Layout.Column = 2;
 
 stopButton = uibutton(L, "Text", "STOP", 'ButtonPushedFcn', @stopButtonPushed,'FontName','Tahoma','Enable','off');
-stopButton.Layout.Row = 2;
+stopButton.Layout.Row = 3;
 stopButton.Layout.Column = 3;
 
 idleButton = uibutton(L, "Text", "IDLE", 'ButtonPushedFcn', @idleButtonPushed,'FontName','Tahoma','Enable','off');
-idleButton.Layout.Row = 2;
+idleButton.Layout.Row = 3;
 idleButton.Layout.Column = 4;
 
 impButton = uibutton(L, "Text", "IMP", 'ButtonPushedFcn', @impButtonPushed,'FontName','Tahoma','Enable','off');
-impButton.Layout.Row = 2;
+impButton.Layout.Row = 3;
 impButton.Layout.Column = 5;
 impButton.UserData = struct('rec', recButton, 'stop', stopButton);
 idleButton.UserData = struct('rec', recButton, 'stop', stopButton, 'run', runButton, 'imp', impButton);
@@ -73,12 +116,12 @@ stopButton.UserData = struct('rec', recButton, 'run', runButton, 'idle', idleBut
 recButton.UserData = struct('stop', stopButton, 'run', runButton, 'idle', idleButton);
 
 quitButton = uibutton(L, "Text", "QUIT", 'ButtonPushedFcn', @quitButtonPushed,'FontName','Tahoma','BackgroundColor','r','FontColor','w');
-quitButton.Layout.Row = 2;
+quitButton.Layout.Row = 3;
 quitButton.Layout.Column = 6;
 quitButton.UserData = struct('idle', idleButton, 'run', runButton, 'rec', recButton, 'stop', stopButton, 'imp', impButton);
 fig.DeleteFcn = @handleFigureDeletion;
 fig.UserData.UDP.UserData = struct('expect_quit', false, 'running', false, ...
-    'subj', fig.UserData.SubjEditField, 'name', fig.UserData.NameEditField, 'block', fig.UserData.BlockEditField, ...
+    'subj', fig.UserData.SubjEditField, 'name', fig.UserData.NameEditField, 'block', fig.UserData.BlockEditField, 'atag', fig.UserData.TagAEditField, 'btag', fig.UserData.TagBEditField,  ...
     'idle', idleButton, 'run', runButton, 'rec', recButton, 'stop', stopButton, 'imp', impButton, 'quit', quitButton);
 configureCallback(fig.UserData.UDP, "terminator", @handleUDPmessage);
 impButton.UserData = struct('run', runButton, 'idle', idleButton, 'quit', quitButton);
@@ -115,7 +158,7 @@ if ~contains(fixedValue, "%d")
     fixedValue = strrep(fixedValue, ".poly5", "_%d.poly5");
 end
 s = sprintf(fixedValue, src.Parent.Parent.UserData.BlockEditField.Value);
-writeline(udpSender, s, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.NamePort)
+writeline(udpSender, s, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.NamePort);
 fprintf(1,'[CONTROLLER]::Sent name: %s\n', s);
 end
 
@@ -127,6 +170,30 @@ catch me
     disp(me.stack(end));
 end
 
+end
+
+function offsetFieldValueChanged(src,~)
+udpSender = src.Parent.Parent.UserData.UDP;
+cmd = sprintf("o.%d", src.Value);
+writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+fprintf(1,'[CONTROLLER]::Sent offset: %s\n', cmd);
+end
+
+function samplesFieldValueChanged(src,~)
+udpSender = src.Parent.Parent.UserData.UDP;
+cmd = sprintf("g.%d", src.Value);
+writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+fprintf(1,'[CONTROLLER]::Sent samples: %s\n', cmd);
+end
+
+function channelFieldValueChanged(src,~)
+if ~contains(src.Value, ":")
+    return;
+end
+udpSender = src.Parent.Parent.UserData.UDP;
+cmd = sprintf("e.%s", src.Value);
+writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+fprintf(1,'[CONTROLLER]::Sent channel: %s\n', cmd);
 end
 
 function handleUDPmessage(src, ~)
@@ -144,6 +211,8 @@ switch data.type
                 src.UserData.subj.Enable = 'on';
                 src.UserData.name.Enable = 'on';
                 src.UserData.block.Enable = 'on';
+                src.UserData.atag.Enable = 'on';
+                src.UserData.btag.Enable = 'on';
                 src.UserData.expect_quit = false;
                 if ~src.UserData.running
                     updateNameCallback(src.UserData.name);
@@ -159,6 +228,8 @@ switch data.type
                 src.UserData.subj.Enable = 'off';
                 src.UserData.name.Enable = 'off';
                 src.UserData.block.Enable = 'off';
+                src.UserData.atag.Enable = 'off';
+                src.UserData.btag.Enable = 'off';
                 src.UserData.expect_quit = false;
                 if ~src.UserData.running
                     updateNameCallback(src.UserData.name);
@@ -174,6 +245,8 @@ switch data.type
                 src.UserData.subj.Enable = 'on';
                 src.UserData.name.Enable = 'on';
                 src.UserData.block.Enable = 'on';
+                src.UserData.atag.Enable = 'on';
+                src.UserData.btag.Enable = 'on';
                 src.UserData.expect_quit = false;
                 if ~src.UserData.running
                     updateNameCallback(src.UserData.name);
@@ -189,6 +262,8 @@ switch data.type
                 src.UserData.subj.Enable = 'off';
                 src.UserData.name.Enable = 'off';
                 src.UserData.block.Enable = 'off';
+                src.UserData.atag.Enable = 'off';
+                src.UserData.btag.Enable = 'off';
                 src.UserData.expect_quit = false;
                 if ~src.UserData.running
                     updateNameCallback(src.UserData.name);
@@ -204,6 +279,8 @@ switch data.type
                 src.UserData.subj.Enable = 'off';
                 src.UserData.name.Enable = 'off';
                 src.UserData.block.Enable = 'off';
+                src.UserData.atag.Enable = 'off';
+                src.UserData.btag.Enable = 'off';
                 src.UserData.running = false;
                 if src.UserData.expect_quit
                     msgbox("State machine stopped running.");
@@ -228,6 +305,8 @@ switch data.type
                 src.UserData.subj.Enable = 'on';
                 src.UserData.name.Enable = 'on';
                 src.UserData.block.Enable = 'on';
+                src.UserData.atag.Enable = 'on';
+                src.UserData.btag.Enable = 'on';
                 src.UserData.expect_quit = false;
                 if ~src.UserData.running
                     updateNameCallback(src.UserData.name);
@@ -240,6 +319,8 @@ switch data.type
                 src.UserData.name.Enable = 'on';
                 src.UserData.subj.Enable = 'on';
                 src.UserData.block.Enable = 'on';
+                src.UserData.atag.Enable = 'on';
+                src.UserData.btag.Enable = 'on';
             case 'stop'
                 src.UserData.idle.Enable = 'off';
                 src.UserData.run.Enable = 'off';
@@ -249,6 +330,8 @@ switch data.type
                 src.UserData.imp.Enable = 'off';
                 src.UserData.subj.Enable = 'off';
                 src.UserData.name.Enable = 'off';
+                src.UserData.atag.Enable = 'off';
+                src.UserData.btag.Enable = 'off';
                 src.UserData.block.Enable = 'off';
                 src.UserData.running = false;
                 if src.UserData.expect_quit
@@ -274,6 +357,16 @@ updateNameCallback(src);
 
 end
 
+function tagFieldValueChanged(src, ~)
+if strlength(src.Value) < 1
+    return;
+end
+udpSender = src.Parent.Parent.UserData.UDP;
+cmd = sprintf('b.%s:%s', src.UserData, src.Value);
+writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+fprintf(1,'[CONTROLLER]::Sent Parameter Command: %s\n', cmd);
+end
+
 function subjFieldValueChanged(src, evt)
 s = strrep(src.Parent.Parent.UserData.NameEditField.Value, evt.PreviousValue, evt.Value);
 src.Parent.Parent.UserData.NameEditField.Value = s;
@@ -290,6 +383,8 @@ src.Enable = 'off';
 src.Parent.Parent.UserData.SubjEditField.Enable = 'off';
 src.Parent.Parent.UserData.BlockEditField.Enable = 'off';
 src.Parent.Parent.UserData.NameEditField.Enable = 'off';
+src.Parent.Parent.UserData.TagAEditField.Enable = 'off';
+src.Parent.Parent.UserData.TagBEditField.Enable = 'off';
 end
 
 function stopButtonPushed(src, ~)
@@ -302,6 +397,8 @@ src.UserData.idle.Enable = 'on';
 src.Parent.Parent.UserData.SubjEditField.Enable = 'on';
 src.Parent.Parent.UserData.BlockEditField.Enable = 'on';
 src.Parent.Parent.UserData.NameEditField.Enable = 'on';
+src.Parent.Parent.UserData.TagAEditField.Enable = 'on';
+src.Parent.Parent.UserData.TagBEditField.Enable = 'on';
 src.Parent.Parent.UserData.BlockEditField.Value = src.Parent.Parent.UserData.BlockEditField.Value + 1;
 updateNameCallback(src);
 end
@@ -317,6 +414,8 @@ src.Enable = 'off';
 src.Parent.Parent.UserData.SubjEditField.Enable = 'on';
 src.Parent.Parent.UserData.BlockEditField.Enable = 'on';
 src.Parent.Parent.UserData.NameEditField.Enable = 'on';
+src.Parent.Parent.UserData.TagAEditField.Enable = 'on';
+src.Parent.Parent.UserData.TagBEditField.Enable = 'on';
 end
 
 function impButtonPushed(src, ~)
@@ -330,6 +429,8 @@ if udpSender.UserData.running
     src.Parent.Parent.UserData.SubjEditField.Enable = 'off';
     src.Parent.Parent.UserData.BlockEditField.Enable = 'off';
     src.Parent.Parent.UserData.NameEditField.Enable = 'off';
+    src.Parent.Parent.UserData.TagAEditField.Enable = 'off';
+    src.Parent.Parent.UserData.TagBEditField.Enable = 'off';
 end
 end
 
@@ -344,6 +445,8 @@ src.UserData.imp.Enable = 'on';
 src.Parent.Parent.UserData.SubjEditField.Enable = 'on';
 src.Parent.Parent.UserData.BlockEditField.Enable = 'on';
 src.Parent.Parent.UserData.NameEditField.Enable = 'on';
+src.Parent.Parent.UserData.TagAEditField.Enable = 'on';
+src.Parent.Parent.UserData.TagBEditField.Enable = 'on';
 end
 
 function quitButtonPushed(src, ~)

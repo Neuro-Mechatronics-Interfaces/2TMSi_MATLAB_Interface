@@ -181,17 +181,22 @@ tcp_spike_server = tcpserver("0.0.0.0", ... % Allow any IP to connect
                              config.TCP.SpikeServer.Port);
 tcp_rms_server = tcpserver("0.0.0.0", ...
                             config.TCP.RMSServer.Port);
+tcp_muap_server = tcpserver("0.0.0.0", ...
+                            config.TCP.MUAPServer.Port);
+%% Initialize parameters and parameter sub-fields, figures
 param = struct(...
     'n_channels', struct('A', [], 'B', []), ...
     ...'n_spike_channels', config.Default.N_Spike_Channels, ...
-    'n_spike_channels', 64, ...
+    'n_spike_channels', max(numel(config.GUI.Squiggles.A), numel(config.GUI.Squiggles.B)), ...
+    'name_tag', struct('A', "A", 'B', "B"), ...
     'selected_spike_channels', struct('A', [4, 24, 55], 'B', [4, 24, 55]), ...
     'n_samples_recording', config.Default.N_Samples_Recording, ...
     'recording_samples_acquired', struct('A', 0, 'B', 0), ...
     'recording_chunk_offset', struct('A', 0, 'B', 0), ...
+    'classifier', struct('A', [], 'B', []), ...
     'n_samples_calibration', config.Default.N_Samples_Calibration, ...
     'n_samples_label', config.Default.N_Samples_Label, ...
-    'n_total', struct('A', numel(config_channels.A.uni), 'B', numel(config_channels.B.uni)), ...
+    'n_total', struct('A', numel(config_channels.A.uni) + numel(config_channels.A.bip), 'B', numel(config_channels.B.uni) + numel(config_channels.B.bip)), ...
     'sample_rate', config.Default.Sample_Rate, ...
     'spike_detector', config.Default.Spike_Detector, ...
     'car_mode', config.Default.CAR_Mode, ...
@@ -199,20 +204,21 @@ param = struct(...
     'gui', struct('squiggles', struct('enable', config.GUI.Squiggles.Enable, 'fig', [], 'h', [], 'offset', config.GUI.Offset, ...
                                       'channels', struct('A', [], 'B', []), 'zi', struct('A', [], 'B', []), 'n_samples', config.GUI.N_Samples, 'color', config.GUI.Color, ...
                                       'acc', struct('enable', config.Accelerometer.Enable, 'differential', config.Accelerometer.Differential, 'saga', config.Accelerometer.SAGA), ...
-                                      'thumb', struct('enable', config.Thumb.Enable, 'saga', config.Thumb.SAGA, 'channel', struct('left', config.Thumb.Channel.Left, 'right', config.Thumb.Channel.Right), 'zi', struct('left', zeros(1,2), 'right', zeros(1,2))), ...
-                                      'triggers', struct('enable', config.Triggers.Enable)), ...
-                  'neo', struct('enable', config.GUI.NEO.Enable, 'fig', [], 'h', [], ...
-                                'saga', config.GUI.NEO.SAGA, ...
-                                'channel', config.GUI.NEO.Channel,  ...
+                                      'triggers', struct('enable', config.Triggers.Enable), ...
+                                      'tag', struct('A', "A", 'B', "B")), ...
+                  'sch', struct('enable', config.GUI.Single.Enable, 'fig', [], 'h', [], ...
+                                'saga', config.GUI.Single.SAGA, ...
+                                'channel', config.GUI.Single.Channel,  ...
                                 'n_samples', config.GUI.N_Samples, ...
                                 'color', config.GUI.Color, ...
-                                'state', config.Default.Calibration_State)), ...
+                                'state', config.Default.Calibration_State, ...
+                                'tag', struct('A', "A", 'B', "B"))), ...
     'calibrate', struct('A', true, 'B', true), ...
     'calibration_state', config.Default.Calibration_State, ...
     'calibration_samples_acquired', struct('A', 0, 'B', 0),  ...
-    'calibration_data', struct('A', struct(config.Default.Calibration_State, randn(numel(config_channels.A.uni), config.Default.N_Samples_Calibration)), ...
-                               'B', struct(config.Default.Calibration_State, randn(numel(config_channels.B.uni), config.Default.N_Samples_Calibration))), ...
-    'neo_max', struct('A', ones(64,1),'B', ones(64,1)), ...
+    'calibration_data', struct('A', struct(config.Default.Calibration_State, randn(config.Default.N_Samples_Calibration, numel(config_channels.A.uni)+numel(config_channels.A.bip))), ...
+                               'B', struct(config.Default.Calibration_State, randn(config.Default.N_Samples_Calibration, numel(config_channels.B.uni)+numel(config_channels.B.bip)))), ...
+    'hpf_max', struct('A', ones(1,numel(config_channels.A.uni)+numel(config_channels.A.bip)),'B', ones(1,numel(config_channels.B.uni)+numel(config_channels.B.bip))), ...
     'label', struct('A', false, 'B', false), ...
     'label_state', config.Default.Label_State, ...
     'labeled_samples_acquired', struct('A', 0, 'B', 0), ...
@@ -225,19 +231,16 @@ param = struct(...
     'past_rates', struct('A', zeros(numel(config.Default.Rate_Smoothing_Alpha),config.Default.N_Spike_Channels), 'B', zeros(numel(config.Default.Rate_Smoothing_Alpha),config.Default.N_Spike_Channels)), ...
     'transform', struct('A', struct(config.Default.Calibration_State, init_n_channel_transform(config.Default.N_Spike_Channels)), ...
                         'B', struct(config.Default.Calibration_State, init_n_channel_transform(config.Default.N_Spike_Channels))), ...
-    'threshold', struct('A', struct(config.Default.Calibration_State, inf(1,config.Default.N_Spike_Channels)), ...
-                        'B', struct(config.Default.Calibration_State, inf(1,config.Default.N_Spike_Channels))), ...
+    'threshold', struct('A', struct(config.Default.Calibration_State, inf(1,numel(config_channels.A.uni)+numel(config_channels.A.bip))), ...
+                        'B', struct(config.Default.Calibration_State, inf(1,numel(config_channels.A.uni)+numel(config_channels.A.bip)))), ...
     'threshold_deviations', config.Default.Threshold_Deviations, ...
     'threshold_artifact', config.Default.Artifact_Channel_Proportion_Threshold, ...
+    'min_rms_artifact', config.Default.Minimum_RMS_Per_Channel, ...
+    'exclude_by_rms', struct('A', [], 'B', []), ...
     'threshold_pose', config.Default.Pose_Threshold, ...
     'deadzone_pose', config.Default.Pose_Deadzone_Threshold, ...
+    'use_channels', struct('A', [], 'B', []), ...
     'pose_smoothing_alpha', config.Default.Pose_Smoothing_Alpha);
-if param.gui.squiggles.thumb.enable && ((~ismember(param.gui.squiggles.thumb.channel.left, config.SAGA.(param.gui.squiggles.thumb.saga).Channels.BIP)) || (~ismember(param.gui.squiggles.thumb.channel.right, config.SAGA.(param.gui.squiggles.thumb.saga).Channels.BIP)))
-    disconnect(device);
-    lib.cleanUp();
-    close all force;
-    error("[TMSi]::[Thumb Config Error]::Enabled thumb bipolars but configured channels are not BIP for SAGA %s (check %s)", param.thumb.saga, config_file);
-end
 if param.gui.squiggles.acc.enable && param.gui.squiggles.acc.differential && (numel(config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX) < 6)
     disconnect(device);
     lib.cleanUp();
@@ -246,9 +249,12 @@ if param.gui.squiggles.acc.enable && param.gui.squiggles.acc.differential && (nu
 end
 param.gui.squiggles.channels.A = config.GUI.Squiggles.A;
 param.gui.squiggles.channels.B = config.GUI.Squiggles.B;
+param.use_channels.A = config.GUI.Squiggles.A;
+param.use_channels.B = config.GUI.Squiggles.B;
 param.gui.squiggles.zi.A = zeros(numel(config.GUI.Squiggles.A),2);
 param.gui.squiggles.zi.B = zeros(numel(config.GUI.Squiggles.B),2);
-[param.hpf.b, param.hpf.a] = butter(2, config.Default.HPF_Cutoff_Frequency/(param.sample_rate/2), 'high');
+[param.hpf.b, param.hpf.a] = butter(3, config.Default.HPF_Cutoff_Frequency/(param.sample_rate/2), 'high');
+[param.b_rms, param.a_rms] = butter(3, 0.1, 'low');
 
 ch = device.getActiveChannels();
 if ~iscell(ch)
@@ -256,8 +262,14 @@ if ~iscell(ch)
 end
 
 param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
-param.gui.neo = init_neo_gui(param.gui.neo, param.threshold.(param.gui.neo.saga).(param.calibration_state)(param.gui.neo.channel));
-neodata = struct('A', [], 'B', []);
+param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
+hpf_data = struct('A', [], 'B', []);
+rms_data = struct('A',[],'B',[]);
+rms_zi = struct('A',zeros(3,param.n_spike_channels),'B',zeros(3,param.n_spike_channels));
+i_mono = struct('A', config.SAGA.A.Channels.UNI, 'B', config.SAGA.B.Channels.UNI);
+i_bip = struct('A', config.SAGA.A.Channels.BIP, 'B', config.SAGA.B.Channels.BIP);
+i_all = struct('A', union(i_mono.A, i_bip.A), 'B', union(i_mono.B, i_bip.B));
+zi = struct('A',zeros(3,numel(i_all.A)), 'B', zeros(3,numel(i_all.B)));
 
 %% Configuration complete, run main control loop.
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
@@ -362,12 +374,28 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             num_sets = zeros(numel(device),1);
             for ii = 1:N_CLIENT
                 [samples{ii}, num_sets(ii)] = device(ii).sample();
-                % if needs_timestamp.(device(ii).tag)
-                %     first_timestamp.(device(ii).tag) =  datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS', 'TimeZone', 'America/New_York') - seconds(size(samples{ii},2)/param.sample_rate);
-                % end
-                if needs_offset && (ii > 1) && (num_sets(1) > 0) && (num_sets(ii) > 0)
-                    counter_offset = samples{1}(config.SAGA.(device(1).tag).Channels.COUNT, end) - samples{ii}(config.SAGA.(device(ii).tag).Channels.COUNT, end);
-                    needs_offset = false;
+                if num_sets(ii) > 0
+                    [hpf_data.(device(ii).tag), zi.(device(ii).tag)] = filter(param.hpf.b,param.hpf.a,samples{ii}(i_all.(device(ii).tag),:)',zi.(device(ii).tag),1);
+                    switch param.car_mode
+                        case 1    
+                            hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)) = hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)) - mean(hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)));
+                        case 2 
+                            iGrid1 = param.use_channels.(device(ii).tag)(param.use_channel.(device(ii).tag) <= 32);
+                            iGrid2 = setdiff(param.use_channels.(device(ii).tag), iGrid1);
+                            hpf_data.(device(ii).tag)(:,iGrid1) = hpf_data.(device(ii).tag)(:,iGrid1) - mean(hpf_data.(device(ii).tag)(:,iGrid1));
+                            hpf_data.(device(ii).tag)(:,iGrid2) = hpf_data.(device(ii).tag)(:,iGrid2) - mean(hpf_data.(device(ii).tag)(:,iGrid2));
+                        case 3
+                            hpf_data.(device(ii).tag)(:,param.exclude_by_rms.(device(ii).tag)) = missing;
+                            tmp = reshape(hpf_data.(device(ii).tag)(:,1:64)', 8, 8, num_sets(ii));
+                            for ik = 1:num_sets(ii)
+                                tmp(:,:,ik) = fillmissing2(tmp(:,:,ik),'linear');
+                            end
+                            hpf_data.(device(ii).tag)(:,1:64) = reshape(del2(tmp),64,num_sets(ii))';
+                    end
+                    if needs_offset && (ii > 1) && (num_sets(1) > 0)
+                        counter_offset = samples{1}(config.SAGA.(device(1).tag).Channels.COUNT, end) - samples{ii}(config.SAGA.(device(ii).tag).Channels.COUNT, end);
+                        needs_offset = false;
+                    end
                 end
             end
             % Check for a "control state" update.
@@ -396,7 +424,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         fprintf(1, "[TMSi]::[RUN > REC]: Buffer created, recording in process...\n");
                         rec_file = struct;
                         for ii = 1:N_CLIENT
-                            rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",device(ii).tag), device(ii).sample_rate, ch{ii}.toStruct());
+                            rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",param.name_tag.(device(ii).tag)), device(ii).sample_rate, ch{ii}.toStruct(), 'w');
                         end
                     end
                     recording = true;
@@ -426,40 +454,21 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             end
             % Handle calibration (if required)
             for ii = 1:N_CLIENT
-                if param.calibrate.(device(ii).tag) && (size(samples{ii},2) > 0)
-                    n_cal_samples = param.calibration_samples_acquired.(device(ii).tag) + size(samples{ii},2);
+                if param.calibrate.(device(ii).tag) && (size(hpf_data.(device(ii).tag),1) > 0)
+                    n_cal_samples = param.calibration_samples_acquired.(device(ii).tag) + size(hpf_data.(device(ii).tag),1);
                     if n_cal_samples >= param.n_samples_calibration
-                        last_sample = size(samples{ii},2) - (n_cal_samples - param.n_samples_calibration);
-                        param.calibration_data.(device(ii).tag).(param.calibration_state)(:,(param.calibration_samples_acquired.(device(ii).tag)+1):end) = samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,1:last_sample);
-                        caldata = apply_car(param.calibration_data.(device(ii).tag).(param.calibration_state)', param.car_mode, 2);
-                        neocaldata = caldata(3:end,:).^2 - caldata(1:(end-2),:).^2; 
-                        param.neo_max.(device(ii).tag) = max(neocaldata,[],1)';
-                        
-                        [param.transform.(device(ii).tag).(param.calibration_state), score] = pca(neocaldata, 'NumComponents', param.n_spike_channels);
-                        % param.threshold.(device(ii).tag).(param.calibration_state) = median(abs(neocaldata * param.transform.(device(ii).tag).(param.calibration_state)), 1) * param.threshold_deviations;
-                        param.threshold.(device(ii).tag).(param.calibration_state) = median(abs(neocaldata), 1) * param.threshold_deviations;
+                        last_sample = size(hpf_data.(device(ii).tag),1) - (n_cal_samples - param.n_samples_calibration);
+                        param.calibration_data.(device(ii).tag).(param.calibration_state)((param.calibration_samples_acquired.(device(ii).tag)+1):param.n_samples_calibration,:) = hpf_data.(device(ii).tag)(1:last_sample,:);
+                        param.hpf_max.(device(ii).tag) = max(param.calibration_data.(device(ii).tag).(param.calibration_state),[],1);
+                        param.exclude_by_rms.(device(ii).tag) = rms(param.calibration_data.(device(ii).tag).(param.calibration_state),1) < param.min_rms_artifact;
+                        [param.transform.(device(ii).tag).(param.calibration_state), score] = pca(param.calibration_data.(device(ii).tag).(param.calibration_state), 'NumComponents', param.n_spike_channels);
+                        param.threshold.(device(ii).tag).(param.calibration_state) = median(abs(param.calibration_data.(device(ii).tag).(param.calibration_state)), 1) * param.threshold_deviations;
                         param.calibrate.(device(ii).tag) = false;
-                        param.gui.neo = init_neo_gui(param.gui.neo, param.threshold.(param.gui.neo.saga).(param.calibration_state)(param.gui.neo.channel));
+                        param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
                         fprintf(1,'[TMSi]::[Calibration]::SAGA-%s "%s" calibration complete.\n', device(ii).tag, param.calibration_state);
                     else
-                        param.calibration_data.(device(ii).tag).(param.calibration_state)(:,(param.calibration_samples_acquired.(device(ii).tag)+1):n_cal_samples) = samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,:);
+                        param.calibration_data.(device(ii).tag).(param.calibration_state)((param.calibration_samples_acquired.(device(ii).tag)+1):n_cal_samples,:) = hpf_data.(device(ii).tag);
                         param.calibration_samples_acquired.(device(ii).tag) = n_cal_samples;
-                    end
-                end
-            end
-
-            % Handle labeling (if required)
-            for ii = 1:N_CLIENT
-                if param.label.(device(ii).tag) && (size(samples{ii},2) > 0)
-                    n_lab_samples = param.labeled_samples_acquired.(device(ii).tag) + size(samples{ii},2);
-                    if n_lab_samples >= param.n_samples_calibration
-                        last_sample = size(samples{ii},2) - (n_lab_samples - param.n_samples_label);
-                        param.labeled_data.(device(ii).tag).(param.label_state)(:,(param.labeled_samples_acquired.(device(ii).tag)+1):end) = samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,1:last_sample);
-                        param.label.(device(ii).tag) = false;
-                        fprintf(1,'[TMSi]::[Labeling]::SAGA-%s "%s" label complete.\n', device(ii).tag, param.label_state);
-                    else
-                        param.labeled_data.(device(ii).tag).(param.label_state)(:,(param.labeled_samples_acquired.(device(ii).tag)+1):n_lab_samples) = samples{ii}(config.SAGA.(device(ii).tag).Channels.UNI,:);
-                        param.labeled_samples_acquired.(device(ii).tag) = n_lab_samples;
                     end
                 end
             end
@@ -467,19 +476,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             % Handle spike detection if required
             if param.spike_detector
                 for ii = 1:N_CLIENT
-                    i_mono = config.SAGA.(device(ii).tag).Channels.UNI;
                     if size(samples{ii},2) > 3
-                        [tmp_rates, neodata.(device(ii).tag)] = detect_spikes(samples{ii}(i_mono,:), ...
-                            param.threshold.(device(ii).tag).(param.calibration_state), ...
-                            param.car_mode, ...
+                        grid_channels = param.use_channels.(device(ii).tag)(param.use_channels.(device(ii).tag) <= 64);
+                        tmp_rates = detect_spikes(hpf_data.(device(ii).tag)(:,grid_channels), ...
+                            param.threshold.(device(ii).tag).(param.calibration_state)(grid_channels), ...
                             param.sample_rate, ...
                             param.threshold_artifact);
-                        % [tmp_rates, neodata.(device(ii).tag)] = detect_projected_spikes(samples{ii}(i_mono,:), ...
-                        %     param.transform.(device(ii).tag).(param.calibration_state), ...
-                        %     param.threshold.(device(ii).tag).(param.calibration_state), ...
-                        %     param.car_mode, ...
-                        %     param.sample_rate, ...
-                        %     param.threshold_artifact);
                         param.past_rates.(device(ii).tag) = param.rate_smoothing_alpha.*param.past_rates.(device(ii).tag) + (1-param.rate_smoothing_alpha).*repmat(tmp_rates,numel(param.rate_smoothing_alpha),1);
                         if param.gui.squiggles.acc.enable
                             [max_pose, acc_pose_val] = max(pose_vec);
@@ -497,17 +499,35 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             acc_pose = "Unknown";
                         end
                         n_samp = size(samples{ii},2);
-                        spike_data = struct('SAGA', device(ii).tag, 'rate', param.past_rates.(device(ii).tag), 'n', n_samp, 'pose', acc_pose);
                         if tcp_spike_server.Connected
+                            spike_data = struct('SAGA', device(ii).tag, 'data', param.past_rates.(device(ii).tag), 'n', n_samp);
                             writeline(tcp_spike_server, jsonencode(spike_data));
                         end
                         if tcp_rms_server.Connected
-                            rms_data = struct('SAGA', device(ii).tag, 'rms', rms(reshape((neodata.(device(ii).tag).')./param.neo_max.(device(ii).tag),8,8,n_samp-2),3), 'n', n_samp);
+                            [rms_data.(device(ii).tag), rms_zi.(device(ii).tag)] = filter(param.b_rms, param.a_rms, hpf_data.(device(ii).tag), rms_zi.(device(ii).tag),1);
+                            rms_data = struct('SAGA', device(ii).tag, 'data', rms(rms_data.(device(ii).tag)./param.hpf_max.(device(ii).tag),1), 'n', n_samp);
                             writeline(tcp_rms_server, jsonencode(rms_data));
                         end
-                        % if recording
-                        %     rec_file.(device(ii).tag).spikes(end+1,1) = spike_data;
-                        % end
+                        if tcp_muap_server.Connected
+                            if ~isempty(param.classifier.(device(ii).tag))
+                                if numel(param.classifier.(device(ii).tag).Channels) == param.classifier.(device(ii).tag).Net.input.size
+                                    locs = cell(64,1);
+                                    for ik = param.classifier.(device(ii).tag).Channels
+                                        locs{ik} = find(abs(hpf_data.(device(ii).tag)(:,ik)) > param.classifier.(device(ii).tag).MinPeakHeight);
+                                        if ~isempty(locs{ik})
+                                            locs{ik} = locs{ik}([true; diff(locs{ik})>1]);
+                                        end
+                                    end
+                                    all_locs = unique(vertcat(locs{:}));
+                                    [~,clus] = max(param.classifier.(device(ii).tag).Net(hpf_data.(device(ii).tag)(all_locs,param.classifier.(device(ii).tag).Channels)'),[],1);
+                                    for ik = 1:param.classifier.(device(ii).tag).Net.output.size
+                                        param.classifier.(device(ii).tag).Out.Data(ik) = sum(clus == ik);
+                                    end
+                                    param.classifier.(device(ii).tag).Out.n = n_samp;
+                                    writeline(tcp_muaps_server, jsonencode(param.classifier.(device(ii).tag).Out));
+                                end
+                            end
+                        end
                     end
                 end
             end
@@ -515,37 +535,20 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             % Handle updating the "Squiggles" GUI if required
             if param.gui.squiggles.enable
                 if isvalid(param.gui.squiggles.fig)
-                    tmp_offset = 0;
                     sample_counts = struct;
                     i_assign = struct;
                     for ii = 1:N_CLIENT
                         if size(samples{ii},2) > 0
                             sample_counts.(device(ii).tag) = samples{ii}(config.SAGA.(device(ii).tag).Channels.COUNT,:) + counter_offset*(ii-1);
                             i_assign.(device(ii).tag) = rem([sample_counts.(device(ii).tag)-1, sample_counts.(device(ii).tag)(end)], param.gui.squiggles.n_samples)+1;
-                            for iCh = 1:numel(param.gui.squiggles.channels.(device(ii).tag))
+                            grid_channels = param.gui.squiggles.channels.(device(ii).tag)(param.gui.squiggles.channels.(device(ii).tag) <= 64);
+                            for iCh = 1:numel(grid_channels)
                                 cur_ch = param.gui.squiggles.channels.(device(ii).tag)(iCh);
-                                switch param.car_mode
-                                    case 0
-                                        [ytmp, param.gui.squiggles.zi.(device(ii).tag)(iCh,:)] = filter(param.hpf.b, param.hpf.a, samples{ii}(cur_ch,:), param.gui.squiggles.zi.(device(ii).tag)(iCh,:));
-                                    case 1    
-                                        car_ch = config.SAGA.(device(ii).tag).Channels.UNI;
-                                        [ytmp, param.gui.squiggles.zi.(device(ii).tag)(iCh,:)] = filter(param.hpf.b, param.hpf.a, samples{ii}(cur_ch,:) - mean(samples{ii}(car_ch,:), 1), param.gui.squiggles.zi.(device(ii).tag)(iCh,:));
-                                    case 2 
-                                        car_ch = config.SAGA.(device(ii).tag).Channels.UNI((1:32) + (floor((cur_ch-2)/32)*32));
-                                        [ytmp, param.gui.squiggles.zi.(device(ii).tag)(iCh,:)] = filter(param.hpf.b, param.hpf.a, samples{ii}(cur_ch,:) - mean(samples{ii}(car_ch,:), 1), param.gui.squiggles.zi.(device(ii).tag)(iCh,:));
-                                end
-                                param.gui.squiggles.h.(device(ii).tag)(iCh).YData(i_assign.(device(ii).tag)) = [ytmp + tmp_offset, nan];
-                                tmp_offset = tmp_offset + param.gui.squiggles.offset;
+                                param.gui.squiggles.h.(device(ii).tag)(iCh).YData(i_assign.(device(ii).tag)) = [hpf_data.(device(ii).tag)(:,cur_ch)' + rem((cur_ch-1),8)*param.gui.squiggles.offset, nan];
                             end
                         else
                             sample_counts.(device(ii).tag) = [];
                             i_assign.(device(ii).tag) = [];
-                        end
-                    end
-                    if ~isempty(sample_counts.(device(ii).tag))
-                        i_ts = rem(sample_counts.(device(ii).tag),param.gui.squiggles.n_samples) == round(param.gui.squiggles.n_samples/2);
-                        if sum(i_ts) == 1
-                            param.gui.squiggles.h.xline.Label = seconds_2_str(sample_counts.(device(ii).tag)(i_ts)/param.sample_rate);
                         end
                     end
                     if param.gui.squiggles.acc.enable && ~isempty(i_assign.(param.gui.squiggles.acc.saga))
@@ -568,7 +571,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         param.gui.squiggles.h.Acc.Distal.YData(i_assign.(param.gui.squiggles.acc.saga)) = [distalData, nan];
                         param.gui.squiggles.h.Acc.Medial.YData(i_assign.(param.gui.squiggles.acc.saga)) = [medialData + 7, nan];
                         param.gui.squiggles.h.Acc.Superior.YData(i_assign.(param.gui.squiggles.acc.saga)) = [superiorData + 14, nan];
-                        % TODO: Update "Pose" estimation here
                         pose_vec = param.pose_smoothing_alpha.*pose_vec + (1-param.pose_smoothing_alpha).*([sum(distalData > param.threshold_pose); ...
                                     sum((-distalData) > param.threshold_pose); ...
                                     sum(medialData > param.threshold_pose); ...
@@ -576,13 +578,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                                     sum(superiorData > param.threshold_pose); ...
                                     sum((-superiorData) > param.threshold_pose)]);
 
-                    end
-                    if param.gui.squiggles.thumb.enable && ~isempty(i_assign.(param.gui.squiggles.thumb.saga))
-                        iTag = strcmpi(ORDERED_TAG,param.gui.squiggles.thumb.saga);
-                        [ytmp, param.gui.squiggles.thumb.zi.left] = filter(param.hpf.b, param.hpf.a, samples{iTag}(param.gui.squiggles.thumb.channel.left,:), param.gui.squiggles.thumb.zi.left);
-                        param.gui.squiggles.h.LeftThumb.YData(i_assign.(param.gui.squiggles.thumb.saga)) = [ytmp, nan];
-                        [ytmp, param.gui.squiggles.thumb.zi.right] = filter(param.hpf.b, param.hpf.a, samples{iTag}(param.gui.squiggles.thumb.channel.right,:), param.gui.squiggles.thumb.zi.right);
-                        param.gui.squiggles.h.RightThumb.YData(i_assign.(param.gui.squiggles.thumb.saga)) = [ytmp + param.gui.squiggles.offset*2, nan];
                     end
                     if param.gui.squiggles.triggers.enable 
                         for ii = 1:N_CLIENT
@@ -599,22 +594,22 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             end
 
             % Handle updating the "NEO" (spikes) GUI if required
-            if param.gui.neo.enable && param.spike_detector
-                if isvalid(param.gui.neo.fig)
-                    iTag = find(ORDERED_TAG == param.gui.neo.saga,1);
+            if param.gui.sch.enable && param.spike_detector
+                if isvalid(param.gui.sch.fig)
+                    iTag = find(ORDERED_TAG == param.gui.sch.saga,1);
                     if size(samples{iTag},2) > 3
-                        sample_counts = samples{iTag}(config.SAGA.(param.gui.neo.saga).Channels.COUNT,2:end) + (iTag-1)*counter_offset;
-                        i_assign = rem(sample_counts-1, param.gui.neo.n_samples)+1;
-                        y = [neodata.(param.gui.neo.saga)(:,param.gui.neo.channel); nan];
-                        param.gui.neo.h.data.YData(i_assign) = y;
-                        i_ts = rem(sample_counts,param.gui.neo.n_samples) == round(param.gui.neo.n_samples/2);
+                        sample_counts = samples{iTag}(config.SAGA.(param.gui.sch.saga).Channels.COUNT,:) + (iTag-1)*counter_offset;
+                        i_assign = rem([sample_counts, sample_counts(end)+1]-1, param.gui.sch.n_samples)+1;
+                        y = [hpf_data.(param.gui.sch.saga)(:,param.gui.sch.channel); nan];
+                        param.gui.sch.h.data.YData(i_assign) = y;
+                        i_ts = rem(sample_counts,param.gui.sch.n_samples) == round(param.gui.sch.n_samples/2);
                         if sum(i_ts) == 1
-                            param.gui.neo.h.xline.Label = seconds_2_str(sample_counts(i_ts)/param.sample_rate);
+                            param.gui.sch.h.xline.Label = seconds_2_str(sample_counts(i_ts)/param.sample_rate);
                         end
                     end
                 else
-                    param.gui.neo.fig = [];
-                    param.gui.neo.enable = false;
+                    param.gui.sch.fig = [];
+                    param.gui.sch.enable = false;
                     fprintf(1,'[TMSi]::[NEO] Gui was closed.\n');
                 end
             end
@@ -646,7 +641,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     fprintf(1, "[TMSi]::[IDLE > REC]: Buffer created, recording in process...\n");
                     rec_file = struct;
                     for ii = 1:N_CLIENT
-                        rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",device(ii).tag), device(ii).sample_rate, ch{ii}.toStruct());
+                        rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",param.name_tag.(device(ii).tag)), device(ii).sample_rate, ch{ii}.toStruct(), 'w');
                         
                     end
                 end

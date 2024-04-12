@@ -7,7 +7,7 @@ MY_FILE = fullfile(pwd,'Max_2024_03_30_B_22.poly5');
 ALGORITHMIC_LATENCY_ESTIMATE = 0.010; % seconds
 MIN_SAMPLE_DELAY = 0.030; % Pause will be at least this many seconds
 LINE_VERTICAL_OFFSET = 25; % microvolts
-HORIZONTAL_SCALE = 0.25; % seconds
+HORIZONTAL_SCALE = 1.0; % seconds
 SAMPLE_RATE_RECORDING = 4000;
 MIN_CHANNELWISE_RMS = 0.1; % microvolts
 RMS_Y_LIM = [0 5];
@@ -132,7 +132,6 @@ while isvalid(fig)
             'YData',[hs(iH).YData, ones(1,numel(i_cur)).*iH]);
     end
     % hb.YData = rms(data,1);
-    pause(0.005);
     drawnow();
     % past_samples = samples(2:65,end);
     % pause(sample_delay);

@@ -6,8 +6,8 @@ param.transform.B.(new_state) = init_n_channel_transform(param.n_spike_channels,
 param.threshold.B.(new_state) = inf(param.n_spike_channels,1);
 param.calibrate.A = true;
 param.calibrate.B = true;
-param.calibration_data.A.(new_state) = randn(param.n_total.A, param.n_samples_calibration);
-param.calibration_data.B.(new_state) = randn(param.n_total.B, param.n_samples_calibration);
+param.calibration_data.A.(new_state) = randn(param.n_samples_calibration, param.n_total.A);
+param.calibration_data.B.(new_state) = randn(param.n_samples_calibration, param.n_total.B);
 param.calibration_samples_acquired.A = 0;
 param.calibration_samples_acquired.B = 0;
 end

@@ -60,10 +60,10 @@ SAGA:
 Default:
  # Interface: "optical"
  Interface: "electrical"
- # Folder: "C:/Data/TMSi"
- Folder: "C:/Users/Daily/TempData"
- HPF_Cutoff_Frequency: 300 # Hz
- CAR_Mode: 1 # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids
+ Folder: "C:/Data/TMSi"
+ # Folder: "C:/Users/Daily/TempData"
+ HPF_Cutoff_Frequency: 100 # Hz
+ CAR_Mode: 3 # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2
  Subject: "Default"
  Sample_Rate: 4000
  Sync_Bit: 7
@@ -80,6 +80,7 @@ Default:
  Save_Parameters: true
  Rate_Smoothing_Alpha: [0.02] 
  Artifact_Channel_Proportion_Threshold: 0.4
+ Minimum_RMS_Per_Channel: 1.0 # microvolts
  Pose_Threshold: 1.5
  Pose_Smoothing_Alpha: 0.25
  Pose_Deadzone_Threshold: 5
@@ -87,55 +88,61 @@ Accelerometer:
  Enable: false
  Differential: false 
  SAGA: "A"
-Thumb: 
- SAGA: "B"
- Enable: false
- Channel:
-  Left: 66
-  Right: 67
 Triggers:
  Enable: true
 GUI:
  Color:
   A: "r"
   B: "b"
- N_Samples: 4000
- Offset: 25 
+ N_Samples: 1000
+ Offset: 100 
  Squiggles: 
   Enable: true
-  A: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
-  B: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
- NEO:
+  A: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68]
+  B: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68]
+ Single:
   Enable: true   
   SAGA: "A"
-  Channel: 1
+  Channel: 65
 UDP:
  Socket:
   StreamService:
-   Address: "192.168.88.100"
-   # Address: "127.0.0.1"
+   # Address: "192.168.88.100"
+   Address: "127.0.0.1"
    Port: 
     state: 3030
     name: 3031
     params: 3036
   RecordingControllerGUI:
-   Address: "192.168.88.101"
-   # Address: "127.0.0.1"
+   # Address: "192.168.88.101"
+   Address: "127.0.0.1"
    Port: 3050
 TCP:
  SpikeServer:
-  Address: "127.168.88.100"
-  # Address: "127.0.0.1"
+  # Address: "127.168.88.100"
+  Address: "127.0.0.1"
   Port: 6050
  ControlServer:
-  Address: "192.168.88.101"
-  # Address: "127.0.0.1"
+  # Address: "192.168.88.101"
+  Address: "127.0.0.1"
   Port: 6051
  RMSServer:
-  Address: "192.168.88.100"
-  # Address: "127.0.0.1"
+  # Address: "192.168.88.100"
+  Address: "127.0.0.1"
   Port: 6052
  XBoxServer:
-  Address: "192.168.88.101"
-  # Address: "127.0.0.1"
+  # Address: "192.168.88.101"
+  Address: "127.0.0.1"
   Port: 6053
+ UnityStateServer: 
+  # Address: "192.168.88.100"
+  Address: "127.0.0.1"
+  Port: 6054
+ UnityControllerServer: 
+  # Address: "192.168.88.100"
+  Address: "127.0.0.1"
+  Port: 6055 
+ MUAPServer: 
+  # Address: "192.168.88.100"
+  Address: "127.0.0.1"
+  Port: 6056
