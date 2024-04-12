@@ -25,7 +25,7 @@ SAGA:
    Unit: "SAGAA"
    Array: 
     Type: "Large Grid"
-    Location: "A: Flexors"
+    Location: "A_FLX"
    Trigger:
     Channel: 73
     Bit: 1
@@ -44,7 +44,7 @@ SAGA:
    FileType: ".mat"
    Array: 
     Type: "Large Grid"
-    Location: "B: Extensors"
+    Location: "B_EXT"
    Trigger:
     Channel: 73
     Bit: 1
@@ -60,8 +60,8 @@ SAGA:
 Default:
  # Interface: "optical"
  Interface: "electrical"
- Folder: "C:/Data/TMSi"
- # Folder: "C:/Users/Daily/TempData"
+ # Folder: "C:/Data/TMSi"
+ Folder: "C:/Users/Daily/TempData"
  HPF_Cutoff_Frequency: 100 # Hz
  CAR_Mode: 3 # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2
  Subject: "Default"
@@ -107,42 +107,42 @@ GUI:
 UDP:
  Socket:
   StreamService:
-   # Address: "192.168.88.100"
-   Address: "127.0.0.1"
+   Address: "192.168.88.100"
+   # Address: "127.0.0.1"
    Port: 
     state: 3030
     name: 3031
     params: 3036
   RecordingControllerGUI:
-   # Address: "192.168.88.101"
-   Address: "127.0.0.1"
+   Address: "192.168.88.101"
+   # Address: "127.0.0.1"
    Port: 3050
 TCP:
  SpikeServer:
-  # Address: "127.168.88.100"
-  Address: "127.0.0.1"
+  Address: "127.168.88.100"
+  # Address: "127.0.0.1"
   Port: 6050
  ControlServer:
-  # Address: "192.168.88.101"
-  Address: "127.0.0.1"
+  Address: "192.168.88.101"
+  # Address: "127.0.0.1"
   Port: 6051
  RMSServer:
   # Address: "192.168.88.100"
   Address: "127.0.0.1"
   Port: 6052
  XBoxServer:
-  # Address: "192.168.88.101"
-  Address: "127.0.0.1"
+  Address: "192.168.88.101"
+  # Address: "127.0.0.1"
   Port: 6053
  UnityStateServer: 
-  # Address: "192.168.88.100"
-  Address: "127.0.0.1"
+  Address: "192.168.88.101"
+  # Address: "127.0.0.1"
   Port: 6054
  UnityControllerServer: 
-  # Address: "192.168.88.100"
-  Address: "127.0.0.1"
+  Address: "192.168.88.101"
+  # Address: "127.0.0.1"
   Port: 6055 
  MUAPServer: 
-  # Address: "192.168.88.100"
-  Address: "127.0.0.1"
+  Address: "192.168.88.100"
+  # Address: "127.0.0.1"
   Port: 6056
