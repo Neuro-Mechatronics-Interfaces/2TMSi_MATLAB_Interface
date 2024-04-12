@@ -34,7 +34,7 @@ switch parameter_code
         if numel(parameter_command) > 1
             param.n_samples_calibration = round(str2double(parameter_command{2}));
         end
-        if isfield(param.transform.A, new_state)
+        if isfield(param.transform.A, new_state) && (numel(parameter_command) < 2)
             param.n_spike_channels = numel(param.threshold.A.(new_state));
             param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), 64), 'B', zeros(numel(param.rate_smoothing_alpha), 64));
         else
@@ -171,6 +171,7 @@ switch parameter_code
             param.deadzone_pose = str2double(command_chunks{3});
         end
         fprintf(1,'[TMSi]\t->\t[%s]: Pose Threshold = %4.2f | Alpha = %5.3f | Deadzone = %d\n', parameter_code, param.threshold_pose, param.pose_smoothing_alpha, param.deadzone_pose);
+    
     case 'x' % Set spike detection/threshold deviations
         param.threshold_deviations = str2double(parameter_value)/1000;
         param.threshold.A.(param.calibration_state) = median(abs(param.calibration_data.A.(param.calibration_state)), 1) * param.threshold_deviations;
@@ -180,6 +181,14 @@ switch parameter_code
         param.gui.sch.enable = param.spike_detector;
         param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
         fprintf(1,'[TMSi]\t->\t[%s]: Spike Detection Threshold Deviations = %s\n', parameter_code, parameter_value);
+
+    case 'y' % Set upper bound on TRIGGERS axaes
+        tmp = str2double(parameter_value);
+        if ~isnan(tmp) && (tmp > 0)
+            param.gui.squiggles.triggers.y_bound = tmp;
+        end
+        fprintf(1,'[TMSi]\t->\t[%s]: Triggers Y-Bound = %s\n', parameter_code, parameter_value);
+
     case 'z' % Save Parameters
         param.save_params = strcmpi(parameter_value, "1");
         fprintf(1,'[TMSi]\t->\t[%s]: Save Parameters = %s\n', parameter_code, parameter_value);
