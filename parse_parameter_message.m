@@ -36,7 +36,7 @@ switch parameter_code
         end
         if isfield(param.transform.A, new_state)
             param.n_spike_channels = numel(param.threshold.A.(new_state));
-            param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels), 'B', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels));
+            param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), 64), 'B', zeros(numel(param.rate_smoothing_alpha), 64));
         else
             param = init_new_calibration(param, new_state);
         end
@@ -159,7 +159,7 @@ switch parameter_code
         for ii = 1:n_smooth_kernel
             param.rate_smoothing_alpha(ii) = str2double(command_chunks{ii})/1000;
         end
-        param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels), 'B', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels));
+        param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), 64), 'B', zeros(numel(param.rate_smoothing_alpha), 64));
         fprintf(1,['[TMSi]\t->\t[%s]: Rate Smoothing Alpha = ' strjoin(repmat({'%4.3f'}, 1, numel(param.rate_smoothing_alpha)),  ', ') '\n'], parameter_code, param.rate_smoothing_alpha);
     case 't' % Set accelerometer threshold
         command_chunks = strsplit(parameter_value, ':');
