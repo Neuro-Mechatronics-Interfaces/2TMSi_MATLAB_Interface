@@ -3,6 +3,7 @@ function [snips, idx, clus, nts, included_ch, isi_data, coeff, Y] = muap_templat
 arguments
     data % TMSiSAGA.Data as returned by TMSiSAGA.Poly5.read() OR equivalent struct() -needs fields 'samples', 'num_samples', and 'sample_rate'.
     K (1,1) double {mustBePositive, mustBeInteger} = 32; % Number of k-means clusters
+    options.Net = [];
     options.EdgesISI (1,:) double = 0:5:250; % milliseconds
     options.ExcludedChannels {mustBePositive, mustBeInteger} = [];
     options.FirstSampleForTemporalSort (1,1) double {mustBePositive, mustBeInteger} = 2e4;
@@ -49,12 +50,18 @@ uni_d = filtfilt(b,a,data.samples(uni_ch,:)');
 [snips,idx] = uni_2_extended(data.samples(uni_ch,:), idx, ...
     'ExcludedChannels', options.ExcludedChannels, ...
     'Vector', options.Vector);
-Y = tsne(snips);
-clus = kmeans(Y,K);
 nts = numel(options.Vector);
-included_ch = setdiff(1:64,options.ExcludedChannels);
-nRows = ceil(sqrt(K));
-nCols = ceil(K/nRows);
+if isempty(options.Net)
+    Y = tsne(snips);
+    clus = kmeans(Y,K);
+    included_ch = setdiff(1:64,options.ExcludedChannels);
+    nRows = ceil(sqrt(K));
+    nCols = ceil(K/nRows);
+else
+    [~,clus] = max(options.Net(snips')',[],1); %#ok<UDIM>
+    nRows = ceil(sqrt(options.Net.outputs{1}.size));
+    nCols = ceil(options.Net.outputs{1}.size/nRows);
+end
 
 iSort = nan(K,2);
 snipdata = cell(K,1);

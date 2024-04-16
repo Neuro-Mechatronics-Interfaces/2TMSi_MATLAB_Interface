@@ -40,13 +40,13 @@ fig.UserData.SubjEditField = uieditfield(L, 'text', "Value", config.Default.Subj
 fig.UserData.SubjEditField.Layout.Row = 1;
 fig.UserData.SubjEditField.Layout.Column = 1;
 
-fig.UserData.TagAEditField = uieditfield(L, 'text', "Value", "A", ...
+fig.UserData.TagAEditField = uieditfield(L, 'text', "Value", config.SAGA.A.Array.Location, ...
     "ValueChangedFcn", @tagFieldValueChanged, "FontName", 'Consolas','Enable','off','UserData',"A", ...
     'HorizontalAlignment', 'center', 'Placeholder', "A");
 fig.UserData.TagAEditField.Layout.Row = 1;
 fig.UserData.TagAEditField.Layout.Column = [2 3];
 
-fig.UserData.TagBEditField = uieditfield(L, 'text', "Value", "B", ...
+fig.UserData.TagBEditField = uieditfield(L, 'text', "Value", config.SAGA.B.Array.Location, ...
     "ValueChangedFcn", @tagFieldValueChanged, "FontName", 'Consolas','Enable','off','UserData',"B", ...
     'HorizontalAlignment', 'center', 'Placeholder', "B");
 fig.UserData.TagBEditField.Layout.Row = 1;
@@ -119,15 +119,82 @@ quitButton = uibutton(L, "Text", "QUIT", 'ButtonPushedFcn', @quitButtonPushed,'F
 quitButton.Layout.Row = 3;
 quitButton.Layout.Column = 6;
 quitButton.UserData = struct('idle', idleButton, 'run', runButton, 'rec', recButton, 'stop', stopButton, 'imp', impButton);
+
+fig.UserData.PButton = struct;
+fig.UserData.PButton.Calibrate = uibutton(L, "Text", "Re-Calibrate", 'ButtonPushedFcn', @calibrateButtonPushed, 'FontName','Tahoma');
+fig.UserData.PButton.Layout.Row = 5;
+fig.UserData.PButton.Layout.Column = 1;
+lab = uilabel(L,"Text", "Calibration (samples)", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+lab.Layout.Row = 5;
+lab.Layout.Column = 2;
+fig.UserData.CalSamplesEditField = uieditfield(L, 'numeric', ...
+    "Value", config.Default.N_Samples_Calibration, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    'RoundFractionalValues','on');
+fig.UserData.CalSamplesEditField.Layout.Row = 5;
+fig.UserData.CalSamplesEditField.Layout.Column = 3;
+
+lab = uilabel(L,"Text", "Triggers YLim", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+lab.Layout.Row = 5;
+lab.Layout.Column = 4;
+fig.UserData.TriggersBoundEditField = uieditfield(L, 'numeric', ...
+    "Value", config.GUI.TriggerBound, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @handleTriggersBoundFieldChanged, 'RoundFractionalValues','on');
+fig.UserData.TriggersBoundEditField.Layout.Row = 5;
+fig.UserData.TriggersBoundEditField.Layout.Column = 5;
+
+fig.UserData.ToggleSquigglesButton = uibutton(L, "Text", "Turn Squiggles OFF", 'ButtonPushedFcn', @toggleSquigglesButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.2 0.3 0.7],'UserData',config.GUI.Squiggles.Enable,'FontColor','w');
+fig.UserData.ToggleSquigglesButton.Layout.Row = 5;
+fig.UserData.ToggleSquigglesButton.Layout.Column = 6;
+
 fig.DeleteFcn = @handleFigureDeletion;
 fig.UserData.UDP.UserData = struct('expect_quit', false, 'running', false, ...
     'subj', fig.UserData.SubjEditField, 'name', fig.UserData.NameEditField, 'block', fig.UserData.BlockEditField, 'atag', fig.UserData.TagAEditField, 'btag', fig.UserData.TagBEditField,  ...
-    'idle', idleButton, 'run', runButton, 'rec', recButton, 'stop', stopButton, 'imp', impButton, 'quit', quitButton);
+    'idle', idleButton, 'run', runButton, 'rec', recButton, 'stop', stopButton, 'imp', impButton, 'quit', quitButton, ...
+    'address', fig.UserData.Address, 'parameter_port', fig.UserData.ParameterPort);
 configureCallback(fig.UserData.UDP, "terminator", @handleUDPmessage);
 impButton.UserData = struct('run', runButton, 'idle', idleButton, 'quit', quitButton);
 fig.CloseRequestFcn = @handleFigureCloseRequest;
 fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort);
 
+end
+
+function handleTriggersBoundFieldChanged(src, ~)
+if src.Value <= 0
+    return;
+end
+udpSender = src.Parent.Parent.UserData.UDP;
+cmd = sprintf('y.%d', src.Value);
+writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+fprintf(1,'[CONTROLLER]::Sent Triggers Bound Request: %s\n', cmd);
+end
+
+function toggleSquigglesButtonPushed(src,~)
+udpSender = src.Parent.Parent.UserData.UDP;
+if src.UserData
+    src.Text = "Turn Squiggles ON";
+    writeline(udpSender,"q.0",src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+    fprintf(1,'[CONTROLLER]::Sent request to toggle squiggles OFF: q.0\n');
+else
+    src.Text = "Turn Squiggles OFF";
+    cmd = "q.1:A:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68:B:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68";
+    writeline(udpSender,cmd,src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+    fprintf(1,'[CONTROLLER]::Sent request to toggle squiggles ON: %s\n', cmd);
+end
+src.UserData = ~src.UserData;
+end
+
+function calibrateButtonPushed(src,~)
+val = src.Parent.Parent.UserData.CalSamplesEditField.Value;
+if val < 100
+    src.Parent.Parent.UserData.CalSamplesEditField.BackgroundColor = 'r';
+    return;
+else
+    src.Parent.Parent.UserData.CalSamplesEditField.BackgroundColor = 'w';
+end
+udpSender = src.Parent.Parent.UserData.UDP;
+cmd = sprintf('c.main:%d', val);
+writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+fprintf(1,'[CONTROLLER]::Sent recalibration request: %s\n', cmd);
 end
 
 function handleFigureCloseRequest(src, ~)
@@ -216,6 +283,7 @@ switch data.type
                 src.UserData.expect_quit = false;
                 if ~src.UserData.running
                     updateNameCallback(src.UserData.name);
+                    udpSenderRelayNameTags(src);
                 end
                 src.UserData.running = true;
             case 'imp'
@@ -233,6 +301,7 @@ switch data.type
                 src.UserData.expect_quit = false;
                 if ~src.UserData.running
                     updateNameCallback(src.UserData.name);
+                    udpSenderRelayNameTags(src);
                 end
                 src.UserData.running = true;
             case 'run'
@@ -250,6 +319,7 @@ switch data.type
                 src.UserData.expect_quit = false;
                 if ~src.UserData.running
                     updateNameCallback(src.UserData.name);
+                    udpSenderRelayNameTags(src);
                 end
                 src.UserData.running = true;
             case 'rec'
@@ -267,6 +337,7 @@ switch data.type
                 src.UserData.expect_quit = false;
                 if ~src.UserData.running
                     updateNameCallback(src.UserData.name);
+                    udpSenderRelayNameTags(src);
                 end
                 src.UserData.running = true;
             case 'quit'
@@ -310,6 +381,7 @@ switch data.type
                 src.UserData.expect_quit = false;
                 if ~src.UserData.running
                     updateNameCallback(src.UserData.name);
+                    udpSenderRelayNameTags(src);
                 end
                 src.UserData.running = true;
             case 'resume'
@@ -350,6 +422,13 @@ switch data.type
         disp(data);
         error("Unhandled message type: %s\n", data.type);
 end
+end
+
+function udpSenderRelayNameTags(src)
+cmd = sprintf('b.A:%s', src.UserData.atag.Value);
+writeline(src, cmd, src.UserData.address, src.UserData.parameter_port);
+cmd = sprintf('b.B:%s', src.UserData.btag.Value);
+writeline(src, cmd, src.UserData.address, src.UserData.parameter_port);
 end
 
 function nameFieldValueChanged(src, ~)

@@ -5,7 +5,7 @@ arguments
     uni (64,:) double
     idx {mustBePositive, mustBeInteger}
     options.ExcludedChannels {mustBePositive, mustBeInteger} = [];
-    options.Vector {mustBeInteger} = -10:10; % Times for extended samples matrix
+    options.Vector {mustBeInteger} = -20:15; % Times for extended samples matrix
 end
 
 uni_d = uni - [zeros(64,1), uni(:,(1:(end-1)))];

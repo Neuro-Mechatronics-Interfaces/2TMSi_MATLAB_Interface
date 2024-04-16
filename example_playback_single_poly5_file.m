@@ -13,6 +13,14 @@ MIN_CHANNELWISE_RMS = 0.1; % microvolts
 RMS_Y_LIM = [0 5];
 MIN_PK_HEIGHT = 7.5;
 
+%% Load neural net
+% iCh = [1,2,3,4,5,6,9,10,11,12,13,14,15,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,33,34,35,36,37,38,41,42,43,45,46,47,50,54,55,56,57,58,59,61,62,63];
+% iExc = setdiff(1:64,iCh);
+% iExc = [8, 40, 52];
+% iCh = [1,2,3,4,5,6,9,10,11,12,13,14,15,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,33,34,35,36,37,38,41,42,43,45,46,47,50,54,55,56,57,58,59,61,62,63];
+% load('2024-04-04_Extensor-Softmax-Test.mat','net');
+load('2024-04-15_Extensor-Softmax-Test2.mat','net','meta');
+
 %% Open file and estimate scaling/offsets
 % Open Poly5 file for reading:
 poly5 = TMSiSAGA.Poly5(MY_FILE, SAMPLE_RATE_RECORDING, [], 'r');
@@ -67,11 +75,11 @@ past_samples = zeros(64,1);
 % title(ax,'RMS','FontName','Tahoma');
 
 clus_ax = nexttile(L,5,[1 1]);
-set(clus_ax,'NextPlot','add','FontName','Tahoma','YLim',[0,20],'XLim',[0,h_scale]);
+set(clus_ax,'NextPlot','add','FontName','Tahoma','YLim',[0,net.outputs{1}.size],'XLim',[0,h_scale]);
 title(clus_ax,'Sorted','FontName','Tahoma','Color','k');
-hs = gobjects(20,1);
-clus_cols = jet(20);
-for iH = 1:20
+hs = gobjects(net.outputs{1}.size,1);
+clus_cols = jet(net.outputs{1}.size);
+for iH = 1:net.outputs{1}.size
     hs(iH) = scatter(clus_ax,[],[],32,clus_cols(iH,:),"Marker","|","MarkerEdgeColor",clus_cols(iH,:),'LineWidth',1.5);
 end
 
@@ -80,11 +88,7 @@ needs_initial_ts = true;
 ts0 = 0;
 [b,a] = butter(3,0.25,'high');
 zi = zeros(3,64);
-% iCh = [1,2,3,4,5,6,9,10,11,12,13,14,15,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,33,34,35,36,37,38,41,42,43,45,46,47,50,54,55,56,57,58,59,61,62,63];
-% iExc = setdiff(1:64,iCh);
-iExc = [8, 40, 52];
-iCh = [1,2,3,4,5,6,9,10,11,12,13,14,15,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,33,34,35,36,37,38,41,42,43,45,46,47,50,54,55,56,57,58,59,61,62,63];
-load('2024-04-04_Extensor-Softmax-Test.mat','net');
+
 warning('off','signal:findpeaks:largeMinPeakHeight');
 cols = jet(20);
 locs = cell(64,1);
@@ -101,21 +105,23 @@ while isvalid(fig)
     % diff_data = diff_data - median(diff_data,1);
     [data,zi] = filter(b,a,samples(2:65,:)',zi,1);
     % data(:,rms(data,1)<MIN_CHANNELWISE_RMS) = nan;
-    data(:,iExc) = nan;
+    data(:,meta.channels.exclude_pre) = nan;
     data = reshape(del2(reshape(data,[],8,8)),[],64);
     for iH = 1:64
         h(iH).YData(iVec) = data(:,iH)+LINE_VERTICAL_OFFSET*rem(iH-1,8);
         % [~,locs] = findpeaks(data(:,iH),'MinPeakHeight', MIN_PK_HEIGHT);
-        locs{iH} = find(abs(data(:,iH)) > MIN_PK_HEIGHT);
-        h(iH).MarkerIndices = setdiff(h(iH).MarkerIndices, iVec);
-        if ~isempty(locs{iH})
-            locs{iH} = locs{iH}([true; diff(locs{iH})>1]);
-            h(iH).MarkerIndices = [h(iH).MarkerIndices, iVec(locs{iH})];
+        if ismember(iH, meta.channels.keep_post)
+            locs{iH} = find(abs(data(:,iH)) > MIN_PK_HEIGHT);
+            h(iH).MarkerIndices = setdiff(h(iH).MarkerIndices, iVec);
+            if ~isempty(locs{iH})
+                locs{iH} = locs{iH}([true; diff(locs{iH})>1]);
+                h(iH).MarkerIndices = [h(iH).MarkerIndices, iVec(locs{iH})];
+            end
         end
     end
     all_locs = unique(vertcat(locs{:}));
-    [~,clus] = max(net(data(all_locs,iCh)'),[],1);
-    for iH = 1:20
+    [~,clus] = max(net(data(all_locs,meta.channels.keep_post)'),[],1);
+    for iH = 1:net.outputs{1}.size
         i_remove = ismember(hs(iH).XData,iVec);
         i_cur = all_locs(clus==iH);
         % hs(iH).XData(i_remove) = [];

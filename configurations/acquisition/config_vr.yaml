@@ -128,8 +128,8 @@ TCP:
   # Address: "127.0.0.1"
   Port: 6051
  RMSServer:
-  # Address: "192.168.88.100"
-  Address: "127.0.0.1"
+  Address: "192.168.88.100"
+  # Address: "127.0.0.1"
   Port: 6052
  XBoxServer:
   Address: "192.168.88.101"
