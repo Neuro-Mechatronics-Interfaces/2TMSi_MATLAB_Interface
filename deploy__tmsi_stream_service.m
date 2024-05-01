@@ -25,17 +25,17 @@ else
 end
 
 %% SET PARAMETERS
-IMPEDANCE_FIGURE_POSITION = [ 280 160 1200 720; ... % A
-                             2120 100 1200 720]; % B
-% IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
-%                               186 430 1482 787]; % B
-% IMPEDANCE_FIGURE_POSITION = [10 250 1250 950; ... % A - 125k
-%     1250 250 1250 950];
-
-% TODO: Add something that will increment a sub-block index so that it
-% auto-saves if the buffer overflows, maybe using a flag on the buffer
-% object to do this or subclassing to a new buffer class that is
-% specifically meant for saving stream records.
+switch getenv("COMPUTERNAME")
+    case "MAX_LENOVO"
+        IMPEDANCE_FIGURE_POSITION = [ 280 160 1200 720; ... % A
+                                     2120 100 1200 720]; % B
+    case "PLEXON_125K"
+        IMPEDANCE_FIGURE_POSITION = [10 250 1250 950; ... % A - 125k
+                                     1250 250 1250 950];
+    otherwise
+        IMPEDANCE_FIGURE_POSITION = [-2249 60 1393 766; ... % A
+                                      186 430 1482 787]; % B
+end
 
 config_file = parameters('config');
 fprintf(1, "[TMSi]::Loading configuration file (%s, in main repo folder)...\n", config_file);

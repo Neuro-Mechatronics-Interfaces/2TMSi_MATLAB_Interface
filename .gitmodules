@@ -40,3 +40,6 @@
 [submodule "+charts"]
 	path = +charts
 	url = https://github.com/Neuro-Mechatronics-Interfaces/matlab_package__charts
+[submodule "+ckc"]
+	path = +ckc
+	url = https://github.com/Neuro-Mechatronics-Interfaces/matlab_package__ckc

@@ -9,6 +9,7 @@ arguments
     options.SamplePeriod = 0.05;
     options.PrepPeriod = 1.0;
     options.Reps = 2;
+    
 end
 nExpectedSamples = (options.PrepPeriod + options.PoseDuration)*options.Reps / options.SamplePeriod;
 m = matfile(options.File, 'Writable', true);

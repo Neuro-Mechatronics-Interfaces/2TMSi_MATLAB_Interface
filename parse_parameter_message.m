@@ -27,22 +27,22 @@ switch parameter_code
         else
             fprintf(1,'[TMSi]\t->\t[%s]: Tag **not** updated (invalid value "%s")\n', parameter_code, parameter_value);
         end
-    case 'c' % Length of calibration buffer (samples)
-        parameter_command = strsplit(parameter_value, ':');
-        new_state = matlab.lang.makeValidName(lower(parameter_command{1}));
+    case 'c' % Load calibration file and initialize new calibration for it
+        cal_file = strcat(parameter_value, ".mat");
+        if exist(cal_file,'file')==0
+            fprintf(1,'[TMSi]\t->\t[%s]: Calibration File %s does not exist!\n', parameter_code, cal_file);
+            return;
+        end
+        param.cal.data = load(cal_file);
+        param.cal.file = cal_file;
+        [~,new_state,~] = fileparts(cal_file);
+        new_state = matlab.lang.makeValidName(lower(new_state));
         param.calibration_state = new_state;
-        if numel(parameter_command) > 1
-            param.n_samples_calibration = round(str2double(parameter_command{2}));
-        end
-        if isfield(param.transform.A, new_state) && (numel(parameter_command) < 2)
-            param.n_spike_channels = numel(param.threshold.A.(new_state));
-            param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), 64), 'B', zeros(numel(param.rate_smoothing_alpha), 64));
-        else
-            param = init_new_calibration(param, new_state);
-        end
+        param.n_samples_calibration = param.cal.data.N;
+        param = init_new_calibration(param, new_state);
         param.exclude_by_rms = struct('A', false(1,param.n_spike_channels), 'B', false(1, param.n_spike_channels));
         param.gui.sch.state = new_state;
-        fprintf(1,'[TMSi]\t->\t[%s]: Calibration States:Samples = %s\n', parameter_code, parameter_value);
+        fprintf(1,'[TMSi]\t->\t[%s]: Initializing new calibration for state: %s\n', parameter_code, new_state);
     case 'd' % Load classifier file
         if exist(parameter_value, 'file')==0
             fprintf(1,'[TMSi]\t->\t[%s]: No such file: %s\n', parameter_code, parameter_value);
@@ -100,15 +100,25 @@ switch parameter_code
         fc = str2double(parameter_value);
         [param.hpf.b, param.hpf.a] = butter(2, fc/(param.sample_rate/2), "high");
         fprintf(1,'[TMSi]\t->\t[%s]: HPF Fc = %s Hz\n', parameter_code, parameter_value);
-    case 'l' % Label State
-        parameter_command = strsplit(parameter_value, ':');
-        new_state = matlab.lang.makeValidName(lower(parameter_command{1}));
-        param.label_state = new_state;
-        if numel(parameter_command) > 1
-            param.n_samples_label = round(str2double(parameter_command{2}));
+    case 'i' % Interpolate grid
+        param.interpolate_grid = ~strcmpi(parameter_value,'0');
+        if param.interpolate_grid
+            fprintf(1,'[TMSi]\t->\t[%s]: Interpolate Grid = ON\n', parameter_code);
+        else
+            fprintf(1,'[TMSi]\t->\t[%s]: Interpolate Grid = OFF\n', parameter_code);
         end
-        param = init_new_label(param, new_state);
-        fprintf(1,'[TMSi]\t->\t[%s]: Label State:Samples = %s\n', parameter_code, parameter_value);
+    case 'm' % Re-acquire MVC
+        param.acquire_mvc = true;
+        tmp = round(str2double(parameter_value));
+        if isnumeric(tmp)
+            param.acquire_mvc = true;
+            param.mvc_samples = tmp;
+            param.mvc_data = cell(param.mvc_samples,param.n_device);
+            param.n_mvc_acquired = 0;
+            fprintf(1,'[TMSi]\t->\t[%s]: Acquiring %d iterations of MVC samples.\n',parameter_code,param.mvc_samples);
+        else
+            fprintf(1,'[TMSi]\t->\t[%s]: Invalid parameter value (should be numeric): %s\n', parameter_code, parameter_value);
+        end
     case 'o' % Squiggles offsets
         param.gui.squiggles.offset = str2double(parameter_value);
         param.gui.squiggles.enable = true;
@@ -118,14 +128,6 @@ switch parameter_code
         end
         param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
         fprintf(1,'[TMSi]\t->\t[%s]: Squiggles Line Offset = %s (uV)\n', parameter_code, parameter_value);
-    case 'p' % Number of spike channels (rows in transform matrix)
-        % param.n_spike_channels = round(str2double(parameter_value));
-        % param.n_spike_channels = 64;
-        % param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels), 'B', zeros(numel(param.rate_smoothing_alpha), param.n_spike_channels));
-        % param = init_new_calibration(param, param.calibration_state);
-        % command_chunks = strsplit(parameter_value, ":");
-        
-        fprintf(1,'[TMSi]\t->\t[%s]: Spike Channels = %s\n', parameter_code, parameter_value);
     case 'q' % s**Q**uiggles GUI command
         command_chunks = strsplit(parameter_value, ":");
         en = str2double(command_chunks{1})==1;
@@ -161,17 +163,6 @@ switch parameter_code
         end
         param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), 64), 'B', zeros(numel(param.rate_smoothing_alpha), 64));
         fprintf(1,['[TMSi]\t->\t[%s]: Rate Smoothing Alpha = ' strjoin(repmat({'%4.3f'}, 1, numel(param.rate_smoothing_alpha)),  ', ') '\n'], parameter_code, param.rate_smoothing_alpha);
-    case 't' % Set accelerometer threshold
-        command_chunks = strsplit(parameter_value, ':');
-        param.threshold_pose = str2double(command_chunks{1}) / 100;
-        if numel(command_chunks) > 1
-            param.pose_smoothing_alpha = str2double(command_chunks{2}) / 1000;
-        end
-        if numel(command_chunks) > 2
-            param.deadzone_pose = str2double(command_chunks{3});
-        end
-        fprintf(1,'[TMSi]\t->\t[%s]: Pose Threshold = %4.2f | Alpha = %5.3f | Deadzone = %d\n', parameter_code, param.threshold_pose, param.pose_smoothing_alpha, param.deadzone_pose);
-    
     case 'x' % Set spike detection/threshold deviations
         param.threshold_deviations = str2double(parameter_value)/1000;
         param.threshold.A.(param.calibration_state) = median(abs(param.calibration_data.A.(param.calibration_state)), 1) * param.threshold_deviations;

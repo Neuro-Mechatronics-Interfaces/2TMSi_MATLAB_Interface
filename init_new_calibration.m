@@ -10,4 +10,5 @@ param.calibration_data.A.(new_state) = randn(param.n_samples_calibration, param.
 param.calibration_data.B.(new_state) = randn(param.n_samples_calibration, param.n_spike_channels);
 param.calibration_samples_acquired.A = 0;
 param.calibration_samples_acquired.B = 0;
+param.reinit_calibration_data = true;
 end

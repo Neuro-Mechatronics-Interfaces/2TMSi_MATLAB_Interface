@@ -76,19 +76,19 @@ lab.Layout.Row = 4;
 lab.Layout.Column = 3;
 fig.UserData.SamplesEditField = uieditfield(L, 'numeric', ...
     "Value", config.GUI.N_Samples, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
-    'ValueChangedFcn', @samplesFieldValueChanged, 'RoundFractionalValues','on');
+    'ValueChangedFcn', @samplesFieldValueChanged, 'RoundFractionalValues','on','ValueDisplayFormat','%d');
 fig.UserData.SamplesEditField.Layout.Row = 4;
 fig.UserData.SamplesEditField.Layout.Column = 4;
 
-lab = uilabel(L,"Text", "Channel", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+lab = uilabel(L,"Text", "Channel (FOCUSED)", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
 lab.Layout.Row = 4;
 lab.Layout.Column = 5;
-fig.UserData.SamplesEditField = uieditfield(L, 'text', ...
+fig.UserData.SingleChannelEditField = uieditfield(L, 'text', ...
     "Value", sprintf('%d:%s:%d', config.GUI.Single.Enable, config.GUI.Single.SAGA, config.GUI.Single.Channel), ...
     "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
     'ValueChangedFcn', @channelFieldValueChanged);
-fig.UserData.SamplesEditField.Layout.Row = 4;
-fig.UserData.SamplesEditField.Layout.Column = 6;
+fig.UserData.SingleChannelEditField.Layout.Row = 4;
+fig.UserData.SingleChannelEditField.Layout.Column = 6;
 
 runButton = uibutton(L, "Text", "RUN", 'ButtonPushedFcn', @runButtonPushed,'FontName','Tahoma','Enable','off');
 runButton.Layout.Row = 3;
@@ -122,25 +122,26 @@ quitButton.UserData = struct('idle', idleButton, 'run', runButton, 'rec', recBut
 
 fig.UserData.PButton = struct;
 fig.UserData.PButton.Calibrate = uibutton(L, "Text", "Re-Calibrate", 'ButtonPushedFcn', @calibrateButtonPushed, 'FontName','Tahoma');
-fig.UserData.PButton.Layout.Row = 5;
-fig.UserData.PButton.Layout.Column = 1;
-lab = uilabel(L,"Text", "Calibration (samples)", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+fig.UserData.PButton.Calibrate.Layout.Row = 5;
+fig.UserData.PButton.Calibrate.Layout.Column = 5;
+
+lab = uilabel(L,"Text", "Calibration File", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
 lab.Layout.Row = 5;
-lab.Layout.Column = 2;
-fig.UserData.CalSamplesEditField = uieditfield(L, 'numeric', ...
-    "Value", config.Default.N_Samples_Calibration, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
-    'RoundFractionalValues','on');
-fig.UserData.CalSamplesEditField.Layout.Row = 5;
-fig.UserData.CalSamplesEditField.Layout.Column = 3;
+lab.Layout.Column = 1;
+fig.UserData.CalNameEditField = uieditfield(L, 'text', ...
+    "Value", config.Default.Calibration_File, ...
+    "FontName", 'Consolas', 'HorizontalAlignment', 'center');
+fig.UserData.CalNameEditField.Layout.Row = 5;
+fig.UserData.CalNameEditField.Layout.Column = 2;
 
 lab = uilabel(L,"Text", "Triggers YLim", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
 lab.Layout.Row = 5;
-lab.Layout.Column = 4;
+lab.Layout.Column = 3;
 fig.UserData.TriggersBoundEditField = uieditfield(L, 'numeric', ...
     "Value", config.GUI.TriggerBound, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
     'ValueChangedFcn', @handleTriggersBoundFieldChanged, 'RoundFractionalValues','on');
 fig.UserData.TriggersBoundEditField.Layout.Row = 5;
-fig.UserData.TriggersBoundEditField.Layout.Column = 5;
+fig.UserData.TriggersBoundEditField.Layout.Column = 4;
 
 fig.UserData.ToggleSquigglesButton = uibutton(L, "Text", "Turn Squiggles OFF", 'ButtonPushedFcn', @toggleSquigglesButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.2 0.3 0.7],'UserData',config.GUI.Squiggles.Enable,'FontColor','w');
 fig.UserData.ToggleSquigglesButton.Layout.Row = 5;
@@ -184,15 +185,12 @@ src.UserData = ~src.UserData;
 end
 
 function calibrateButtonPushed(src,~)
-val = src.Parent.Parent.UserData.CalSamplesEditField.Value;
-if val < 100
-    src.Parent.Parent.UserData.CalSamplesEditField.BackgroundColor = 'r';
-    return;
-else
-    src.Parent.Parent.UserData.CalSamplesEditField.BackgroundColor = 'w';
-end
+val = src.Parent.Parent.UserData.CalNameEditField.Value;
+[p,f,~] = fileparts(val);
+p = strrep(p,filesep,"/");
+val = strcat(p,"/",f);
 udpSender = src.Parent.Parent.UserData.UDP;
-cmd = sprintf('c.main:%d', val);
+cmd = sprintf('c.%s', val);
 writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
 fprintf(1,'[CONTROLLER]::Sent recalibration request: %s\n', cmd);
 end

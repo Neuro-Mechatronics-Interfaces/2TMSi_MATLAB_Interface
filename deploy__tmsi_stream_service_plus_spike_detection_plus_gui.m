@@ -39,13 +39,6 @@ switch getenv("COMPUTERNAME")
         IMPEDANCE_FIGURE_POSITION = [ 100 300 200 200; ...  % A
                                       300 300 200 200];     % B
 end
-% IMPEDANCE_FIGURE_POSITION = [10 250 1250 950; ... % A - 125k
-%     1250 250 1250 950];
-
-% TODO: Add something that will increment a sub-block index so that it
-% auto-saves if the buffer overflows, maybe using a flag on the buffer
-% object to do this or subclassing to a new buffer class that is
-% specifically meant for saving stream records.
 
 config_file = parameters('config_stream_service_plus');
 fprintf(1, "[TMSi]::Loading configuration file (%s, in main repo folder)...\n", config_file);
@@ -186,7 +179,6 @@ tcp_muap_server = tcpserver("0.0.0.0", ...
 %% Initialize parameters and parameter sub-fields, figures
 param = struct(...
     'n_channels', struct('A', [], 'B', []), ...
-    ...'n_spike_channels', config.Default.N_Spike_Channels, ...
     'n_spike_channels', max(numel(config.GUI.Squiggles.A), numel(config.GUI.Squiggles.B)), ...
     'name_tag', struct('A', "A", 'B', "B"), ...
     'selected_spike_channels', struct('A', [4, 24, 55], 'B', [4, 24, 55]), ...
@@ -194,18 +186,23 @@ param = struct(...
     'recording_samples_acquired', struct('A', 0, 'B', 0), ...
     'recording_chunk_offset', struct('A', 0, 'B', 0), ...
     'classifier', struct('A', [], 'B', []), ...
-    'n_samples_calibration', config.Default.N_Samples_Calibration, ...
-    'n_samples_label', config.Default.N_Samples_Label, ...
     'n_total', struct('A', numel(config_channels.A.uni) + numel(config_channels.A.bip), 'B', numel(config_channels.B.uni) + numel(config_channels.B.bip)), ...
     'sample_rate', config.Default.Sample_Rate, ...
     'spike_detector', config.Default.Spike_Detector, ...
     'car_mode', config.Default.CAR_Mode, ...
+    'interpolate_grid', config.Default.Interpolate_Grid, ...
+    'acquire_mvc',true, ...
+    'mvc_samples', config.Default.MVC_Sample_Iterations, ...
+    'mvc_data', [], ...
     'hpf', struct('b', [], 'a', []), ...
     'gui', struct('squiggles', struct('enable', config.GUI.Squiggles.Enable, 'fig', [], 'h', [], 'offset', config.GUI.Offset, ...
                                       'channels', struct('A', [], 'B', []), 'zi', struct('A', [], 'B', []), 'n_samples', config.GUI.N_Samples, 'color', config.GUI.Color, ...
                                       'acc', struct('enable', config.Accelerometer.Enable, 'differential', config.Accelerometer.Differential, 'saga', config.Accelerometer.SAGA), ...
                                       'triggers', struct('enable', config.Triggers.Enable, 'y_bound', config.GUI.TriggerBound), ...
                                       'tag', struct('A', "A", 'B', "B")), ...
+                  'cal', struct('enable', config.GUI.Calibration.Enable, 'fig', [], 'h', [], ...
+                                'data', load(config.Default.Calibration_File), ...
+                                'file', config.Default.Calibration_File), ...
                   'sch', struct('enable', config.GUI.Single.Enable, 'fig', [], 'h', [], ...
                                 'saga', config.GUI.Single.SAGA, ...
                                 'channel', config.GUI.Single.Channel,  ...
@@ -213,18 +210,14 @@ param = struct(...
                                 'color', config.GUI.Color, ...
                                 'state', config.Default.Calibration_State, ...
                                 'tag', struct('A', "A", 'B', "B"))), ...
-    'calibrate', struct('A', true, 'B', true), ...
-    'calibration_state', config.Default.Calibration_State, ...
+    'calibrate', struct('A', false, 'B', false), ...
+    'calibration_running', false, ...
     'calibration_samples_acquired', struct('A', 0, 'B', 0),  ...
-    'calibration_data', struct('A', struct(config.Default.Calibration_State, randn(config.Default.N_Samples_Calibration, numel(config_channels.A.uni)+numel(config_channels.A.bip))), ...
-                               'B', struct(config.Default.Calibration_State, randn(config.Default.N_Samples_Calibration, numel(config_channels.B.uni)+numel(config_channels.B.bip)))), ...
+    'reinit_calibration_data', false, ...
     'hpf_max', struct('A', ones(1,numel(config_channels.A.uni)+numel(config_channels.A.bip)),'B', ones(1,numel(config_channels.B.uni)+numel(config_channels.B.bip))), ...
-    'label', struct('A', false, 'B', false), ...
-    'label_state', config.Default.Label_State, ...
-    'labeled_samples_acquired', struct('A', 0, 'B', 0), ...
-    'labeled_data', struct('A', struct(config.Default.Label_State, randn(numel(config_channels.A.uni), config.Default.N_Samples_Label)), ...
-                           'B', struct(config.Default.Label_State, randn(numel(config_channels.B.uni), config.Default.N_Samples_Label))), ...
+    'env_max', struct('A', ones(1,numel(config_channels.A.uni)+numel(config_channels.A.bip)),'B', ones(1,numel(config_channels.B.uni)+numel(config_channels.B.bip))), ...
     'rate_smoothing_alpha', reshape(config.Default.Rate_Smoothing_Alpha,numel(config.Default.Rate_Smoothing_Alpha),1), ...
+    'learning_rate', 0.00001, ...
     'save_location', strrep(config.Default.Folder,'\','/'),  ...            % Save folder
     'save_params', config.Default.Save_Parameters, ...
     'pause_duration', config.Default.Sample_Loop_Pause_Duration, ...
@@ -240,7 +233,9 @@ param = struct(...
     'threshold_pose', config.Default.Pose_Threshold, ...
     'deadzone_pose', config.Default.Pose_Deadzone_Threshold, ...
     'use_channels', struct('A', [], 'B', []), ...
+    'n_device', numel(device), ...
     'pose_smoothing_alpha', config.Default.Pose_Smoothing_Alpha);
+param.mvc_data = cell(param.mvc_samples, numel(device));
 if param.gui.squiggles.acc.enable && param.gui.squiggles.acc.differential && (numel(config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX) < 6)
     disconnect(device);
     lib.cleanUp();
@@ -255,6 +250,21 @@ param.gui.squiggles.zi.A = zeros(numel(config.GUI.Squiggles.A),2);
 param.gui.squiggles.zi.B = zeros(numel(config.GUI.Squiggles.B),2);
 [param.hpf.b, param.hpf.a] = butter(3, config.Default.HPF_Cutoff_Frequency/(param.sample_rate/2), 'high');
 [param.b_rms, param.a_rms] = butter(3, 0.1, 'low');
+[param.b_env, param.a_env] = butter(3, 1.5/(param.sample_rate/2), 'low');
+param.n_samples_calibration = param.gui.cal.data.N;
+[~,tmpf,~] = fileparts(config.Default.Calibration_File);
+param.calibration_state = matlab.lang.makeValidName(lower(tmpf));
+param.calibration_data = struct('A', struct(param.calibration_state, randn(param.n_samples_calibration, param.n_total.A)), ...
+                                'B', struct(param.calibration_state, randn(param.n_samples_calibration, param.n_total.B)));
+param.gui.cal = init_calibration_gui(param.gui.cal);
+if numel(device) > 1
+    nTotalChannels = param.n_total.A + param.n_total.B;
+    
+else
+    nTotalChannels = param.n_total.(device.tag);
+end
+param.gui.cal.W = randn(nTotalChannels+4, 4);
+param.gui.cal.W([1:64,69:136],:) = 0;
 
 ch = device.getActiveChannels();
 if ~iscell(ch)
@@ -265,11 +275,15 @@ param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
 param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
 hpf_data = struct('A', [], 'B', []);
 rms_data = struct('A',[],'B',[]);
+env_data = struct('A',[],'B',[]);
+env_history = struct('A', zeros(3,param.n_total.A), 'B', zeros(3, param.n_total.B));
+param.n_mvc_acquired = 0;
 rms_zi = struct('A',zeros(3,param.n_spike_channels),'B',zeros(3,param.n_spike_channels));
 i_mono = struct('A', config.SAGA.A.Channels.UNI, 'B', config.SAGA.B.Channels.UNI);
 i_bip = struct('A', config.SAGA.A.Channels.BIP, 'B', config.SAGA.B.Channels.BIP);
 i_all = struct('A', union(i_mono.A, i_bip.A), 'B', union(i_mono.B, i_bip.B));
 zi = struct('A',zeros(3,numel(i_all.A)), 'B', zeros(3,numel(i_all.B)));
+cur_state = [0, 0, 0, 0];
 
 %% Configuration complete, run main control loop.
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
@@ -294,12 +308,16 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     
     start(device);
     pause(1.0);
-    % needs_timestamp = struct;
-    % first_timestamp = struct;
     counter_offset = 0;
     needs_offset = true;
     pose_vec = zeros(6,1);
-
+    if N_CLIENT > 1
+        past_state = zeros(2,param.n_total.A + param.n_total.B);
+    else
+        past_state = zeros(2,param.n_total.(device.tag));
+    end
+    caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
+    param.gui.cal.W = randn(nTotalChannels+4, 4);
     for ii = 1:N_CLIENT % Determine number of channels definitively
         [samples{ii}, num_sets] = device(ii).sample();
         while (num_sets < 1)
@@ -337,11 +355,17 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 fname = strrep(fname, tmpExt, ".poly5");
             end
             fprintf(1, "File name updated: %s\n", fname);
+            caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
+            param.gui.cal.W = randn(nTotalChannels+4, 4);
         end
         
         while udp_param_receiver.NumBytesAvailable > 0
             parameter_data = udp_param_receiver.readline();
             param = parse_parameter_message(parameter_data, param);
+            if param.reinit_calibration_data
+                caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
+                param.gui.cal.W = randn(nTotalChannels+4, 4);
+            end
         end
 
         while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit")) && (~strcmpi(state, "imp"))
@@ -362,6 +386,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 else
                     fname = strrep(fname, tmpExt, ".poly5");
                 end
+                caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
+                param.gui.cal.W = randn(nTotalChannels+4, 4);
                 fprintf(1, "File name updated: %s\n", fname);
             end
 
@@ -369,6 +395,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             while udp_param_receiver.NumBytesAvailable > 0
                 parameter_data = udp_param_receiver.readline();
                 param = parse_parameter_message(parameter_data, param);
+                if param.reinit_calibration_data
+                    caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
+                    param.gui.cal.W = randn(nTotalChannels+4, 4);
+                end
             end
 
             num_sets = zeros(numel(device),1);
@@ -387,14 +417,41 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         case 3
                             hpf_data.(device(ii).tag)(:,param.exclude_by_rms.(device(ii).tag)) = missing;
                             tmp = reshape(hpf_data.(device(ii).tag)(:,1:64)', 8, 8, num_sets(ii));
-                            for ik = 1:num_sets(ii)
-                                tmp(:,:,ik) = fillmissing2(tmp(:,:,ik),'linear');
+                            if param.interpolate_grid
+                                for ik = 1:num_sets(ii)
+                                    tmp(:,:,ik) = fillmissing2(tmp(:,:,ik),'linear');
+                                end
                             end
                             hpf_data.(device(ii).tag)(:,1:64) = reshape(del2(tmp),64,num_sets(ii))';
                     end
                     if needs_offset && (ii > 1) && (num_sets(1) > 0)
                         counter_offset = samples{1}(config.SAGA.(device(1).tag).Channels.COUNT, end) - samples{ii}(config.SAGA.(device(ii).tag).Channels.COUNT, end);
                         needs_offset = false;
+                    end
+                end
+            end
+            if param.acquire_mvc
+                if all(num_sets > 0)
+                    param.n_mvc_acquired = param.n_mvc_acquired + 1;
+                    for ii = 1:numel(device)
+                        param.mvc_data{param.n_mvc_acquired,ii} = hpf_data.(device(ii).tag);
+                    end
+                    if param.n_mvc_acquired == param.mvc_samples
+                        param.acquire_mvc = false;
+                        for ii = 1:numel(device)
+                            tmpdata = vertcat(param.mvc_data{:,ii});
+                            tmpdata(1:100,:) = 0;
+                            param.hpf_max.(device(ii).tag) = max(abs(tmpdata),[],1);
+                            param.hpf_max.(device(ii).tag)(param.hpf_max.(device(ii).tag) < eps) = 1; % So we don't divide by zero
+                            param.env_max.(device(ii).tag) = max(filter(param.b_env,param.a_env,tmpdata,[],1),[],1);
+                            param.env_max.(device(ii).tag)(param.env_max.(device(ii).tag) < eps) = 1; % So we don't divide by zero
+                            param.calibrate.(device(ii).tag) = true;
+                        end
+                        param.calibration_running = true;
+                        param.gui.cal.enable = true;
+                        param = init_new_calibration(param, param.calibration_state);
+                        param.gui.cal = init_calibration_gui(param.gui.cal);
+                        caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
                     end
                 end
             end
@@ -459,12 +516,19 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if n_cal_samples >= param.n_samples_calibration
                         last_sample = size(hpf_data.(device(ii).tag),1) - (n_cal_samples - param.n_samples_calibration);
                         param.calibration_data.(device(ii).tag).(param.calibration_state)((param.calibration_samples_acquired.(device(ii).tag)+1):param.n_samples_calibration,:) = hpf_data.(device(ii).tag)(1:last_sample,:);
-                        param.hpf_max.(device(ii).tag) = max(max(param.calibration_data.(device(ii).tag).(param.calibration_state),[],1),ones(1,param.n_spike_channels));
+                        % param.hpf_max.(device(ii).tag) = max(max(param.calibration_data.(device(ii).tag).(param.calibration_state),[],1),ones(1,param.n_spike_channels));
+                        % param.hpf_max.(device(ii).tag)(param.hpf_max.(device(ii).tag)<eps) = 1;
                         param.exclude_by_rms.(device(ii).tag) = rms(param.calibration_data.(device(ii).tag).(param.calibration_state),1) < param.min_rms_artifact;
                         [param.transform.(device(ii).tag).(param.calibration_state), score] = pca(param.calibration_data.(device(ii).tag).(param.calibration_state), 'NumComponents', param.n_spike_channels);
                         param.threshold.(device(ii).tag).(param.calibration_state) = median(abs(param.calibration_data.(device(ii).tag).(param.calibration_state)), 1) * param.threshold_deviations;
                         param.calibrate.(device(ii).tag) = false;
                         param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
+                        caldata_out.(device(ii).tag) = param.calibration_data.(device(ii).tag).(param.calibration_state);
+                        caldata_out.sampling_complete(ii) = true;
+                        if all(caldata_out.sampling_complete)
+                            fname_cal = strrep(strrep(fname,"%s_",""),".poly5",sprintf("_%s_cal.mat",param.calibration_state));
+                            save(fname_cal,"-struct","caldata_out");
+                        end
                         fprintf(1,'[TMSi]::[Calibration]::SAGA-%s "%s" calibration complete.\n', device(ii).tag, param.calibration_state);
                     else
                         param.calibration_data.(device(ii).tag).(param.calibration_state)((param.calibration_samples_acquired.(device(ii).tag)+1):n_cal_samples,:) = hpf_data.(device(ii).tag);
@@ -483,21 +547,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             param.sample_rate, ...
                             param.threshold_artifact);
                         param.past_rates.(device(ii).tag) = param.rate_smoothing_alpha.*param.past_rates.(device(ii).tag) + (1-param.rate_smoothing_alpha).*repmat(tmp_rates,numel(param.rate_smoothing_alpha),1);
-                        if param.gui.squiggles.acc.enable
-                            [max_pose, acc_pose_val] = max(pose_vec);
-                            if max_pose < param.deadzone_pose
-                                acc_pose = "Rest";
-                            else
-                                acc_pose = string(TMSiAccPose(acc_pose_val));
-                            end
-                            if ~isempty(param.gui.squiggles.fig)
-                                if isvalid(param.gui.squiggles.fig)
-                                    updatePose(param.gui.squiggles, acc_pose);
-                                end
-                            end
-                        else
-                            acc_pose = "Unknown";
-                        end
+                        
                         n_samp = size(samples{ii},2);
                         if tcp_spike_server.Connected
                             spike_data = struct('SAGA', device(ii).tag, 'data', param.past_rates.(device(ii).tag), 'n', n_samp);
@@ -593,7 +643,61 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 end
             end
 
-            % Handle updating the "NEO" (spikes) GUI if required
+            % Handle updating the "Calibrator" GUI if required
+            if param.gui.cal.enable && param.calibrate.(device(1).tag)
+                if isvalid(param.gui.cal.fig) && all(num_sets > 2)
+                    cur_samples = param.gui.cal.data.current_samples + param.calibration_samples_acquired.(device(1).tag)+1;
+                    cur_samples(cur_samples > param.gui.cal.data.N) = param.gui.cal.data.N;
+                    target_plot = param.gui.cal.data.target_data(cur_samples,1:2);
+                    % target_state = [target_plot(3:end,:), target_plot(2:(end-1),:), target_plot(1:(end-2),:)];
+                    set(param.gui.cal.h.target,'XData',target_plot(:,1),'YData',target_plot(:,2));
+                    if param.gui.cal.data.use_feedback
+                        %TODO: Add in user feedback for controlling point position here.
+                        for ii = 1:numel(device)
+                            [env_data.(device(ii).tag), env_history.(device(ii).tag)] = filter(param.b_env, param.a_env, hpf_data.(device(ii).tag), env_history.(device(ii).tag), 1);
+                            env_data.(device(ii).tag) = env_data.(device(ii).tag)./param.env_max.(device(ii).tag);
+                        end
+                        if numel(device) > 1
+                            n_min = min(num_sets);
+                            cur_emg = [env_data.A(1:n_min,:), env_data.B(1:n_min,:)];
+                            % [xy_state, past_state] = envelope_proj_2_state([env_data.A(1:n_min,:),env_data.B(1:n_min,:)],past_state,param.gui.cal.data.transform.coeff,param.gui.cal.data.transform.mu);
+                            % cur_xy = predict(param.gui.cal.data.net,[env_data.A(1:n_min,:), env_data.B(1:n_min,:)]);
+                            
+                        else
+                            cur_emg = env_data.(device.tag);
+                            n_min = size(cur_emg,1);
+                            % [xy_state, past_state] = envelope_proj_2_state(env_data.(device.tag),past_state,param.gui.cal.data.transform.coeff,param.gui.cal.data.transform.mu);
+                            % cur_xy = predict(param.gui.cal.data.net,env_data.(device.tag));
+                        end
+                        % predState = zeros(n_min,4);
+                        % U = zeros(size(cur_emg,1),size(cur_emg,2)+4);
+                        % Y = [target_plot(2:(n_min+1),:), target_plot(3:(n_min+2),:)];
+                        % for iPred = 1:n_min
+                        %     U(iPred,:) = [cur_emg(iPred,:), cur_state];
+                        %     predState(iPred,:) = U(iPred,:) * param.gui.cal.W;
+                        %     cur_state = predState(iPred,:);
+                        % 
+                        %     dW = (U(iPred,:)' * (predState(iPred,:) - Y(iPred,:))) / size(U, 1);  % Gradient of loss w.r.t. weights
+                        % 
+                        %     param.gui.cal.W = param.gui.cal.W - param.learning_rate * dW;  % Update weights
+                        % end
+                        % Backward pass: Update model parameters (gradient descent)
+ 
+                        % cur_xy = xy_state * param.gui.cal.data.transform.beta;
+                        % cur_xy = cur_state(1,[3,4]);
+                        prev_xy = [param.gui.cal.h.feedback.XData,param.gui.cal.h.feedback.YData];
+                        cur_xy = [mean(cur_emg(:,65)) - mean(cur_emg(:,67)), mean(cur_emg(:,66)) - mean(cur_emg(:,68))];
+                        new_xy = 0.25*cur_xy + 0.75*prev_xy;
+                        set(param.gui.cal.h.feedback,'XData',new_xy(1,1),'YData',new_xy(1,2));
+                        % set(param.gui.cal.h.feedback,'XData',cur_xy(:,1),'YData',cur_xy(:,2));
+                    elseif size(target_plot,1)>=5
+                        cur_xy = target_plot(5,:);
+                        set(param.gui.cal.h.feedback,'XData',cur_xy(1,1),'YData',cur_xy(1,2));
+                    end
+                end
+            end
+
+            % Handle updating the "SCH" (single-channel) GUI if required
             if param.gui.sch.enable && param.spike_detector
                 if isvalid(param.gui.sch.fig)
                     iTag = find(ORDERED_TAG == param.gui.sch.saga,1);

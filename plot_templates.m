@@ -5,13 +5,14 @@ arguments
     options.FigurePosition = [20   50   720   350];
     options.TemplateXSpacing = 2;
     options.TemplateYScale = 100;
+    options.TemplateGridSpacing = 2.5;
     options.MinChannelwiseRMS (1,1) double = 1;
     options.MinTemplateMaxRMS (1,1) double = 10; % microvolts
     options.NumChannels (1,1) double {mustBeInteger} = 64;
     options.NExamples (1,1) double {mustBeInteger} = 10;
-    options.Vector (1,:) {mustBeInteger} = -20:15;
+    options.Vector (1,:) {mustBeInteger} = -8:8;
     options.Save (1,1) logical = false;
-    options.SampleRate (1,1) double = 4000;
+    options.SampleRate (1,1) double = 2000;
     options.SpatialReferenceMode {mustBeMember(options.SpatialReferenceMode, ["Monopolar", "DifferentialX", "DifferentialY", "Laplacian"])} = "Laplacian";
     options.SaveFolder {mustBeTextScalar} = 'figures';
     options.SaveID {mustBeTextScalar} = sprintf('Default_%04d_%02d_%02d', year(datetime('today')), month(datetime('today')), day(datetime('today')));
@@ -19,7 +20,9 @@ arguments
     options.XYFigure (1,2) double = [nan, nan]; % Figure XY coordinates
 end
 nts = numel(options.Vector);
-snipdata = reshape(snips',nts,options.NumChannels,size(snips,1));
+nch = options.NumChannels;
+n = size(snips,1);
+snipdata = reshape(snips',nts,nch,n);
 
 p = options.FigurePosition;
 if ~isnan(options.XYFigure(1))
@@ -34,49 +37,48 @@ L = tiledlayout(fig, 1, 1);
 
 xdata = options.Vector - options.Vector(1);
 h_spacing = options.TemplateXSpacing;
+grid_spacing = options.TemplateGridSpacing;
 h_scale = numel(xdata);
 yoffset = options.TemplateYScale;
-
-n = size(snipdata,3);
 ax = nexttile(L);
 set(ax, ...
     'NextPlot', 'add', ...
     'FontName', 'Tahoma', ...
     'YLim',[-0.5*yoffset, 8.5*yoffset], ...
     'XColor','none','YColor','none', ...
-    'XLim',[-1.1*(h_scale+h_spacing), 8.1*(h_scale+h_spacing)], ...
+    'XLim',[-1.1*(h_scale+h_spacing), (nch/64 + .1)*(h_scale+h_spacing)+(floor(nch/64)-1)*grid_spacing], ...
     'Clipping', 'off');
 rdata = mean(squeeze(rms(snipdata,1)),2);
 i_miss = rdata < options.MinChannelwiseRMS;
 snipdata(:,i_miss,:) = missing;
 switch options.SpatialReferenceMode
     case "DifferentialX"
-        snipdata = reshape(snipdata, nts, 8, 8, n);
+        snipdata = reshape(snipdata, nts, nch/64, 8, n);
         for ii = 1:n
             for ik = 1:nts
                 snipdata(ik,:,:,ii) = fillmissing2(squeeze(snipdata(ik,:,:,ii)),"linear");
             end
         end
         snipdata = gradient(snipdata);
-        snipdata = reshape(snipdata, nts, 64, n);
+        snipdata = reshape(snipdata, nts, nch, n);
     case "DifferentialY"
-        snipdata = reshape(snipdata, nts, 8, 8, n);
+        snipdata = reshape(snipdata, nts, nch/64, 8, n);
         for ii = 1:n
             for ik = 1:nts
                 snipdata(ik,:,:,ii) = fillmissing2(squeeze(snipdata(ik,:,:,ii)),"linear");
             end
         end
         [~,snipdata] = gradient(snipdata);
-        snipdata = reshape(snipdata, nts, 64, n);
+        snipdata = reshape(snipdata, nts, nch, n);
     case "Laplacian"
-        snipdata = reshape(snipdata, nts, 8, 8, n);
+        snipdata = reshape(snipdata, nts, nch/64, 8, n);
         for ii = 1:n
             for ik = 1:nts
                 snipdata(ik,:,:,ii) = fillmissing2(squeeze(snipdata(ik,:,:,ii)),"linear");
             end
         end
         snipdata = del2(snipdata);
-        snipdata = reshape(snipdata, nts, 64, n);
+        snipdata = reshape(snipdata, nts, nch, n);
 end
 mu = mean(snipdata,3);
 if ~isnan(options.NExamples) && options.NExamples > 0
@@ -92,8 +94,8 @@ end
 r = rms(mu,1);
 c_lim = [min(r), max(max(r),options.MinTemplateMaxRMS)];
 cmobj = cm.cmap(c_lim, uint8(cdata.*255));
-for iCh = 1:64
-    width_offset = floor((iCh-1)/8)*(h_scale+h_spacing);
+for iCh = 1:nch
+    width_offset = floor((iCh-1)/8)*(h_scale+h_spacing)+floor((iCh-1)/64)*grid_spacing;
     height_offset = rem(iCh-1,8)*yoffset;
     if plot_examples
         plot(ax, ...

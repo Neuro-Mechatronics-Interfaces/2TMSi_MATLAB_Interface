@@ -1,29 +1,29 @@
-function [S, uni_d] = uni_2_pks(uni, options)
+function S = uni_2_pks(uni, options)
 
 arguments
     uni
-    options.MinPeakHeight = 15; % microvolts
+    options.MinPeakHeight = 4.5; % x median absolute deviations of input
     options.MinPeakDistance = 8; % samples
 end
 
-uni_d = uni - [zeros(64,1), uni(:,(1:(end-1)))];
-uni_d(:,1) = zeros(64,1);
+nch = size(uni,1);
 
 i = [];
 j = [];
 v = [];
 
-for iCh = 1:64
-    [pks,locs] = findpeaks(abs(uni_d(iCh,:)), ...
-        'MinPeakHeight',options.MinPeakHeight, ...
+warning('off','signal:findpeaks:largeMinPeakHeight');
+for iCh = 1:nch
+    thresh = median(abs(uni(iCh,:)))*options.MinPeakHeight;
+    [pks,locs] = findpeaks(abs(uni(iCh,:)), ...
+        'MinPeakHeight',thresh, ...
         'MinPeakDistance',options.MinPeakDistance);
     ch = ones(numel(pks),1).*iCh;
     i = [i; ch]; %#ok<*AGROW> 
     j = [j; locs'];
     v = [v; pks'];
 end
-
+warning('on','signal:findpeaks:largeMinPeakHeight');
 S = sparse(i, j, v);
-uni_d = uni_d(:,1:size(S,2));
 
 end

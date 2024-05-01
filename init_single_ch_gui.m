@@ -3,7 +3,7 @@ function sch = init_single_ch_gui(sch, threshold, options)
 arguments
     sch
     threshold (1,1) double
-    options.FigurePosition (1,4) double = [800, 400, 720, 400];
+    options.FigurePosition (1,4) double = [800, 300, 720, 500];
 end
 
 if ~isempty(sch.fig)
@@ -43,7 +43,7 @@ sch.h.title = title(ax, ...
     sprintf("Stream %s-%02d", sch.tag.(sch.saga), sch.channel), ...
     'FontName', 'Tahoma', 'Color', cdata);
 sch.h.subtitle = subtitle(ax, ...
-    sprintf("Calibration: %s", sch.state), 'FontName','Tahoma', ...
+    sprintf("Calibration: %s", strrep(sch.state,"_","\_")), 'FontName','Tahoma', ...
     'Color', [0.65 0.65 0.65]);
 
 end
