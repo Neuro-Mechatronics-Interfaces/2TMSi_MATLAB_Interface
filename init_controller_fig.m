@@ -415,6 +415,14 @@ switch data.type
                 disp(data);
                 error("Unhandled status message value: %s\n", data.value);
         end
+    case 'name'
+        switch data.value
+            case 'new'
+                src.UserData.block.Value = src.UserData.block.Value + 1;
+                updateNameCallback(src.UserData.block);
+            otherwise
+                fprintf(1,'Unhandled `name` message value: %s\n', data.value);
+        end
     otherwise
         disp("Received message:");
         disp(data);

@@ -92,9 +92,10 @@ if N_CLIENT < 1
     error("No SAGA devices are enabled in config.yaml. Must enable at least 1 unit to continue.");
 end
 
+def_tags = ["A", "B"];
 ch_type_opts = ["CREF", "UNI", "BIP", "AUX", "STAT", "COUNT"];
-for ii = 1:N_CLIENT
-    tag = TAG(ii);
+for ii = 1:numel(def_tags)
+    tag = def_tags(ii);
     for ik = 1:numel(ch_type_opts)
         if isfield(config.SAGA.(tag).Channels, ch_type_opts(ik))
             chs = ch_type_opts(ik);
@@ -102,12 +103,15 @@ for ii = 1:N_CLIENT
                 config.SAGA.(tag).Channels.(chs) = cell2mat(config.SAGA.(tag).Channels.(chs));
             end
         end
+        if strcmpi(config.Default.Device_Reference_Mode, 'average')
+            config.SAGA.(tag).Channels.(chs) = config.SAGA.(tag).Channels.(chs) - 1;
+        end
     end
 end
 
 if isfield(config, 'GUI')
-    for ii = 1:N_CLIENT
-        tag = TAG(ii);
+    for ii = 1:numel(def_tags)
+        tag = def_tags(ii);
         if iscell(config.GUI.Squiggles.(tag))
             config.GUI.Squiggles.(tag) = cell2mat(config.GUI.Squiggles.(tag));
         end

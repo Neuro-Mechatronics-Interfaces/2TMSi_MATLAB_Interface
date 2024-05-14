@@ -4,19 +4,21 @@ close all force;
 clear;
 clc;
 
-SUBJ = "MCP02";
+SUBJ = "MCP03";
 YYYY = 2024;
-MM = 3;
-DD = 27;
-INPUT_ROOT = sprintf("C:/Data/Shared/%s_%04d_%02d_%02d",SUBJ,YYYY,MM,DD);
+MM = 4;
+DD = 23;
+INPUT_ROOT = sprintf("D:/Data/MetaWB/%s_%04d_%02d_%02d",SUBJ,YYYY,MM,DD);
 % OUTPUT_SUBFOLDER = "MotorUnits Decomposition/Max/Decomposition Input";
 OUTPUT_SUBFOLDER = "MotorUnits Decomposition/Decomposition Input";
 % BITMASK = [2^8, 2^0, 2^8, 2^0]; % MCP01_2024_04_12
 % INVERTLOGIC = [true, false, true, false]; % MCP01_2024_04_12
 % BITMASK = [2^0, 2^0, 2^0, 2^0];  % MCP01_2024_02_20
 % INVERTLOGIC = [true, false, true, false]; % MCP01_2024_02_20
-BITMASK = [2^0, 2^2, 2^0, 2^2]; % MCP02_2024_03_27
-INVERTLOGIC = [false, true, false, true]; % MCP02_2024_03_27
+% BITMASK = [2^0, 2^2, 2^0, 2^2]; % MCP02_2024_03_27
+% INVERTLOGIC = [false, true, false, true]; % MCP02_2024_03_27
+BITMASK = [2^0, 2^8, 2^0, 2^8]; % MCP03_2024_03_23
+INVERTLOGIC = [false, true, false, true]; % MCP03_2024_03_23
 
 C = readtable(sprintf("%s/%s_%04d_%02d_%02d_Experiments-cleaned.csv", ...
                 INPUT_ROOT, SUBJ, YYYY, MM, DD),'Delimiter',',', ...

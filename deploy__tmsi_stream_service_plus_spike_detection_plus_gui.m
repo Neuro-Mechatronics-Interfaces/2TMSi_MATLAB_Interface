@@ -60,7 +60,7 @@ config_device = struct('Dividers', {{'uni', 0; 'bip', 0}}, ...
     'RepairLogging', false, ...
     'ImpedanceMode', false, ...
     'AutoReferenceMethod', false, ...
-    'ReferenceMethod', 'common',...
+    'ReferenceMethod', config.Default.Device_Reference_Mode,... % must be 'common' or 'average'
     'SyncOutDivider', -1, ...
     'SyncOutDutyCycle', 500);
 config_channels = struct(...
@@ -172,10 +172,19 @@ udp_param_receiver = udpport("byte", ...
     "EnablePortSharing", false);
 tcp_spike_server = tcpserver("0.0.0.0", ... % Allow any IP to connect
                              config.TCP.SpikeServer.Port);
+tcp_spike_server.ConnectionChangedFcn = @reportSocketConnectionChange;
 tcp_rms_server = tcpserver("0.0.0.0", ...
                             config.TCP.RMSServer.Port);
+tcp_rms_server.ConnectionChangedFcn = @reportSocketConnectionChange;
 tcp_muap_server = tcpserver("0.0.0.0", ...
                             config.TCP.MUAPServer.Port);
+tcp_muap_server.ConnectionChangedFcn = @reportSocketConnectionChange;
+tcp_squiggles_server = tcpserver("0.0.0.0",config.TCP.SquiggleServer.Port);
+tcp_squiggles_server.UserData = struct('current_channel',1,'has_new_channel',true,'SAGA',"A");
+tcp_squiggles_server.ConnectionChangedFcn = @reportSocketConnectionChange;
+configureCallback(tcp_squiggles_server, "terminator", @handleChannelChangeRequest);
+configureCallback(tcp_muap_server, "terminator", @handleMUAPserverMessages);
+
 %% Initialize parameters and parameter sub-fields, figures
 param = struct(...
     'n_channels', struct('A', [], 'B', []), ...
@@ -186,6 +195,7 @@ param = struct(...
     'recording_samples_acquired', struct('A', 0, 'B', 0), ...
     'recording_chunk_offset', struct('A', 0, 'B', 0), ...
     'classifier', struct('A', [], 'B', []), ...
+    'envelope_regressor', struct('A',[],'B',[]), ...
     'n_total', struct('A', numel(config_channels.A.uni) + numel(config_channels.A.bip), 'B', numel(config_channels.B.uni) + numel(config_channels.B.bip)), ...
     'sample_rate', config.Default.Sample_Rate, ...
     'spike_detector', config.Default.Spike_Detector, ...
@@ -195,7 +205,7 @@ param = struct(...
     'mvc_samples', config.Default.MVC_Sample_Iterations, ...
     'mvc_data', [], ...
     'hpf', struct('b', [], 'a', []), ...
-    'gui', struct('squiggles', struct('enable', config.GUI.Squiggles.Enable, 'fig', [], 'h', [], 'offset', config.GUI.Offset, ...
+    'gui', struct('squiggles', struct('enable', config.GUI.Squiggles.Enable, 'fig', [], 'h', [], 'offset', config.GUI.Offset, 'hpf_mode', config.GUI.Squiggles.HPF_Mode, ...
                                       'channels', struct('A', [], 'B', []), 'zi', struct('A', [], 'B', []), 'n_samples', config.GUI.N_Samples, 'color', config.GUI.Color, ...
                                       'acc', struct('enable', config.Accelerometer.Enable, 'differential', config.Accelerometer.Differential, 'saga', config.Accelerometer.SAGA), ...
                                       'triggers', struct('enable', config.Triggers.Enable, 'y_bound', config.GUI.TriggerBound), ...
@@ -228,6 +238,7 @@ param = struct(...
                         'B', struct(config.Default.Calibration_State, inf(1,numel(config_channels.A.uni)+numel(config_channels.A.bip)))), ...
     'threshold_deviations', config.Default.Threshold_Deviations, ...
     'threshold_artifact', config.Default.Artifact_Channel_Proportion_Threshold, ...
+    'noise_cluster_id', config.Default.Noise_Cluster_ID, ...
     'min_rms_artifact', config.Default.Minimum_RMS_Per_Channel, ...
     'exclude_by_rms', struct('A', false(1,numel(config.GUI.Squiggles.A)), 'B', false(1,numel(config.GUI.Squiggles.B))), ...
     'threshold_pose', config.Default.Pose_Threshold, ...
@@ -288,6 +299,10 @@ cur_state = [0, 0, 0, 0];
 %% Configuration complete, run main control loop.
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
+    cat_iter = 0;
+    CAT_ITER_TARGET = 4;
+    cat_n = 0;
+    cat_data = [];
     state = "idle";
     dt = datetime("today","Format","uuuu-MM-dd","Locale","system");
     fname = strrep(fullfile(param.save_location, ...
@@ -305,7 +320,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     else
         fname = strrep(fname, tmpExt, ".poly5");
     end
-    
+    msgId = uint16(0);
     start(device);
     pause(1.0);
     counter_offset = 0;
@@ -406,6 +421,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 [samples{ii}, num_sets(ii)] = device(ii).sample();
                 if num_sets(ii) > 0
                     [hpf_data.(device(ii).tag), zi.(device(ii).tag)] = filter(param.hpf.b,param.hpf.a,samples{ii}(i_all.(device(ii).tag),:)',zi.(device(ii).tag),1);
+                    [env_data.(device(ii).tag), env_history.(device(ii).tag)] = filter(param.b_env, param.a_env, abs(hpf_data.(device(ii).tag)), env_history.(device(ii).tag), 1);
+                    % env_data.(device(ii).tag) = env_data.(device(ii).tag)./param.env_max.(device(ii).tag);
                     switch param.car_mode
                         case 1    
                             hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)) = hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)) - mean(hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)));
@@ -471,6 +488,19 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                                 msgParts{2}, config.UDP.Socket.RecordingControllerGUI.Port);
                         case 3
                             writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
+                                msgParts{2}, str2double(msgParts{3}));
+                    end
+                elseif startsWith(tmpState, "name")
+                    msgParts = strsplit(tmpState, ":");
+                    switch numel(msgParts)
+                        case 1
+                            writeline(udp_state_receiver, jsonencode(struct('type', 'name', 'value', fname)), ...
+                                config.UDP.Socket.RecordingControllerGUI.Address, config.UDP.Socket.RecordingControllerGUI.Port);
+                        case 2
+                            writeline(udp_state_receiver, jsonencode(struct('type', 'name', 'value', fname)), ...
+                                msgParts{2}, config.UDP.Socket.RecordingControllerGUI.Port);
+                        case 3
+                            writeline(udp_state_receiver, jsonencode(struct('type', 'name', 'value', fname)), ...
                                 msgParts{2}, str2double(msgParts{3}));
                     end
                 else
@@ -553,30 +583,62 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             spike_data = struct('SAGA', device(ii).tag, 'data', param.past_rates.(device(ii).tag), 'n', n_samp);
                             writeline(tcp_spike_server, jsonencode(spike_data));
                         end
+                        % if tcp_rms_server.Connected
+                        %     [rms_data.(device(ii).tag), rms_zi.(device(ii).tag)] = filter(param.b_rms, param.a_rms, hpf_data.(device(ii).tag), rms_zi.(device(ii).tag),1);
+                        %     rms_data = struct('SAGA', device(ii).tag, 'data', rms(rms_data.(device(ii).tag)./param.hpf_max.(device(ii).tag),1), 'n', n_samp);
+                        %     writeline(tcp_rms_server, jsonencode(rms_data));
+                        % end
                         if tcp_rms_server.Connected
-                            [rms_data.(device(ii).tag), rms_zi.(device(ii).tag)] = filter(param.b_rms, param.a_rms, hpf_data.(device(ii).tag), rms_zi.(device(ii).tag),1);
-                            rms_data = struct('SAGA', device(ii).tag, 'data', rms(rms_data.(device(ii).tag)./param.hpf_max.(device(ii).tag),1), 'n', n_samp);
-                            writeline(tcp_rms_server, jsonencode(rms_data));
+                            if ~isempty(param.envelope_regressor.(device(ii).tag))
+                                env_img_data = env_data.(device(ii).tag)(:,1:64)';
+                                env_img_data(param.envelope_regressor.(device(ii).tag).ExcludeChannels,:) = 0;
+                                Yhat = predict(param.envelope_regressor.(device(ii).tag).Net, reshape(env_img_data,8,8,1,[]));
+                                packet = struct('N', n_samp, 'SAGA', device(ii).tag, 'Data', int16(mean(Yhat,1)*100), 'Id', msgId);
+                                writeline(tcp_rms_server, jsonencode(packet));
+                                msgId = rem(msgId + 1, 65535);
+                            end
                         end
                         if tcp_muap_server.Connected
                             if ~isempty(param.classifier.(device(ii).tag))
                                 if numel(param.classifier.(device(ii).tag).Channels) == param.classifier.(device(ii).tag).Net.input.size
                                     locs = cell(64,1);
                                     for ik = param.classifier.(device(ii).tag).Channels
-                                        locs{ik} = find(abs(hpf_data.(device(ii).tag)(:,ik)) > param.classifier.(device(ii).tag).MinPeakHeight);
+                                        locs{ik} = find(abs(hpf_data.(device(ii).tag)(:,ik)) > param.classifier.(device(ii).tag).MinPeakHeight(ik));
                                         if ~isempty(locs{ik})
                                             locs{ik} = locs{ik}([true; diff(locs{ik})>1]);
                                         end
                                     end
                                     all_locs = unique(vertcat(locs{:}));
                                     [~,clus] = max(param.classifier.(device(ii).tag).Net(hpf_data.(device(ii).tag)(all_locs,param.classifier.(device(ii).tag).Channels)'),[],1);
-                                    for ik = 1:param.classifier.(device(ii).tag).Net.output.size
-                                        param.classifier.(device(ii).tag).Out.Data(ik) = sum(clus == ik);
-                                    end
-                                    param.classifier.(device(ii).tag).Out.n = n_samp;
-                                    writeline(tcp_muaps_server, jsonencode(param.classifier.(device(ii).tag).Out));
+                                    clus(clus == param.classifier.A.Net.outputs{1}.size) = param.noise_cluster_id;
+                                    packet = struct('N', n_samp, 'Saga', device(ii).tag, 'Sample', all_locs, 'Cluster', clus, 'Id', msgId);
+                                    msgId = rem(msgId + 1,65535);
+                                    writeline(tcp_muap_server, jsonencode(packet));
                                 end
                             end
+                        end
+                        if (tcp_squiggles_server.Connected && strcmpi(device(ii).tag, tcp_squiggles_server.UserData.SAGA))
+                            if ~isempty(param.classifier.(device(ii).tag))
+                                squiggle_data = param.classifier.(device(ii).tag).Net(hpf_data.(device(ii).tag)(:,param.classifier.(device(ii).tag).Channels)');
+                            else
+                                if param.gui.squiggles.hpf_mode
+                                    squiggle_data = hpf_data.(device(ii).tag)';
+                                else
+                                    squiggle_data = env_data.(device(ii).tag)';
+                                end
+                            end
+                            cat_data = [cat_data; int16(squiggle_data(tcp_squiggles_server.UserData.current_channel,:)'*100)]; %#ok<AGROW>
+                            cat_n = cat_n + n_samp;
+                            cat_iter = cat_iter + 1;
+                            if cat_iter == CAT_ITER_TARGET
+                                packet = struct('N', cat_n, 'Saga', tcp_squiggles_server.UserData.SAGA, 'Sample', cat_data, 'Channel', tcp_squiggles_server.UserData.current_channel, 'Id', msgId);
+                                msgId = rem(msgId + 1, 65535);
+                                writeline(tcp_squiggles_server, jsonencode(packet));
+                                cat_n = 0;
+                                cat_data = [];
+                                cat_iter = 0;
+                            end
+                            
                         end
                     end
                 end
@@ -594,7 +656,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             grid_channels = param.gui.squiggles.channels.(device(ii).tag)(param.gui.squiggles.channels.(device(ii).tag) <= 64);
                             for iCh = 1:numel(grid_channels)
                                 cur_ch = param.gui.squiggles.channels.(device(ii).tag)(iCh);
-                                param.gui.squiggles.h.(device(ii).tag)(iCh).YData(i_assign.(device(ii).tag)) = [hpf_data.(device(ii).tag)(:,cur_ch)' + rem((cur_ch-1),8)*param.gui.squiggles.offset, nan];
+                                if param.gui.squiggles.hpf_mode
+                                    cur_data = hpf_data.(device(ii).tag)(:,cur_ch)';
+                                else
+                                    cur_data = env_data.(device(ii).tag)(:,cur_ch)';
+                                end
+                                param.gui.squiggles.h.(device(ii).tag)(iCh).YData(i_assign.(device(ii).tag)) = [cur_data + rem((cur_ch-1),8)*param.gui.squiggles.offset, nan];
                             end
                         else
                             sample_counts.(device(ii).tag) = [];
@@ -653,10 +720,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     set(param.gui.cal.h.target,'XData',target_plot(:,1),'YData',target_plot(:,2));
                     if param.gui.cal.data.use_feedback
                         %TODO: Add in user feedback for controlling point position here.
-                        for ii = 1:numel(device)
-                            [env_data.(device(ii).tag), env_history.(device(ii).tag)] = filter(param.b_env, param.a_env, hpf_data.(device(ii).tag), env_history.(device(ii).tag), 1);
-                            env_data.(device(ii).tag) = env_data.(device(ii).tag)./param.env_max.(device(ii).tag);
-                        end
+                        
                         if numel(device) > 1
                             n_min = min(num_sets);
                             cur_emg = [env_data.A(1:n_min,:), env_data.B(1:n_min,:)];
@@ -737,6 +801,19 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         writeline(udp_state_receiver, jsonencode(struct('type', 'res', 'value', state)), ...
                             msgParts{2}, str2double(msgParts{3}));
                 end
+            elseif startsWith(tmpState, "name")
+                    msgParts = strsplit(tmpState, ":");
+                    switch numel(msgParts)
+                        case 1
+                            writeline(udp_state_receiver, jsonencode(struct('type', 'name', 'value', fname)), ...
+                                config.UDP.Socket.RecordingControllerGUI.Address, config.UDP.Socket.RecordingControllerGUI.Port);
+                        case 2
+                            writeline(udp_state_receiver, jsonencode(struct('type', 'name', 'value', fname)), ...
+                                msgParts{2}, config.UDP.Socket.RecordingControllerGUI.Port);
+                        case 3
+                            writeline(udp_state_receiver, jsonencode(struct('type', 'name', 'value', fname)), ...
+                                msgParts{2}, str2double(msgParts{3}));
+                    end
             else
                 fprintf("[TMSi]::[STATE] Tried to assign incorrect state (%s) -- check sender port.\n", tmpState);
             end

@@ -44,28 +44,39 @@ switch parameter_code
         param.gui.sch.state = new_state;
         fprintf(1,'[TMSi]\t->\t[%s]: Initializing new calibration for state: %s\n', parameter_code, new_state);
     case 'd' % Load classifier file
-        if exist(parameter_value, 'file')==0
-            fprintf(1,'[TMSi]\t->\t[%s]: No such file: %s\n', parameter_code, parameter_value);
-            return;
-        end
-        tmp = load(parameter_value);
-        if ~isfield(tmp, 'A') || ~isfield(tmp, 'B')
-            fprintf(1,'[TMSi]\t->\t[%s]: Invalid file format-missing "A" or "B" struct.\n', parameter_code);
-            return;
-        end
-        if ~isempty(tmp.A)
-            if numel(tmp.A.Channels)~=tmp.A.Net.input.size
-                fprintf(1,'[TMSi]\t->\t[%s]: A.Channels does not equal A.Net.input.size.\n', parameter_code);
+        command_chunks = strsplit(parameter_value, '|');
+        if numel(command_chunks) == 1
+            parameter_value = sprintf('%s.mat', parameter_value);
+            if exist(parameter_value, 'file')==0
+                fprintf(1,'[TMSi]\t->\t[%s]: No such file: %s\n', parameter_code, parameter_value);
                 return;
             end
-        end
-        if ~isempty(tmp.B)
-            if numel(tmp.B.Channels)~=tmp.B.Net.input.size
-                fprintf(1,'[TMSi]\t->\t[%s]: B.Channels does not equal B.Net.input.size.\n', parameter_code);
+            tmp = load(parameter_value);
+            if ~isfield(tmp, 'A') || ~isfield(tmp, 'B')
+                fprintf(1,'[TMSi]\t->\t[%s]: Invalid file format-missing "A" or "B" struct.\n', parameter_code);
                 return;
             end
+            if ~isempty(tmp.A)
+                if numel(tmp.A.Channels)~=tmp.A.Net.input.size
+                    fprintf(1,'[TMSi]\t->\t[%s]: A.Channels does not equal A.Net.input.size.\n', parameter_code);
+                    return;
+                end
+            end
+            if ~isempty(tmp.B)
+                if numel(tmp.B.Channels)~=tmp.B.Net.input.size
+                    fprintf(1,'[TMSi]\t->\t[%s]: B.Channels does not equal B.Net.input.size.\n', parameter_code);
+                    return;
+                end
+            end
+            param.classifier = tmp;
+        else
+            parameter_value = sprintf('%s.mat',command_chunks{2});
+            if exist(parameter_value, 'file')==0
+                fprintf(1,'[TMSi]\t->\t[%s]: No such file: %s\n', parameter_code, parameter_value);
+                return;
+            end
+            param.classifier.(command_chunks{1}) = load(parameter_value);
         end
-        param.classifier = tmp;
         fprintf(1,'[TMSi]\t->\t[%s]: Updated using file = %s\n', parameter_code, parameter_value);
     case 'e' % Single-channel GUI command
         command_chunks = strsplit(parameter_value, ":");
@@ -107,6 +118,15 @@ switch parameter_code
         else
             fprintf(1,'[TMSi]\t->\t[%s]: Interpolate Grid = OFF\n', parameter_code);
         end
+    case 'j' % Envelope regressor
+        command_chunks = strsplit(parameter_value,'|');
+        parameter_value = sprintf('%s.mat',command_chunks{2});
+        if exist(parameter_value, 'file')==0
+            fprintf(1,'[TMSi]\t->\t[%s]: No such file: %s\n', parameter_code, parameter_value);
+            return;
+        end
+        param.envelope_regressor.(command_chunks{1}) = load(parameter_value);
+        fprintf(1,'[TMSi]\t->\t[%s]: Updated using file = %s\n', parameter_code, parameter_value);
     case 'm' % Re-acquire MVC
         param.acquire_mvc = true;
         tmp = round(str2double(parameter_value));
@@ -163,6 +183,13 @@ switch parameter_code
         end
         param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), 64), 'B', zeros(numel(param.rate_smoothing_alpha), 64));
         fprintf(1,['[TMSi]\t->\t[%s]: Rate Smoothing Alpha = ' strjoin(repmat({'%4.3f'}, 1, numel(param.rate_smoothing_alpha)),  ', ') '\n'], parameter_code, param.rate_smoothing_alpha);
+    case 'w' % Toggle squiggles mode
+        param.gui.squiggles.hpf_mode = ~param.gui.squiggles.hpf_mode;
+        if param.gui.squiggles.hpf_mode
+            fprintf(1,'[TMSi]\t->\t[%s]: HPF Mode Squiggles\n', parameter_code);
+        else
+            fprintf(1,'[TMSi]\t->\t[%s]: Envelope Mode Squiggles\n', parameter_code);
+        end
     case 'x' % Set spike detection/threshold deviations
         param.threshold_deviations = str2double(parameter_value)/1000;
         param.threshold.A.(param.calibration_state) = median(abs(param.calibration_data.A.(param.calibration_state)), 1) * param.threshold_deviations;

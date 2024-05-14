@@ -9,13 +9,15 @@ TRIGS_CH = 73;
 % MY_FILE = "C:/Data/TMSi/MCP03/MCP03_2024_04_23/trial_15_04232024_MCP03_ExtProx-20240423T145055.DATA.poly5";
 % TRIGS_CH = 66;
 ALGORITHMIC_LATENCY_ESTIMATE = 0.010; % seconds
-SAMPLE_DELAY_LIM = [0.005, 0.020]; % Pause will be at least this many seconds
+SAMPLE_DELAY_LIM = [0.0025, 0.010]; % Pause will be at least this many seconds
 LINE_VERTICAL_OFFSET = 50; % microvolts
 HORIZONTAL_SCALE = 0.5; % seconds
 SAMPLE_RATE_RECORDING = 4000;
 MIN_CHANNELWISE_RMS = 0.05; % microvolts
 RMS_Y_LIM = [0 5];
-MIN_PK_HEIGHT = 5;
+MIN_PK_HEIGHT = 10;
+N_ITERATIONS_CONCATENATE = 4;
+N_ITERATIONS_TARGET = N_ITERATIONS_CONCATENATE - 1;
 
 %% Load neural net
 load('2024-04-15_Extensor-Softmax-Test2.mat','net','meta');
@@ -37,8 +39,16 @@ fig = figure('Color','w',...
     'Name','Sample Reader Interface',...
     'Position',[150   50   720   750]);
 L = tiledlayout(fig,5,1);
+% channel_num_opts = cell(64,1);
+% for ii = 1:64
+%     channel_num_opts{ii} = sprintf('Channel-%02d', ii);
+% end
+% channel_num_popup = uicontrol(fig,'Style','popupmenu','String',channel_num_opts,'FontName','Consolas', ...
+%     'Units','Normalized','Position',[0.15 0.85 0.7 0.07],'Callback',@handle_new_channel_selection);
+% current_channel = 1;
+% channel_num_popup.UserData = struct('has_new_channel', true);
 
-ax = nexttile(L,1,[4 1]);
+ax = nexttile(L,2,[3 1]);
 set(ax,'NextPlot','add', ...
     'YLim',[-0.5*LINE_VERTICAL_OFFSET, 8.5*LINE_VERTICAL_OFFSET], ...
     'XColor','none','YColor','none', ...
@@ -91,13 +101,28 @@ zi = zeros(3,64);
 
 warning('off','signal:findpeaks:largeMinPeakHeight');
 cols = jet(20);
+msgId = uint16(0);
 locs = cell(64,1);
 config = load_spike_server_config();
 muap_server = tcpserver("0.0.0.0",config.TCP.MUAPServer.Port);
 muap_server.ConnectionChangedFcn = @reportSocketConnectionChange;
+squiggles_server = tcpserver("0.0.0.0",config.TCP.SquiggleServer.Port);
+squiggles_server.UserData = struct('current_channel',1,'has_new_channel',true);
+squiggles_server.ConnectionChangedFcn = @reportSocketConnectionChange;
+configureCallback(squiggles_server, "terminator", @handleChannelChangeRequest);
 configureCallback(muap_server, "terminator", @handleMUAPserverMessages);
+cat_locs = [];
+cat_clus = [];
+cat_data = [];
+cat_n = 0;
+cat_iter = 0;
 while isvalid(fig)
+    if squiggles_server.UserData.has_new_channel
+        fprintf(1,'Broadcasting channel-%02d samples.\n', squiggles_server.UserData.current_channel);
+        squiggles_server.UserData.has_new_channel = false;
+    end
     samples = read_next_n_blocks(poly5, 2);
+    n_samples = size(samples,2);
     if needs_initial_ts
         ts0 = samples(end,1)/SAMPLE_RATE_RECORDING;
         needs_initial_ts = false;
@@ -113,22 +138,45 @@ while isvalid(fig)
     data = reshape(del2(reshape(data,[],8,8)),[],64);
     
     for iH = 1:64
-        h(iH).YData(iVec) = data(:,iH)+LINE_VERTICAL_OFFSET*rem(iH-1,8);
+        % h(iH).YData(iVec) = data(:,iH)+LINE_VERTICAL_OFFSET*rem(iH-1,8);
         if ismember(iH, meta.channels.keep_post)
             locs{iH} = find(data(:,iH) > MIN_PK_HEIGHT);
         end
     end
-    
-    h_trigs.YData(iVec) = samples(TRIGS_CH,:);
+    % 
+    % h_trigs.YData(iVec) = samples(TRIGS_CH,:);
     all_locs = unique(vertcat(locs{:}));
     [~,clus] = max(net(data(all_locs,meta.channels.keep_post)'),[],1);
-
+    cat_data = [cat_data; int16(data(:,squiggles_server.UserData.current_channel))*10]; %#ok<AGROW>
+    cat_locs = [cat_locs; all_locs + cat_n]; %#ok<AGROW>
+    cat_clus = [cat_clus, clus]; %#ok<AGROW>
+    cat_n = cat_n + n_samples;
     drawnow();
-    if muap_server.Connected
-        packet = struct('N', size(data,1), 'Saga', SAGA, 'Sample', all_locs, 'Cluster', clus);
+    if muap_server.Connected && (cat_iter == N_ITERATIONS_TARGET)
+        msgId = rem(msgId + 1,65535);
+        packet = struct('N', cat_n, 'Saga', SAGA, 'Sample', cat_locs, 'Cluster', cat_clus, 'Id', msgId);
         writeline(muap_server, jsonencode(packet));
+    end
+    if squiggles_server.Connected && (cat_iter == N_ITERATIONS_TARGET)
+        msgId = rem(msgId + 1, 65535);
+        packet = struct('N', cat_n, 'Saga', SAGA, 'Sample', cat_data, 'Channel', squiggles_server.UserData.current_channel, 'Id', msgId);
+        % packet.Sample = mat2cell(cat_data,size(cat_data,1),ones(1,size(cat_data,2)));
+        % packet.Channel = mat2cell(squiggles_server.UserData.current_channel,1,numel(squiggles_server.UserData.current_channel));
+        writeline(squiggles_server, jsonencode(packet));
+    end
+    cat_iter = rem(cat_iter+1,N_ITERATIONS_CONCATENATE);
+    if cat_iter == 0
+        cat_n = 0;
+        cat_data = [];
+        cat_locs = [];
+        cat_clus = [];
     end
     pause(sample_delay);
 end
 warning('on','signal:findpeaks:largeMinPeakHeight');
 poly5.close();
+
+% %% Callbacks
+%     function handle_new_channel_selection(src, ~) 
+%         src.UserData.has_new_channel = true;
+%     end

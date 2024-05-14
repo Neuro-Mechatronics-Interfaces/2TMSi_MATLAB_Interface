@@ -22,11 +22,11 @@ SAGA:
  A: 
    Enable: true
    FileType: ".mat"
-   # Unit: "SAGAA"
-   Unit: "SAGA5"
+   Unit: "SAGAA"
+   # Unit: "SAGA5"
    Array: 
     Type: "Large Grid"
-    Location: "A_DISTFLX"
+    Location: "A_DISTEXT"
    Trigger:
     Channel: 73
     Bit: 1
@@ -40,13 +40,13 @@ SAGA:
     STAT: 74
     COUNT: 75
  B: 
-   Enable: true
-   # Unit: "SAGAB"
-   Unit: "SAGA1"
+   Enable: false
+   Unit: "SAGAB"
+   # Unit: "SAGA1"
    FileType: ".mat"
    Array: 
     Type: "Large Grid"
-    Location: "B_DISTEXT"
+    Location: "B_DISTFLX"
    Trigger:
     Channel: 73
     Bit: 1
@@ -65,7 +65,8 @@ Default:
  Folder: "C:/Data/TMSi"
  # Folder: "C:/Users/Daily/TempData"
  HPF_Cutoff_Frequency: 100 # Hz
- CAR_Mode: 3 # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2
+ Device_Reference_Mode: 'average' # must be 'average' (uses CAR from SAGA device) or 'common' (with separate CREF)
+ CAR_Mode: 0 # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2
  Interpolate_Grid: true # Only applies if CAR_Mode is set to 3
  Subject: "Default"
  Sample_Rate: 4000
@@ -86,6 +87,7 @@ Default:
  Pose_Threshold: 1.5
  Pose_Smoothing_Alpha: 0.25
  Pose_Deadzone_Threshold: 5
+ Noise_Cluster_ID: 13
 Accelerometer:
  Enable: false
  Differential: false 
@@ -101,6 +103,7 @@ GUI:
  TriggerBound: 256
  Squiggles: 
   Enable: true
+  HPF_Mode: false
   A: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68]
   B: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68]
  Single:
@@ -151,3 +154,7 @@ TCP:
   # Address: "192.168.88.100"
   Address: "127.0.0.1"
   Port: 6056
+ SquiggleServer: 
+  # Address: "192.168.88.100"
+  Address: "127.0.0.1"
+  Port: 6057

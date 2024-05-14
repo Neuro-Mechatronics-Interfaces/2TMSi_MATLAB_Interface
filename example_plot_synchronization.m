@@ -1,30 +1,36 @@
-%EXAMPLE_PLOT_SYNCHRONIZATION Example iterating over 2024-02-20 cleaned MUAPs results.
+%EXAMPLE_PLOT_SYNCHRONIZATION Example iterating over cleaned MUAPs results.
 close all force;
 clear;
 clc;
 
 %% Set constants
-OUT_FOLDER = "C:\Data\Shared\MCP01_2024_02_20\MotorUnits Decomposition\Cleaned Figures";
+% OUT_FOLDER = "C:\Data\Shared\MCP01_2024_02_20\MotorUnits Decomposition\Cleaned Figures";
+% IN_FOLDER = "C:/Data/Shared/MCP01_2024_02_20/MotorUnits Decomposition/Decomposition Output Cleaned";
+% PATTERN = 'Trl(\d+)_([A-Za-z]{3})([A-Za-z]+)_offset([\d.]+)_length([\d.]+)_runs(\d+)'; % Regular expression pattern for parsing
+% TOKENS = {'Trial','Group','Location','Offset','Length','NumRuns'};
+
+OUT_FOLDER = "C:/Data/Shared/MCP03_2024_04_23/MotorUnits Decomposition/Cleaned Figures";
+IN_FOLDER = "C:/Data/Shared/MCP03_2024_04_23/MotorUnits Decomposition/Decomposition Output/Auto";
+PATTERN = 'Trl(\d+)_([A-Za-z]{3})([A-Za-z]+)_mod.mat';
+TOKENS = {'Trial','Group','Location'};
 
 %% Load metadata
-C = readtable("C:\Data\Shared\MCP01_2024_02_20\MCP01_2024_02_20_Experiments-cleaned.csv");
+% C = readtable("C:\Data\Shared\MCP01_2024_02_20\MCP01_2024_02_20_Experiments-cleaned.csv");
+C = readtable("C:/Data/Shared/MCP03_2024_04_23/MCP03_2024_04_23_Experiments-cleaned.csv");
 [name,fname] = meta_wb_table_2_name(C);
 C.NUnits = nan(size(C,1),1);
 
-%% Trials 14-40 were with force modulation.
+%% Get good combinations
 goodCombinations = cell(size(C,1),1);
-for ii = 14:40
-    [data,~,n] = io.load_cleaned_decomposition(ii);
+for ii = 1:size(C,1)
+    [data,~,n] = io.load_cleaned_decomposition(IN_FOLDER,ii, ...
+        'Pattern',PATTERN, ...
+        'Tokens',TOKENS);
     if isempty(data)
         continue;
     end
     if n.Total > 30
         warning("example:muaps:too_many_muaps","Unusually high number of MUAPs (%d) detected!",n.Total);
-        % res = questdlg(sprintf("Skip current? (%s)",name{ii}), ...
-        %     'Skip current?', 'Yes','No','Yes');
-        % if strcmpi(res,'Yes')
-        %     continue;
-        % end
         continue;
     end
     [fig, C.NUnits(ii), goodCombinations{ii}] = ckc.plot_synchronization(data, n, 'Title', name{ii});
@@ -42,15 +48,19 @@ save(fullfile(OUT_FOLDER,'Grid_and_MUAP_keys.mat'),'goodCombinations','-v7.3');
 % k = 28;
 % GRID_INDEX = [1,1,1,1,2,2,2,2,3,3,4,4];
 % MUAP_INDEX = [1,2,3,4,2,3,4,5,1,3,2,3];
-REF_MODE = 'MONO';
+% REF_MODE = 'MONO';
+REF_MODE = 'SD Rows';
+
+for k = 1:numel(goodCombinations)
 % for k = [14:19,21:40]
-for k = 32 
+% for k = 32 
     if isempty(goodCombinations{k})
         continue;
     end
     GRID_INDEX = goodCombinations{k}(:,1)';
     MUAP_INDEX = goodCombinations{k}(:,2)';
-    [data,metadata,n] = io.load_cleaned_decomposition(C.Trial(k));
+    [data,metadata,n] = io.load_cleaned_decomposition(IN_FOLDER, C.Trial(k), ...
+        'Pattern', PATTERN, 'Tokens', TOKENS);
     fprintf(1,'%d/%d unique units in Trial-%d\n', C.NUnits(k), n.Total, C.Trial(k));
 
     G_ID = ["Proximal Ext"; "Distal Ext"; "Proximal Flex"; "Distal Flex" ];
