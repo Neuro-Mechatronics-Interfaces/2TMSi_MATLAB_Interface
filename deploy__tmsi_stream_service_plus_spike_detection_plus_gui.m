@@ -43,8 +43,24 @@ end
 config_file = parameters('config_stream_service_plus');
 fprintf(1, "[TMSi]::Loading configuration file (%s, in main repo folder)...\n", config_file);
 [config, TAG, SN, N_CLIENT] = parse_main_config(config_file);
-addpath('FastICA_25');
-pause(1.5);
+% addpath('FastICA_25');
+
+%% Load the LSL library
+lslMatlabFolder = fullfile(pwd, '..', 'liblsl-Matlab');
+if exist(lslMatlabFolder,'dir')==0
+    lslMatlabFolder = parameters('liblsl_folder');
+    if exist(lslMatlabFolder, 'dir')==0
+        disp("No valid liblsl-Matlab repository detected on this device.");
+        fprintf(1,'\t->\tTried: "%s"\n', fullfile(pwd, '..', 'liblsl-Matlab'));
+        fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder);
+        disp("Please check parameters.m in the 2TMSi_MATLAB_Interface repository, and try again.");
+        pause(30);
+        error("[TMSi]::Missing liblsl-Matlab repository.");
+    end
+end
+addpath(genpath(lslMatlabFolder)); % Adds liblsl-Matlab
+lib_lsl = lsl_loadlib();
+
 %% Setup device configurations.
 config_device_impedance = struct('ImpedanceMode', true, ...
     'ReferenceMethod', 'common', ...
@@ -296,6 +312,34 @@ i_all = struct('A', union(i_mono.A, i_bip.A), 'B', union(i_mono.B, i_bip.B));
 zi = struct('A',zeros(3,numel(i_all.A)), 'B', zeros(3,numel(i_all.B)));
 cur_state = [0, 0, 0, 0];
 
+%% Initialize the LSL stream information and outlets
+lsl_info_obj = struct;
+lsl_outlet_obj = struct;
+for iDev = 1:numel(device)
+    tag = device(iDev).tag;
+    fprintf(1,'[TMSi]::[LSL]::Creating LSL streaminfo for %s...\n',config.SAGA.(tag).Unit);
+    lsl_info_obj.(tag) = lsl_streaminfo(lib_lsl, ...
+        "HD-EMG", ...          % Name
+        tag_streams.(tag), ... % Type
+        numel(ch.(tag)), ....  % ChannelCount
+        4000, ...              % NominalSrate
+        'cf_float32', ...      % ChannelFormat
+        config.SAGA.(tag).Unit); % Unique ID: SAGAA, SAGAB, SAGA1, ... SAGA5
+    chns = lsl_info_obj.(tag).desc().append_child('channels');
+    for iCh = 1:numel(ch.(tag))
+%     for iCh = 2:65
+        c = chns.append_child('channel');
+        c.append_child_value('label',ch.(tag)(iCh).name);
+        c.append_child_value('unit',ch.(tag)(iCh).unit_name);
+        c.append_child_value('type','EMG');
+        c.append_child_value('subtype', TMSiSAGA.TMSiUtils.toChannelTypeString(ch.(tag)(iCh).type));
+    end    
+    lsl_info_obj.(tag).desc().append_child_value('manufacturer', 'NMLVR');
+    lsl_info_obj.(tag).desc().append_child_value('layout', 'Grid_8_x_8');
+    fprintf('[TMSi]::[LSL]::Opening outlet...');
+    lsl_outlet_obj.(tag) = lsl_outlet(info.(tag));
+end
+
 %% Configuration complete, run main control loop.
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
@@ -420,6 +464,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             for ii = 1:N_CLIENT
                 [samples{ii}, num_sets(ii)] = device(ii).sample();
                 if num_sets(ii) > 0
+                    lsl_outlet_obj.(device(ii).tag).push_chunk(single(samples{ii}));
                     [hpf_data.(device(ii).tag), zi.(device(ii).tag)] = filter(param.hpf.b,param.hpf.a,samples{ii}(i_all.(device(ii).tag),:)',zi.(device(ii).tag),1);
                     [env_data.(device(ii).tag), env_history.(device(ii).tag)] = filter(param.b_env, param.a_env, abs(hpf_data.(device(ii).tag)), env_history.(device(ii).tag), 1);
                     % env_data.(device(ii).tag) = env_data.(device(ii).tag)./param.env_max.(device(ii).tag);
@@ -912,12 +957,19 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     end
     stop(device);
     writeline(udp_state_receiver, jsonencode(struct('type', 'status', 'value', 'stop')), config.UDP.Socket.RecordingControllerGUI.Address, config.UDP.Socket.RecordingControllerGUI.Port);
-    
     state = "idle";
     recording = false;
     running = false;
     disconnect(device);
     clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
+    try %#ok<TRYNC>
+        for ii = 1:numel(device)
+            delete(lsl_info_obj.(device(ii).tag));
+            delete(lsl_outlet_obj.(device(ii).tag));
+        end
+        delete(lib_lsl);
+    end
+    clear lsl_info_obj lsl_outlet_obj lib_lsl
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     close all force;
 catch me
@@ -929,6 +981,14 @@ catch me
     disp(me.stack);
     clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
+    try %#ok<TRYNC>
+        for ii = 1:numel(device)
+            delete(lsl_info_obj.(device(ii).tag));
+            delete(lsl_outlet_obj.(device(ii).tag));
+        end
+        delete(lib_lsl);
+    end
+    clear lsl_info_obj lsl_outlet_obj lib_lsl
     close all force;
     fprintf(1, '\n\n-->\tTMSi stream stopped at %s\t<--\n\n', ...
         string(datetime('now')));
