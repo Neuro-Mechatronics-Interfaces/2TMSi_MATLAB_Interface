@@ -317,27 +317,28 @@ lsl_info_obj = struct;
 lsl_outlet_obj = struct;
 for iDev = 1:numel(device)
     tag = device(iDev).tag;
-    fprintf(1,'[TMSi]::[LSL]::Creating LSL streaminfo for %s...\n',config.SAGA.(tag).Unit);
+    fprintf(1,'[TMSi]::[LSL]::Creating LSL streaminfo for %s...',config.SAGA.(tag).Unit);
     lsl_info_obj.(tag) = lsl_streaminfo(lib_lsl, ...
-        "HD-EMG", ...          % Name
-        tag_streams.(tag), ... % Type
-        numel(ch.(tag)), ....  % ChannelCount
-        4000, ...              % NominalSrate
-        'cf_float32', ...      % ChannelFormat
-        config.SAGA.(tag).Unit); % Unique ID: SAGAA, SAGAB, SAGA1, ... SAGA5
+        char(config.SAGA.(tag).Unit), ...       % Name
+        'EMG', ...                    % Type
+        numel(ch{ii}), ....           % ChannelCount
+        4000, ...                     % NominalSrate
+        'cf_float32', ...             % ChannelFormat
+        char(config.SAGA.(tag).Unit));      % Unique ID: SAGAA, SAGAB, SAGA1, ... SAGA5
     chns = lsl_info_obj.(tag).desc().append_child('channels');
-    for iCh = 1:numel(ch.(tag))
-%     for iCh = 2:65
+    for iCh = 1:numel(ch{ii})
         c = chns.append_child('channel');
-        c.append_child_value('label',ch.(tag)(iCh).name);
-        c.append_child_value('unit',ch.(tag)(iCh).unit_name);
-        c.append_child_value('type','EMG');
-        c.append_child_value('subtype', TMSiSAGA.TMSiUtils.toChannelTypeString(ch.(tag)(iCh).type));
+        c.append_child_value('name',ch{ii}(iCh).name);
+        c.append_child_value('label',ch{ii}(iCh).name);
+        c.append_child_value('unit',ch{ii}(iCh).unit_name);
+        c.append_child_value('type', TMSiSAGA.TMSiUtils.toChannelTypeString(ch{ii}(iCh).type));
     end    
-    lsl_info_obj.(tag).desc().append_child_value('manufacturer', 'NMLVR');
+    lsl_info_obj.(tag).desc().append_child_value('manufacturer', 'NML');
     lsl_info_obj.(tag).desc().append_child_value('layout', 'Grid_8_x_8');
+    fprintf(1,'complete\n');
     fprintf('[TMSi]::[LSL]::Opening outlet...');
-    lsl_outlet_obj.(tag) = lsl_outlet(info.(tag));
+    lsl_outlet_obj.(tag) = lsl_outlet(lsl_info_obj.(tag));
+    fprintf(1,'complete\n');
 end
 
 %% Configuration complete, run main control loop.
@@ -463,8 +464,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             num_sets = zeros(numel(device),1);
             for ii = 1:N_CLIENT
                 [samples{ii}, num_sets(ii)] = device(ii).sample();
-                if num_sets(ii) > 0
-                    lsl_outlet_obj.(device(ii).tag).push_chunk(single(samples{ii}));
+                if ~isempty(samples{ii})
+                    lsl_outlet_obj.(device(ii).tag).push_chunk(samples{ii});
                     [hpf_data.(device(ii).tag), zi.(device(ii).tag)] = filter(param.hpf.b,param.hpf.a,samples{ii}(i_all.(device(ii).tag),:)',zi.(device(ii).tag),1);
                     [env_data.(device(ii).tag), env_history.(device(ii).tag)] = filter(param.b_env, param.a_env, abs(hpf_data.(device(ii).tag)), env_history.(device(ii).tag), 1);
                     % env_data.(device(ii).tag) = env_data.(device(ii).tag)./param.env_max.(device(ii).tag);
