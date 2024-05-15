@@ -25,7 +25,10 @@ L.ColumnWidth = {'1x', '1x', '1x', '1x', '1x', '1x'};
 config = load_spike_server_config();
 
 fig.UserData = struct;
-fig.UserData.UDP = udpport("byte", 'LocalPort', config.UDP.Socket.RecordingControllerGUI.Port);
+fig.UserData.UDP = udpport("byte",...
+    "LocalHost", "0.0.0.0", ...
+    'LocalPort', config.UDP.Socket.RecordingControllerGUI.Port, ...
+    'EnablePortSharing', true);
 
 fig.UserData.Block = 0;
 fig.UserData.Address = config.UDP.Socket.StreamService.Address;

@@ -40,7 +40,7 @@ SAGA:
     STAT: 74
     COUNT: 75
  B: 
-   Enable: false
+   Enable: true
    Unit: "SAGAB"
    # Unit: "SAGA1"
    FileType: ".mat"
@@ -116,14 +116,16 @@ UDP:
  Socket:
   StreamService:
    # Address: "192.168.88.100"
-   Address: "127.0.0.1"
+   # Address: "127.0.0.1"
+   Address: "192.168.0.255" # multicast on LAN
    Port: 
     state: 3030
     name: 3031
     params: 3036
   RecordingControllerGUI:
    # Address: "192.168.88.101"
-   Address: "127.0.0.1"
+   # Address: "127.0.0.1"
+   Address: "192.168.0.255" # multicast on LAN
    Port: 3050
 TCP:
  SpikeServer:
