@@ -1,8 +1,13 @@
-function fig = init_controller_fig()
-%INIT_CONTROLLER_FIG Initializes SAGA State Handler UDP graphical control interface.  
+function fig = init_controller_fig(options)
+%INIT_CONTROLLER_FIG Initializes SAGA State Handler UDP graphical control interface.
 %
-% Syntax: 
+% Syntax:
 %   fig = init_controller_fig();
+
+arguments
+    options.SerialDevice {mustBeTextScalar} = "";
+    options.BaudRate (1,1) {mustBePositive, mustBeInteger} = 115200;
+end
 
 host_pc = getenv("COMPUTERNAME");
 switch host_pc
@@ -151,402 +156,441 @@ fig.UserData.ToggleSquigglesButton.Layout.Row = 5;
 fig.UserData.ToggleSquigglesButton.Layout.Column = 6;
 
 fig.DeleteFcn = @handleFigureDeletion;
-fig.UserData.UDP.UserData = struct('expect_quit', false, 'running', false, ...
-    'subj', fig.UserData.SubjEditField, 'name', fig.UserData.NameEditField, 'block', fig.UserData.BlockEditField, 'atag', fig.UserData.TagAEditField, 'btag', fig.UserData.TagBEditField,  ...
-    'idle', idleButton, 'run', runButton, 'rec', recButton, 'stop', stopButton, 'imp', impButton, 'quit', quitButton, ...
-    'address', fig.UserData.Address, 'parameter_port', fig.UserData.ParameterPort);
-configureCallback(fig.UserData.UDP, "terminator", @handleUDPmessage);
-impButton.UserData = struct('run', runButton, 'idle', idleButton, 'quit', quitButton);
-fig.CloseRequestFcn = @handleFigureCloseRequest;
-fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort);
 
-end
-
-function handleTriggersBoundFieldChanged(src, ~)
-if src.Value <= 0
-    return;
-end
-udpSender = src.Parent.Parent.UserData.UDP;
-cmd = sprintf('y.%d', src.Value);
-writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
-fprintf(1,'[CONTROLLER]::Sent Triggers Bound Request: %s\n', cmd);
-end
-
-function toggleSquigglesButtonPushed(src,~)
-udpSender = src.Parent.Parent.UserData.UDP;
-if src.UserData
-    src.Text = "Turn Squiggles ON";
-    writeline(udpSender,"q.0",src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
-    fprintf(1,'[CONTROLLER]::Sent request to toggle squiggles OFF: q.0\n');
-else
-    src.Text = "Turn Squiggles OFF";
-    cmd = "q.1:A:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68:B:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68";
-    writeline(udpSender,cmd,src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
-    fprintf(1,'[CONTROLLER]::Sent request to toggle squiggles ON: %s\n', cmd);
-end
-src.UserData = ~src.UserData;
-end
-
-function calibrateButtonPushed(src,~)
-val = src.Parent.Parent.UserData.CalNameEditField.Value;
-[p,f,~] = fileparts(val);
-p = strrep(p,filesep,"/");
-val = strcat(p,"/",f);
-udpSender = src.Parent.Parent.UserData.UDP;
-cmd = sprintf('c.%s', val);
-writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
-fprintf(1,'[CONTROLLER]::Sent recalibration request: %s\n', cmd);
-end
-
-function handleFigureCloseRequest(src, ~)
-if src.UserData.UDP.UserData.running
-    res = questdlg('Close controller? (State machine is still running)', 'Exit Recording Controller', 'Yes', 'No', 'No');
-    if strcmpi(res, 'Yes')
-        delete(src);
+if config.Default.Enable_Teensy
+    if strlength(options.SerialDevice) < 1
+        s = serialportlist();
+        if numel(s) > 1
+            error("Multiple serial devices detected: ['%s']\n\t->\tSpecify correct device using SerialDevice option.", strjoin(s,"'; '"));
+        elseif numel(s) < 1
+            teensy = [];
+            warning("No serial devices detected! Sync signal will not be sent on Recording start/stop.");
+        else
+            teensy = serialport(s, options.BaudRate);
+        end
+    else
+        teensy = [];
     end
-else
-    delete(src);
-end
-end
+    fig.UserData.UDP.UserData = struct('expect_quit', false, 'running', false, ...
+        'subj', fig.UserData.SubjEditField, 'name', fig.UserData.NameEditField, 'block', fig.UserData.BlockEditField, 'atag', fig.UserData.TagAEditField, 'btag', fig.UserData.TagBEditField,  ...
+        'idle', idleButton, 'run', runButton, 'rec', recButton, 'stop', stopButton, 'imp', impButton, 'quit', quitButton, ...
+        'address', fig.UserData.Address, 'parameter_port', fig.UserData.ParameterPort, ...
+        'n_hosts', config.Default.N_Host_Devices_Per_Controller,'n_acknowledged', 0, 'teensy', teensy);
 
-function handleBlockEditFieldChange(src, ~)
-updateNameCallback(src);
-end
-
-function updateNameCallback(src)
-udpSender = src.Parent.Parent.UserData.UDP;
-fixedValue = string(src.Parent.Parent.UserData.NameEditField.Value);
-if ~contains(fixedValue, ".poly5")
-    fixedValue = strcat(fixedValue, ".poly5");
-end
-if ~contains(fixedValue, "%%s")
-    fixedValue = strrep(fixedValue, ".poly5", "_%%s.poly5");
-end
-if ~contains(fixedValue, "%d")
-    fixedValue = strrep(fixedValue, ".poly5", "_%d.poly5");
-end
-s = sprintf(fixedValue, src.Parent.Parent.UserData.BlockEditField.Value);
-writeline(udpSender, s, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.NamePort);
-fprintf(1,'[CONTROLLER]::Sent name: %s\n', s);
-end
-
-function handleFigureDeletion(src,~)
-try
-    delete(src.UserData.UDP);
-catch me
-    disp(me.message);
-    disp(me.stack(end));
-end
+    configureCallback(fig.UserData.UDP, "terminator", @handleUDPmessage);
+    impButton.UserData = struct('run', runButton, 'idle', idleButton, 'quit', quitButton);
+    fig.CloseRequestFcn = @handleFigureCloseRequest;
+    fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort);
 
 end
 
-function offsetFieldValueChanged(src,~)
-udpSender = src.Parent.Parent.UserData.UDP;
-cmd = sprintf("o.%d", src.Value);
-writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
-fprintf(1,'[CONTROLLER]::Sent offset: %s\n', cmd);
-end
+    function handleTriggersBoundFieldChanged(src, ~)
+        if src.Value <= 0
+            return;
+        end
+        udpSender = src.Parent.Parent.UserData.UDP;
+        cmd = sprintf('y.%d', src.Value);
+        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+        fprintf(1,'[CONTROLLER]::Sent Triggers Bound Request: %s\n', cmd);
+    end
 
-function samplesFieldValueChanged(src,~)
-udpSender = src.Parent.Parent.UserData.UDP;
-cmd = sprintf("g.%d", src.Value);
-writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
-fprintf(1,'[CONTROLLER]::Sent samples: %s\n', cmd);
-end
+    function toggleSquigglesButtonPushed(src,~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        if src.UserData
+            src.Text = "Turn Squiggles ON";
+            writeline(udpSender,"q.0",src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+            fprintf(1,'[CONTROLLER]::Sent request to toggle squiggles OFF: q.0\n');
+        else
+            src.Text = "Turn Squiggles OFF";
+            cmd = "q.1:A:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68:B:1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68";
+            writeline(udpSender,cmd,src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+            fprintf(1,'[CONTROLLER]::Sent request to toggle squiggles ON: %s\n', cmd);
+        end
+        src.UserData = ~src.UserData;
+    end
 
-function channelFieldValueChanged(src,~)
-if ~contains(src.Value, ":")
-    return;
-end
-udpSender = src.Parent.Parent.UserData.UDP;
-cmd = sprintf("e.%s", src.Value);
-writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
-fprintf(1,'[CONTROLLER]::Sent channel: %s\n', cmd);
-end
+    function calibrateButtonPushed(src,~)
+        val = src.Parent.Parent.UserData.CalNameEditField.Value;
+        [p,f,~] = fileparts(val);
+        p = strrep(p,filesep,"/");
+        val = strcat(p,"/",f);
+        udpSender = src.Parent.Parent.UserData.UDP;
+        cmd = sprintf('c.%s', val);
+        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+        fprintf(1,'[CONTROLLER]::Sent recalibration request: %s\n', cmd);
+    end
 
-function handleUDPmessage(src, ~)
-data = jsondecode(readline(src));
-switch data.type
-    case 'res'
-        switch data.value
-            case 'idle'
-                src.UserData.idle.Enable = 'off';
-                src.UserData.run.Enable = 'on';
-                src.UserData.rec.Enable = 'off';
-                src.UserData.quit.Enable = 'on';
-                src.UserData.stop.Enable = 'off';
-                src.UserData.imp.Enable = 'on';
-                src.UserData.subj.Enable = 'on';
-                src.UserData.name.Enable = 'on';
-                src.UserData.block.Enable = 'on';
-                src.UserData.atag.Enable = 'on';
-                src.UserData.btag.Enable = 'on';
-                src.UserData.expect_quit = false;
-                if ~src.UserData.running
-                    updateNameCallback(src.UserData.name);
-                    udpSenderRelayNameTags(src);
+    function handleFigureCloseRequest(src, ~)
+        if src.UserData.UDP.UserData.running
+            res = questdlg('Close controller? (State machine is still running)', 'Exit Recording Controller', 'Yes', 'No', 'No');
+            if strcmpi(res, 'Yes')
+                delete(src);
+            end
+        else
+            delete(src);
+        end
+    end
+
+    function handleBlockEditFieldChange(src, ~)
+        updateNameCallback(src);
+    end
+
+    function updateNameCallback(src)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        fixedValue = string(src.Parent.Parent.UserData.NameEditField.Value);
+        if ~contains(fixedValue, ".poly5")
+            fixedValue = strcat(fixedValue, ".poly5");
+        end
+        if ~contains(fixedValue, "%%s")
+            fixedValue = strrep(fixedValue, ".poly5", "_%%s.poly5");
+        end
+        if ~contains(fixedValue, "%d")
+            fixedValue = strrep(fixedValue, ".poly5", "_%d.poly5");
+        end
+        s = sprintf(fixedValue, src.Parent.Parent.UserData.BlockEditField.Value);
+        writeline(udpSender, s, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.NamePort);
+        fprintf(1,'[CONTROLLER]::Sent name: %s\n', s);
+    end
+
+    function handleFigureDeletion(src,~)
+        try
+            delete(src.UserData.UDP);
+        catch me
+            disp(me.message);
+            disp(me.stack(end));
+        end
+
+    end
+
+    function offsetFieldValueChanged(src,~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        cmd = sprintf("o.%d", src.Value);
+        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+        fprintf(1,'[CONTROLLER]::Sent offset: %s\n', cmd);
+    end
+
+    function samplesFieldValueChanged(src,~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        cmd = sprintf("g.%d", src.Value);
+        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+        fprintf(1,'[CONTROLLER]::Sent samples: %s\n', cmd);
+    end
+
+    function channelFieldValueChanged(src,~)
+        if ~contains(src.Value, ":")
+            return;
+        end
+        udpSender = src.Parent.Parent.UserData.UDP;
+        cmd = sprintf("e.%s", src.Value);
+        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+        fprintf(1,'[CONTROLLER]::Sent channel: %s\n', cmd);
+    end
+
+    function handleUDPmessage(src, ~)
+        data = jsondecode(readline(src));
+        switch data.type
+            case 'res'
+                switch data.value
+                    case 'idle'
+                        src.UserData.idle.Enable = 'off';
+                        src.UserData.run.Enable = 'on';
+                        src.UserData.rec.Enable = 'off';
+                        src.UserData.quit.Enable = 'on';
+                        src.UserData.stop.Enable = 'off';
+                        src.UserData.imp.Enable = 'on';
+                        src.UserData.subj.Enable = 'on';
+                        src.UserData.name.Enable = 'on';
+                        src.UserData.block.Enable = 'on';
+                        src.UserData.atag.Enable = 'on';
+                        src.UserData.btag.Enable = 'on';
+                        src.UserData.expect_quit = false;
+                        if ~src.UserData.running
+                            updateNameCallback(src.UserData.name);
+                            udpSenderRelayNameTags(src);
+                        end
+                        src.UserData.running = true;
+                    case 'imp'
+                        src.UserData.idle.Enable = 'off';
+                        src.UserData.run.Enable = 'off';
+                        src.UserData.rec.Enable = 'off';
+                        src.UserData.quit.Enable = 'off';
+                        src.UserData.stop.Enable = 'off';
+                        src.UserData.imp.Enable = 'off';
+                        src.UserData.subj.Enable = 'off';
+                        src.UserData.name.Enable = 'off';
+                        src.UserData.block.Enable = 'off';
+                        src.UserData.atag.Enable = 'off';
+                        src.UserData.btag.Enable = 'off';
+                        src.UserData.expect_quit = false;
+                        if ~src.UserData.running
+                            updateNameCallback(src.UserData.name);
+                            udpSenderRelayNameTags(src);
+                        end
+                        src.UserData.running = true;
+                    case 'run'
+                        src.UserData.idle.Enable = 'on';
+                        src.UserData.run.Enable = 'off';
+                        src.UserData.rec.Enable = 'on';
+                        src.UserData.quit.Enable = 'on';
+                        src.UserData.stop.Enable = 'off';
+                        src.UserData.imp.Enable = 'off';
+                        src.UserData.subj.Enable = 'on';
+                        src.UserData.name.Enable = 'on';
+                        src.UserData.block.Enable = 'on';
+                        src.UserData.atag.Enable = 'on';
+                        src.UserData.btag.Enable = 'on';
+                        src.UserData.expect_quit = false;
+                        if ~src.UserData.running
+                            updateNameCallback(src.UserData.name);
+                            udpSenderRelayNameTags(src);
+                        end
+                        src.UserData.running = true;
+                    case 'rec'
+                        src.UserData.idle.Enable = 'on';
+                        src.UserData.run.Enable = 'off';
+                        src.UserData.rec.Enable = 'off';
+                        src.UserData.quit.Enable = 'on';
+                        src.UserData.stop.Enable = 'on';
+                        src.UserData.imp.Enable = 'off';
+                        src.UserData.subj.Enable = 'off';
+                        src.UserData.name.Enable = 'off';
+                        src.UserData.block.Enable = 'off';
+                        src.UserData.atag.Enable = 'off';
+                        src.UserData.btag.Enable = 'off';
+                        src.UserData.expect_quit = false;
+                        if ~src.UserData.running
+                            updateNameCallback(src.UserData.name);
+                            udpSenderRelayNameTags(src);
+                        end
+                        src.UserData.n_acknowledged = src.UserData.n_acknowledged + 1;
+                        if ~isempty(src.UserData.teensy) && (src.UserData.n_ackowledged == src.UserData.n_hosts)
+                            pause(0.25);
+                            src.UserData.teensy.write('r'); % RECORDING!
+                            src.UserData.n_acknowledged = 0;
+                        end
+                        src.UserData.running = true;
+                    case 'quit'
+                        src.UserData.idle.Enable = 'off';
+                        src.UserData.run.Enable = 'off';
+                        src.UserData.rec.Enable = 'off';
+                        src.UserData.quit.Enable = 'off';
+                        src.UserData.stop.Enable = 'off';
+                        src.UserData.imp.Enable = 'off';
+                        src.UserData.subj.Enable = 'off';
+                        src.UserData.name.Enable = 'off';
+                        src.UserData.block.Enable = 'off';
+                        src.UserData.atag.Enable = 'off';
+                        src.UserData.btag.Enable = 'off';
+                        src.UserData.running = false;
+                        if src.UserData.expect_quit
+                            if src.UserData.n_acknowledged < src.UserData.n_hosts
+                                src.UserData.n_acknowledged = src.UserData.n_acknowledged + 1;
+                            else
+                                msgbox("State machine stopped running.");
+                                src.UserData.expect_quit = false;
+                                src.UserData.n_acknowledged = 0;
+                            end
+                        else
+                            errordlg("State machine stopped running unexpectedly!");
+                        end
+                    otherwise
+                        disp("Received message:");
+                        disp(data);
+                        error("Unhandled state message value: %s\n", data.value);
                 end
-                src.UserData.running = true;
-            case 'imp'
-                src.UserData.idle.Enable = 'off';
-                src.UserData.run.Enable = 'off';
-                src.UserData.rec.Enable = 'off';
-                src.UserData.quit.Enable = 'off';
-                src.UserData.stop.Enable = 'off';
-                src.UserData.imp.Enable = 'off';
-                src.UserData.subj.Enable = 'off';
-                src.UserData.name.Enable = 'off';
-                src.UserData.block.Enable = 'off';
-                src.UserData.atag.Enable = 'off';
-                src.UserData.btag.Enable = 'off';
-                src.UserData.expect_quit = false;
-                if ~src.UserData.running
-                    updateNameCallback(src.UserData.name);
-                    udpSenderRelayNameTags(src);
+            case 'status'
+                switch data.value
+                    case 'start'
+                        src.UserData.idle.Enable = 'on';
+                        src.UserData.run.Enable = 'on';
+                        src.UserData.rec.Enable = 'off';
+                        src.UserData.quit.Enable = 'on';
+                        src.UserData.stop.Enable = 'off';
+                        src.UserData.imp.Enable = 'on';
+                        src.UserData.subj.Enable = 'on';
+                        src.UserData.name.Enable = 'on';
+                        src.UserData.block.Enable = 'on';
+                        src.UserData.atag.Enable = 'on';
+                        src.UserData.btag.Enable = 'on';
+                        src.UserData.expect_quit = false;
+                        if ~src.UserData.running
+                            updateNameCallback(src.UserData.name);
+                            udpSenderRelayNameTags(src);
+                        end
+                        src.UserData.running = true;
+                    case 'resume'
+                        src.UserData.run.Enable = 'on';
+                        src.UserData.imp.Enable = 'on';
+                        src.UserData.quit.Enable = 'on';
+                        src.UserData.name.Enable = 'on';
+                        src.UserData.subj.Enable = 'on';
+                        src.UserData.block.Enable = 'on';
+                        src.UserData.atag.Enable = 'on';
+                        src.UserData.btag.Enable = 'on';
+                    case 'stop'
+                        src.UserData.idle.Enable = 'off';
+                        src.UserData.run.Enable = 'off';
+                        src.UserData.rec.Enable = 'off';
+                        src.UserData.quit.Enable = 'off';
+                        src.UserData.stop.Enable = 'off';
+                        src.UserData.imp.Enable = 'off';
+                        src.UserData.subj.Enable = 'off';
+                        src.UserData.name.Enable = 'off';
+                        src.UserData.atag.Enable = 'off';
+                        src.UserData.btag.Enable = 'off';
+                        src.UserData.block.Enable = 'off';
+                        src.UserData.running = false;
+                        if src.UserData.expect_quit
+                            msgbox("State machine stopped running.");
+                            src.UserData.expect_quit = false;
+                        else
+                            errordlg("State machine stopped running unexpectedly!");
+                        end
+                    otherwise
+                        disp("Received message:");
+                        disp(data);
+                        error("Unhandled status message value: %s\n", data.value);
                 end
-                src.UserData.running = true;
-            case 'run'
-                src.UserData.idle.Enable = 'on';
-                src.UserData.run.Enable = 'off';
-                src.UserData.rec.Enable = 'on';
-                src.UserData.quit.Enable = 'on';
-                src.UserData.stop.Enable = 'off';
-                src.UserData.imp.Enable = 'off';
-                src.UserData.subj.Enable = 'on';
-                src.UserData.name.Enable = 'on';
-                src.UserData.block.Enable = 'on';
-                src.UserData.atag.Enable = 'on';
-                src.UserData.btag.Enable = 'on';
-                src.UserData.expect_quit = false;
-                if ~src.UserData.running
-                    updateNameCallback(src.UserData.name);
-                    udpSenderRelayNameTags(src);
-                end
-                src.UserData.running = true;
-            case 'rec'
-                src.UserData.idle.Enable = 'on';
-                src.UserData.run.Enable = 'off';
-                src.UserData.rec.Enable = 'off';
-                src.UserData.quit.Enable = 'on';
-                src.UserData.stop.Enable = 'on';
-                src.UserData.imp.Enable = 'off';
-                src.UserData.subj.Enable = 'off';
-                src.UserData.name.Enable = 'off';
-                src.UserData.block.Enable = 'off';
-                src.UserData.atag.Enable = 'off';
-                src.UserData.btag.Enable = 'off';
-                src.UserData.expect_quit = false;
-                if ~src.UserData.running
-                    updateNameCallback(src.UserData.name);
-                    udpSenderRelayNameTags(src);
-                end
-                src.UserData.running = true;
-            case 'quit'
-                src.UserData.idle.Enable = 'off';
-                src.UserData.run.Enable = 'off';
-                src.UserData.rec.Enable = 'off';
-                src.UserData.quit.Enable = 'off';
-                src.UserData.stop.Enable = 'off';
-                src.UserData.imp.Enable = 'off';
-                src.UserData.subj.Enable = 'off';
-                src.UserData.name.Enable = 'off';
-                src.UserData.block.Enable = 'off';
-                src.UserData.atag.Enable = 'off';
-                src.UserData.btag.Enable = 'off';
-                src.UserData.running = false;
-                if src.UserData.expect_quit
-                    msgbox("State machine stopped running.");
-                    src.UserData.expect_quit = false;
-                else
-                    errordlg("State machine stopped running unexpectedly!");
+            case 'name'
+                switch data.value
+                    case 'new'
+                        src.UserData.block.Value = src.UserData.block.Value + 1;
+                        updateNameCallback(src.UserData.block);
+                    otherwise
+                        fprintf(1,'Unhandled `name` message value: %s\n', data.value);
                 end
             otherwise
                 disp("Received message:");
                 disp(data);
-                error("Unhandled state message value: %s\n", data.value);
+                error("Unhandled message type: %s\n", data.type);
         end
-    case 'status'
-        switch data.value
-            case 'start'
-                src.UserData.idle.Enable = 'on';
-                src.UserData.run.Enable = 'on';
-                src.UserData.rec.Enable = 'off';
-                src.UserData.quit.Enable = 'on';
-                src.UserData.stop.Enable = 'off';
-                src.UserData.imp.Enable = 'on';
-                src.UserData.subj.Enable = 'on';
-                src.UserData.name.Enable = 'on';
-                src.UserData.block.Enable = 'on';
-                src.UserData.atag.Enable = 'on';
-                src.UserData.btag.Enable = 'on';
-                src.UserData.expect_quit = false;
-                if ~src.UserData.running
-                    updateNameCallback(src.UserData.name);
-                    udpSenderRelayNameTags(src);
-                end
-                src.UserData.running = true;
-            case 'resume'
-                src.UserData.run.Enable = 'on';
-                src.UserData.imp.Enable = 'on';
-                src.UserData.quit.Enable = 'on';
-                src.UserData.name.Enable = 'on';
-                src.UserData.subj.Enable = 'on';
-                src.UserData.block.Enable = 'on';
-                src.UserData.atag.Enable = 'on';
-                src.UserData.btag.Enable = 'on';
-            case 'stop'
-                src.UserData.idle.Enable = 'off';
-                src.UserData.run.Enable = 'off';
-                src.UserData.rec.Enable = 'off';
-                src.UserData.quit.Enable = 'off';
-                src.UserData.stop.Enable = 'off';
-                src.UserData.imp.Enable = 'off';
-                src.UserData.subj.Enable = 'off';
-                src.UserData.name.Enable = 'off';
-                src.UserData.atag.Enable = 'off';
-                src.UserData.btag.Enable = 'off';
-                src.UserData.block.Enable = 'off';
-                src.UserData.running = false;
-                if src.UserData.expect_quit
-                    msgbox("State machine stopped running.");
-                    src.UserData.expect_quit = false;
-                else
-                    errordlg("State machine stopped running unexpectedly!");
-                end
-            otherwise
-                disp("Received message:");
-                disp(data);
-                error("Unhandled status message value: %s\n", data.value);
-        end
-    case 'name'
-        switch data.value
-            case 'new'
-                src.UserData.block.Value = src.UserData.block.Value + 1;
-                updateNameCallback(src.UserData.block);
-            otherwise
-                fprintf(1,'Unhandled `name` message value: %s\n', data.value);
-        end
-    otherwise
-        disp("Received message:");
-        disp(data);
-        error("Unhandled message type: %s\n", data.type);
-end
-end
-
-function udpSenderRelayNameTags(src)
-cmd = sprintf('b.A:%s', src.UserData.atag.Value);
-writeline(src, cmd, src.UserData.address, src.UserData.parameter_port);
-cmd = sprintf('b.B:%s', src.UserData.btag.Value);
-writeline(src, cmd, src.UserData.address, src.UserData.parameter_port);
-end
-
-function nameFieldValueChanged(src, ~)
-updateNameCallback(src);
-
-end
-
-function tagFieldValueChanged(src, ~)
-if strlength(src.Value) < 1
-    return;
-end
-udpSender = src.Parent.Parent.UserData.UDP;
-cmd = sprintf('b.%s:%s', src.UserData, src.Value);
-writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
-fprintf(1,'[CONTROLLER]::Sent Parameter Command: %s\n', cmd);
-end
-
-function subjFieldValueChanged(src, evt)
-s = strrep(src.Parent.Parent.UserData.NameEditField.Value, evt.PreviousValue, evt.Value);
-src.Parent.Parent.UserData.NameEditField.Value = s;
-updateNameCallback(src);
-end
-
-function recButtonPushed(src, ~)
-udpSender = src.Parent.Parent.UserData.UDP;
-writeline(udpSender, 'rec', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
-src.UserData.stop.Enable = 'on';
-src.UserData.idle.Enable = 'off';
-src.UserData.run.Enable = 'off';
-src.Enable = 'off';
-src.Parent.Parent.UserData.SubjEditField.Enable = 'off';
-src.Parent.Parent.UserData.BlockEditField.Enable = 'off';
-src.Parent.Parent.UserData.NameEditField.Enable = 'off';
-src.Parent.Parent.UserData.TagAEditField.Enable = 'off';
-src.Parent.Parent.UserData.TagBEditField.Enable = 'off';
-end
-
-function stopButtonPushed(src, ~)
-udpSender = src.Parent.Parent.UserData.UDP;
-writeline(udpSender, 'run', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
-src.UserData.rec.Enable = 'on';
-src.Enable = 'off';
-src.UserData.run.Enable = 'off';
-src.UserData.idle.Enable = 'on';
-src.Parent.Parent.UserData.SubjEditField.Enable = 'on';
-src.Parent.Parent.UserData.BlockEditField.Enable = 'on';
-src.Parent.Parent.UserData.NameEditField.Enable = 'on';
-src.Parent.Parent.UserData.TagAEditField.Enable = 'on';
-src.Parent.Parent.UserData.TagBEditField.Enable = 'on';
-src.Parent.Parent.UserData.BlockEditField.Value = src.Parent.Parent.UserData.BlockEditField.Value + 1;
-updateNameCallback(src);
-end
-
-function runButtonPushed(src, ~)
-udpSender = src.Parent.Parent.UserData.UDP;
-writeline(udpSender, 'run', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
-src.UserData.stop.Enable = 'off';
-src.UserData.rec.Enable = 'on';
-src.UserData.idle.Enable = 'on';
-src.UserData.imp.Enable = 'off';
-src.Enable = 'off';
-src.Parent.Parent.UserData.SubjEditField.Enable = 'on';
-src.Parent.Parent.UserData.BlockEditField.Enable = 'on';
-src.Parent.Parent.UserData.NameEditField.Enable = 'on';
-src.Parent.Parent.UserData.TagAEditField.Enable = 'on';
-src.Parent.Parent.UserData.TagBEditField.Enable = 'on';
-end
-
-function impButtonPushed(src, ~)
-udpSender = src.Parent.Parent.UserData.UDP;
-writeline(udpSender, 'imp', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
-if udpSender.UserData.running
-    src.Enable = 'off';
-    src.UserData.run.Enable = 'off';
-    src.UserData.idle.Enable = 'off';
-    src.UserData.quit.Enable = 'off';
-    src.Parent.Parent.UserData.SubjEditField.Enable = 'off';
-    src.Parent.Parent.UserData.BlockEditField.Enable = 'off';
-    src.Parent.Parent.UserData.NameEditField.Enable = 'off';
-    src.Parent.Parent.UserData.TagAEditField.Enable = 'off';
-    src.Parent.Parent.UserData.TagBEditField.Enable = 'off';
-end
-end
-
-function idleButtonPushed(src, ~)
-udpSender = src.Parent.Parent.UserData.UDP;
-writeline(udpSender, 'idle', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
-src.Enable = 'off';
-src.UserData.run.Enable = 'on';
-src.UserData.rec.Enable = 'off';
-src.UserData.stop.Enable = 'off';
-src.UserData.imp.Enable = 'on';
-src.Parent.Parent.UserData.SubjEditField.Enable = 'on';
-src.Parent.Parent.UserData.BlockEditField.Enable = 'on';
-src.Parent.Parent.UserData.NameEditField.Enable = 'on';
-src.Parent.Parent.UserData.TagAEditField.Enable = 'on';
-src.Parent.Parent.UserData.TagBEditField.Enable = 'on';
-end
-
-function quitButtonPushed(src, ~)
-udpSender = src.Parent.Parent.UserData.UDP;
-if udpSender.UserData.running
-    res = questdlg('Quit Acquisition State Machine?', 'Quit Acquisition State Machine?', 'Yes', 'No', 'No');
-    if strcmpi(res, 'No')
-        disp("[CONTROLLER]::State machine still running (no QUIT command sent).");
-        return;
     end
-end
-udpSender.UserData.expect_quit = true;
-writeline(udpSender, 'quit', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
+
+    function udpSenderRelayNameTags(src)
+        cmd = sprintf('b.A:%s', src.UserData.atag.Value);
+        writeline(src, cmd, src.UserData.address, src.UserData.parameter_port);
+        cmd = sprintf('b.B:%s', src.UserData.btag.Value);
+        writeline(src, cmd, src.UserData.address, src.UserData.parameter_port);
+    end
+
+    function nameFieldValueChanged(src, ~)
+        updateNameCallback(src);
+
+    end
+
+    function tagFieldValueChanged(src, ~)
+        if strlength(src.Value) < 1
+            return;
+        end
+        udpSender = src.Parent.Parent.UserData.UDP;
+        cmd = sprintf('b.%s:%s', src.UserData, src.Value);
+        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+        fprintf(1,'[CONTROLLER]::Sent Parameter Command: %s\n', cmd);
+    end
+
+    function subjFieldValueChanged(src, evt)
+        s = strrep(src.Parent.Parent.UserData.NameEditField.Value, evt.PreviousValue, evt.Value);
+        src.Parent.Parent.UserData.NameEditField.Value = s;
+        updateNameCallback(src);
+    end
+
+    function recButtonPushed(src, ~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        writeline(udpSender, 'rec', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
+        src.UserData.stop.Enable = 'on';
+        src.UserData.idle.Enable = 'off';
+        src.UserData.run.Enable = 'off';
+        src.Enable = 'off';
+        src.Parent.Parent.UserData.SubjEditField.Enable = 'off';
+        src.Parent.Parent.UserData.BlockEditField.Enable = 'off';
+        src.Parent.Parent.UserData.NameEditField.Enable = 'off';
+        src.Parent.Parent.UserData.TagAEditField.Enable = 'off';
+        src.Parent.Parent.UserData.TagBEditField.Enable = 'off';
+    end
+
+    function stopButtonPushed(src, ~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        if ~isempty(udpSender.UserData.teensy)
+            udpSender.UserData.teensy.write('s'); % "STOP RECORDING"
+        end
+        writeline(udpSender, 'run', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
+        src.UserData.rec.Enable = 'on';
+        src.Enable = 'off';
+        src.UserData.run.Enable = 'off';
+        src.UserData.idle.Enable = 'on';
+        src.Parent.Parent.UserData.SubjEditField.Enable = 'on';
+        src.Parent.Parent.UserData.BlockEditField.Enable = 'on';
+        src.Parent.Parent.UserData.NameEditField.Enable = 'on';
+        src.Parent.Parent.UserData.TagAEditField.Enable = 'on';
+        src.Parent.Parent.UserData.TagBEditField.Enable = 'on';
+        src.Parent.Parent.UserData.BlockEditField.Value = src.Parent.Parent.UserData.BlockEditField.Value + 1;
+        updateNameCallback(src);
+    end
+
+    function runButtonPushed(src, ~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        writeline(udpSender, 'run', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
+        src.UserData.stop.Enable = 'off';
+        src.UserData.rec.Enable = 'on';
+        src.UserData.idle.Enable = 'on';
+        src.UserData.imp.Enable = 'off';
+        src.Enable = 'off';
+        src.Parent.Parent.UserData.SubjEditField.Enable = 'on';
+        src.Parent.Parent.UserData.BlockEditField.Enable = 'on';
+        src.Parent.Parent.UserData.NameEditField.Enable = 'on';
+        src.Parent.Parent.UserData.TagAEditField.Enable = 'on';
+        src.Parent.Parent.UserData.TagBEditField.Enable = 'on';
+    end
+
+    function impButtonPushed(src, ~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        writeline(udpSender, 'imp', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
+        if udpSender.UserData.running
+            src.Enable = 'off';
+            src.UserData.run.Enable = 'off';
+            src.UserData.idle.Enable = 'off';
+            src.UserData.quit.Enable = 'off';
+            src.Parent.Parent.UserData.SubjEditField.Enable = 'off';
+            src.Parent.Parent.UserData.BlockEditField.Enable = 'off';
+            src.Parent.Parent.UserData.NameEditField.Enable = 'off';
+            src.Parent.Parent.UserData.TagAEditField.Enable = 'off';
+            src.Parent.Parent.UserData.TagBEditField.Enable = 'off';
+        end
+    end
+
+    function idleButtonPushed(src, ~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        if ~isempty(udpSender.UserData.teensy)
+            udpSender.UserData.teensy.write('s'); % "STOP RECORDING"
+        end
+        writeline(udpSender, 'idle', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
+        src.Enable = 'off';
+        src.UserData.run.Enable = 'on';
+        src.UserData.rec.Enable = 'off';
+        src.UserData.stop.Enable = 'off';
+        src.UserData.imp.Enable = 'on';
+        src.Parent.Parent.UserData.SubjEditField.Enable = 'on';
+        src.Parent.Parent.UserData.BlockEditField.Enable = 'on';
+        src.Parent.Parent.UserData.NameEditField.Enable = 'on';
+        src.Parent.Parent.UserData.TagAEditField.Enable = 'on';
+        src.Parent.Parent.UserData.TagBEditField.Enable = 'on';
+    end
+
+    function quitButtonPushed(src, ~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        if udpSender.UserData.running
+            res = questdlg('Quit Acquisition State Machine?', 'Quit Acquisition State Machine?', 'Yes', 'No', 'No');
+            if strcmpi(res, 'No')
+                disp("[CONTROLLER]::State machine still running (no QUIT command sent).");
+                return;
+            end
+        end
+        if ~isempty(udpSender.UserData.teensy)
+            udpSender.UserData.teensy.write('s'); % "STOP RECORDING"
+        end
+        udpSender.UserData.expect_quit = true;
+        writeline(udpSender, 'quit', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
+
+    end
 
 end

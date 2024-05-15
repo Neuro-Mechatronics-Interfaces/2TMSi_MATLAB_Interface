@@ -64,6 +64,8 @@ Default:
  Interface: "electrical"
  Folder: "C:/Data/TMSi"
  # Folder: "C:/Users/Daily/TempData"
+ Enable_Teensy: true 
+ N_Host_Devices_Per_Controller: 2
  HPF_Cutoff_Frequency: 100 # Hz
  Device_Reference_Mode: 'average' # must be 'average' (uses CAR from SAGA device) or 'common' (with separate CREF)
  CAR_Mode: 0 # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2
