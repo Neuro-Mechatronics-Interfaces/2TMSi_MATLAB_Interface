@@ -86,6 +86,7 @@ classdef exportToPPTX < handle
         dimensions      = [10 7.5];     % Presentation's dimensions in inches (read only)
         
         fullName        = '';           % Full filename of the openned presentation (empty if new)
+		tempName
         numSlides       = 0;            % Total number of slides
         hiddenSlides    = 0;            % Total number of hidden slides
         currentSlide                    % Current slide
@@ -95,8 +96,6 @@ classdef exportToPPTX < handle
     properties (Access=private)
         revNumber       = 0;
         numMasters
-        
-        tempName
         createdDate
         updatedDate
         imageTypes
