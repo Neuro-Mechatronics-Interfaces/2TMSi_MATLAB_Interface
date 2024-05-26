@@ -2,7 +2,10 @@ function fig = init_instruction_gui(options)
 %INIT_INSTRUCTION_GUI  Initialize GUI with instructions/microcontroller sync outputs
 arguments
     options.Serial = [];
-    options.InstructionList string = ["Index Extension", "Middle Extension", "Ring Extension"];
+    options.PulseSecondary (1,1) logical = true;
+    options.GesturesRoot {mustBeFolder} = fullfile(pwd,'configurations/gifs/pro/gray');
+    options.InstructionList (1,:) string {mustBeMember(options.InstructionList,["Hand Closing", "Hand Opening", "Pinch", "Radial Deviation", "Supination", "Pronation", "Ulnar Deviation", "Wrist Extension", "Wrist Flexion", "Index Extension", "Index Flexion", "Middle Extension", "Middle Flexion", "Pinky Extension", "Pinky Flexion", "Ring Extension", "Ring Flexion", "Thumb Extension", "Thumb Flexion"])} = ["Hand Closing", "Hand Opening", "Pinch", "Radial Deviation", "Supination", "Pronation", "Ulnar Deviation", "Wrist Extension", "Wrist Flexion", "Index Extension", "Index Flexion", "Middle Extension", "Middle Flexion", "Pinky Extension", "Pinky Flexion", "Ring Extension", "Ring Flexion", "Thumb Extension", "Thumb Flexion"]; % ["Index Extension", "Middle Extension", "Ring Extension"];
+    options.SkinColor {mustBeMember(options.SkinColor,["White","Tan","Brown","Black","Grey"])} = "Grey";
     options.BaudRate (1,1) {mustBePositive, mustBeInteger, mustBeMember(options.BaudRate,[9600, 115200])} = 115200;
 end
 if isempty(options.Serial)
@@ -15,30 +18,26 @@ if isempty(options.Serial)
 else
     s = options.Serial;
 end
-fig = figure('Name','Instructions GUI',...
-    'Color', 'k', ...
-    'WindowState', 'maximized', ...
-    'MenuBar','none',...
-    'ToolBar','none',...
-    'WindowKeyReleaseFcn', @handleWindowKeyRelease);
-L = tiledlayout(fig, 'flow');
-title(L,"Multi-Gesture Task",'FontName','Consolas','Color','w','FontSize',32);
-fig.UserData = struct;
-fig.UserData.Axes = nexttile(L);
-set(fig.UserData.Axes,'XLim',[-1, 1],'YLim',[-1, 1],'Color','k',...
-    'XColor','none','YColor','none','FontName','Tahoma');
-fig.UserData.Label = text(fig.UserData.Axes, 0, 0, "IDLE", ...
-    'FontSize', 64, 'FontWeight','bold','Color','w', ...
-    "HorizontalAlignment",'center','VerticalAlignment','middle');
-fig.UserData.Serial = s;
-fig.UserData.Config = load_spike_server_config();
-fig.UserData.UDP = udpport();
-fig.UserData.UDP.UserData.OutputName = sprintf('instructions_%s.mat', string(datetime('now')));
-configureCallback(fig.UserData.UDP,"terminator",@handleNamePingResponse);
+switch options.SkinColor
+    case "Grey"
+        cdata = gray(256);
+    case "White"
+        cdata = double(cm.umap(validatecolor("#f7b08f")))./255.0;
+        cdata = [interp1(1:64,cdata(1:64,:),linspace(1,64,3*64)); cdata(65:3:150,:); cdata(151:185,:)];
+    case "Tan"
+        cdata = double(cm.umap(validatecolor("#cf8d6d")))./255.0;
+        cdata = [interp1(1:32,cdata(1:32,:),linspace(1,32,3*32)); interp1(33:128,cdata(33:128,:),linspace(33,128,256-3*32))];
+    case "Brown"
+        cdata = double(cm.umap(validatecolor("#4a2412")))./255.0;
+        cdata = interp1(1:130,[0,0,0;cdata(1:128,:);1,1,1],linspace(1,130,256));
+    case "Black"
+        cdata = double(cm.umap(validatecolor("#4f362a")))./255.0;
+        cdata = interp1(1:130,[0,0,0;cdata(1:128,:);1,1,1],linspace(1,130,256));
+end
 
 instructions = options.InstructionList;
+nInstruct = numel(instructions);
 if ~contains(upper(instructions),"REST")
-    nInstruct = numel(instructions);
     instructions = [repmat("REST",1,nInstruct); reshape(instructions,1,nInstruct)];
     instructions = instructions(:);
 else
@@ -47,61 +46,86 @@ end
 if ~strcmpi(instructions(end),"REST")
     instructions(end+1) = "REST";
 end
+
+
+fig = figure('Name','Instructions GUI',...
+    'Color', 'k', ...
+    'WindowState', 'maximized', ...
+    'MenuBar','none',...
+    'ToolBar','none',...
+    'UserData', struct);
+fig.UserData.Gesture = cell(numel(options.InstructionList),1);
+fprintf(1,'Loading Images...000%%\n');
+for ii = 1:nInstruct
+    switch options.InstructionList{ii}
+        case 'Pronation'
+            fig.UserData.Gesture{ii} = imread(fullfile(options.GesturesRoot,'Supination.gif'), 'Frames','all') + 60; % Lighten everything
+            nFrameCur = size(fig.UserData.Gesture{ii},4);
+            fig.UserData.Gesture{ii} = fig.UserData.Gesture{ii}(:,:,:,[ceil(nFrameCur/2):nFrameCur,1:floor(nFrameCur/2)]);
+            fig.UserData.Gesture{ii}(fig.UserData.Gesture{ii} < 80) = 0;
+            fig.UserData.Gesture{ii} = uint8(round(double(fig.UserData.Gesture{ii}).^1/8.*4));
+            fig.UserData.Gesture{ii} = 4.*(fig.UserData.Gesture{ii} - 32);
+            fig.UserData.Gesture{ii} = uint8(round(32.*log(double(fig.UserData.Gesture{ii})+1)));
+        case 'Supination'
+            fig.UserData.Gesture{ii} = imread(fullfile(options.GesturesRoot,'Supination.gif'),'Frames','all') + 60; % Lighten everything
+            fig.UserData.Gesture{ii}(fig.UserData.Gesture{ii} < 80) = 0;
+            fig.UserData.Gesture{ii} = uint8(round(double(fig.UserData.Gesture{ii}).^1/8.*4));
+            fig.UserData.Gesture{ii} = 4.*(fig.UserData.Gesture{ii} - 32);
+            fig.UserData.Gesture{ii} = uint8(round(32.*log(double(fig.UserData.Gesture{ii})+1)));
+        otherwise
+            fig.UserData.Gesture{ii} = imread(fullfile(options.GesturesRoot,sprintf('%s.gif',options.InstructionList{ii})), ...
+                'Frames','all');
+    end
+    fprintf(1,'\b\b\b\b\b%03d%%\n', round(100*ii/nInstruct));
+end
+% fig.UserData.Gesture = imread(fullfile(options.GesturesRoot,sprintf('%s.gif',options.InstructionList{1})),'Frames','all');
+fig.UserData.PulseSecondary = options.PulseSecondary;
+
+L = tiledlayout(fig, 5, 1);
+title(L,"Multi-Gesture Task",'FontName','Consolas','Color','w','FontSize',32);
+fig.UserData.Axes = nexttile(L,1,[1 1]);
+set(fig.UserData.Axes,'XLim',[-1, 1],'YLim',[-1, 1],'Color','k',...
+    'XColor','none','YColor','none','FontName','Tahoma');
+fig.UserData.Label = text(fig.UserData.Axes, 0, 0, "IDLE", ...
+    'FontSize', 64, 'FontWeight','bold','Color','w', ...
+    "HorizontalAlignment",'center','VerticalAlignment','middle');
+
+ax = nexttile(L,2,[4 1]); % For the image gestures
+set(ax,'NextPlot','add','Colormap',cdata,...
+    'XColor','none','YColor','none', 'YDir', 'normal','Color','none', ...
+    'XLim',[0 1],'YLim',[0 1],'CLim',[0, 255]);
+fig.UserData.Image = image(ax,[0 1],[1 0],fig.UserData.Gesture{1}(:,:,:,1));
+% fig.UserData.Image = image(ax,[0 1],[1 0],fig.UserData.Gesture(:,:,:,1));
+fig.UserData.Serial = s;
+fig.UserData.Config = load_spike_server_config();
+fig.UserData.UDP = udpport();
+fig.UserData.UDP.UserData.OutputName = sprintf('instructions_%s.mat', string(datetime('now')));
+fig.UserData.UDP.UserData.Parent = fig;
+configureCallback(fig.UserData.UDP,"terminator",@handleNamePingResponse);
 fig.UserData.InstructionList = instructions;
+fig.UserData.GesturesRoot = options.GesturesRoot;
+fig.UserData.GestureList = options.InstructionList;
 fig.UserData.Index = 0;
 fig.DeleteFcn = @handleWindowDeletion;
+fig.WindowKeyReleaseFcn = @handleWindowKeyRelease;
 
     function handleNamePingResponse(src,~)
         msg = readline(src);
         res = jsondecode(msg);
-        if ~strcmpi(res.type,'name')
-            error("Expecting response type to be `name`, but received JSON message for `%s` instead.", res.type);
+        switch res.type
+            case 'name'
+                [p,expr,~] = fileparts(res.value);
+                src.UserData.OuputName = fullfile(p, sprintf(expr, 'instructionList'));
+            case 'control'
+                advanceGestureTrial(src.UserData.Parent);
+            otherwise
+                error("Expecting response type to be `name` or `control`, but received JSON message for `%s` instead.", res.type);
         end
-        [p,expr,~] = fileparts(res.value);
-        src.UserData.OuputName = fullfile(p, sprintf(expr, 'instructionList'));
     end
 
-    function handleWindowDeletion(src,~)
-        if ~isempty(src.UserData.Serial)
-            delete(src.UserData.Serial);
-        end
-        writeline(src.UserData.UDP,"run", ...
-            src.UserData.Config.UDP.Socket.StreamService.Address, ...
-            src.UserData.Config.UDP.Socket.StreamService.Port.state);
-        packet = jsonencode(struct('type', 'name', 'value', 'new'));
-        writeline(src.UserData.UDP, packet, ...
-            src.UserData.Config.UDP.Socket.RecordingController.Address, ...
-            src.UserData.Config.UDP.Socket.RecordingController.Port);
-        instructionList = src.UserData.InstructionList;
-        save(src.UserData.UDP.OutputName, 'instructionList', '-v7.3');
-        delete(src.UserData.UDP);
-    end
-
-    function handleWindowKeyRelease(src,evt)
+    function handleWindowKeyRelease(figH,evt)
         if strcmpi(evt.Key, 'rightarrow') || strcmpi(evt.Key, 'space')
-            if src.UserData.Index == 0
-                writeline(src.UserData.UDP,"rec", ...
-                    src.UserData.Config.UDP.Socket.StreamService.Address, ...
-                    src.UserData.Config.UDP.Socket.StreamService.Port.state);
-            end
-            src.UserData.Index = src.UserData.Index + 1;
-            if src.UserData.Index > numel(src.UserData.InstructionList)
-                if ~isempty(src.UserData.Serial)
-                    writeline(src.UserData.Serial,"0");
-                end
-                delete(src);
-                return;
-            end
-            instruction = src.UserData.InstructionList(src.UserData.Index);
-            src.UserData.Label.String = instruction;
-            if ~isempty(src.UserData.Serial)
-                if strcmpi(instruction,"REST")
-                    writeline(src.UserData.Serial,"1");
-                else
-                    writeline(src.UserData.Serial,"0");
-                    writeline(src.UserData.Serial,num2str(src.UserData.Index/2+1));
-                end
-            end
+            advanceGestureTrial(figH);
         end
     end
 
