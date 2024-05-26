@@ -45,22 +45,6 @@ fprintf(1, "[TMSi]::Loading configuration file (%s, in main repo folder)...\n", 
 [config, TAG, SN, N_CLIENT] = parse_main_config(config_file);
 % addpath('FastICA_25');
 
-%% Load the LSL library
-lslMatlabFolder = fullfile(pwd, '..', 'liblsl-Matlab');
-if exist(lslMatlabFolder,'dir')==0
-    lslMatlabFolder = parameters('liblsl_folder');
-    if exist(lslMatlabFolder, 'dir')==0
-        disp("No valid liblsl-Matlab repository detected on this device.");
-        fprintf(1,'\t->\tTried: "%s"\n', fullfile(pwd, '..', 'liblsl-Matlab'));
-        fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder);
-        disp("Please check parameters.m in the 2TMSi_MATLAB_Interface repository, and try again.");
-        pause(30);
-        error("[TMSi]::Missing liblsl-Matlab repository.");
-    end
-end
-addpath(genpath(lslMatlabFolder)); % Adds liblsl-Matlab
-lib_lsl = lsl_loadlib();
-
 %% Setup device configurations.
 config_device_impedance = struct('ImpedanceMode', true, ...
     'ReferenceMethod', 'common', ...
@@ -314,6 +298,22 @@ i_bip = struct('A', config.SAGA.A.Channels.BIP, 'B', config.SAGA.B.Channels.BIP)
 i_all = struct('A', union(i_mono.A, i_bip.A), 'B', union(i_mono.B, i_bip.B));
 zi = struct('A',zeros(3,numel(i_all.A)), 'B', zeros(3,numel(i_all.B)));
 cur_state = [0, 0, 0, 0];
+
+%% Load the LSL library
+lslMatlabFolder = fullfile(pwd, '..', 'liblsl-Matlab');
+if exist(lslMatlabFolder,'dir')==0
+    lslMatlabFolder = parameters('liblsl_folder');
+    if exist(lslMatlabFolder, 'dir')==0
+        disp("No valid liblsl-Matlab repository detected on this device.");
+        fprintf(1,'\t->\tTried: "%s"\n', fullfile(pwd, '..', 'liblsl-Matlab'));
+        fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder);
+        disp("Please check parameters.m in the 2TMSi_MATLAB_Interface repository, and try again.");
+        pause(30);
+        error("[TMSi]::Missing liblsl-Matlab repository.");
+    end
+end
+addpath(genpath(lslMatlabFolder)); % Adds liblsl-Matlab
+lib_lsl = lsl_loadlib();
 
 %% Initialize the LSL stream information and outlets
 lsl_info_obj = struct;

@@ -3,6 +3,7 @@ clear;
 close all force;
 clc;
 
+SAGA_UNIT = 'SAGAB';
 MY_FILE = fullfile(pwd,'Max_2024_03_30_B_22.poly5');
 TRIGS_CH = 73;
 % MY_FILE = "C:/Data/TMSi/MCP03/MCP03_2024_04_23/MCP03_2024_04_23_B_DISTEXT_15.poly5";
@@ -93,6 +94,47 @@ h_trigs = line(trigs_ax,(1:h_scale), ...
 ylim(trigs_ax,[0,1030]);
 title(trigs_ax,'Triggers','FontName','Tahoma','Color','k');
 
+%% Load the LSL library
+lslMatlabFolder = fullfile(pwd, '..', 'liblsl-Matlab');
+if exist(lslMatlabFolder,'dir')==0
+    lslMatlabFolder = parameters('liblsl_folder');
+    if exist(lslMatlabFolder, 'dir')==0
+        disp("No valid liblsl-Matlab repository detected on this device.");
+        fprintf(1,'\t->\tTried: "%s"\n', fullfile(pwd, '..', 'liblsl-Matlab'));
+        fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder);
+        disp("Please check parameters.m in the 2TMSi_MATLAB_Interface repository, and try again.");
+        pause(30);
+        error("[TMSi]::Missing liblsl-Matlab repository.");
+    end
+end
+addpath(genpath(lslMatlabFolder)); % Adds liblsl-Matlab
+lib_lsl = lsl_loadlib();
+
+%% Initialize the LSL stream information and outlets
+
+lsl_info_obj = lsl_streaminfo(lib_lsl, ...
+    SAGA_UNIT, ...       % Name
+    'EMG', ...           % Type
+    numel(poly5.channels), ....   % ChannelCount
+    4000, ...                     % NominalSrate
+    'cf_float32', ...             % ChannelFormat
+    SAGA_UNIT);      % Unique ID: SAGAA, SAGAB, SAGA1, ... SAGA5
+chns = lsl_info_obj.desc().append_child('channels');
+for iCh = 1:numel(poly5.channels)
+    c = chns.append_child('channel');
+    c.append_child_value('name', char(poly5.channels(iCh).name));
+    c.append_child_value('label', char(poly5.channels(iCh).name));
+    c.append_child_value('unit', char(poly5.channels(iCh).unit_name));
+    if isfield(poly5.channels(iCh),'type')
+        c.append_child_value('type', TMSiSAGA.TMSiUtils.toChannelTypeString(poly5.channels(iCh).type));
+    end
+end    
+lsl_info_obj.desc().append_child_value('manufacturer', 'NML');
+lsl_info_obj.desc().append_child_value('layout', 'Grid_8_x_8');
+
+lsl_outlet_obj = lsl_outlet(lsl_info_obj);
+
+
 %% Run loop while figure is open.
 needs_initial_ts = true;
 ts0 = 0;
@@ -122,6 +164,7 @@ while isvalid(fig)
         squiggles_server.UserData.has_new_channel = false;
     end
     samples = read_next_n_blocks(poly5, 2);
+    lsl_outlet_obj.push_chunk(samples);
     n_samples = size(samples,2);
     if needs_initial_ts
         ts0 = samples(end,1)/SAMPLE_RATE_RECORDING;
