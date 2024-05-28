@@ -119,7 +119,7 @@ UDP:
   StreamService:
    # Address: "192.168.88.100"
    # Address: "127.0.0.1"
-   Address: "192.168.0.255" # multicast on LAN
+   Address: "10.0.1.255" # multicast on LAN
    Port: 
     state: 3030
     name: 3031
@@ -127,8 +127,11 @@ UDP:
   RecordingControllerGUI:
    # Address: "192.168.88.101"
    # Address: "127.0.0.1"
-   Address: "192.168.0.255" # multicast on LAN
+   Address: "10.0.1.255" # multicast on LAN
    Port: 3050
+  GesturesGUI:
+   Address: "10.0.1.255" # multicast on LAN
+   Port: 4050
 TCP:
  SpikeServer:
   # Address: "127.168.88.100"

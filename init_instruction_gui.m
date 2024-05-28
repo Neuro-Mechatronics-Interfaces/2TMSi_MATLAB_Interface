@@ -95,7 +95,17 @@ if options.UseLSL
     % The so-called source id is an optional string that allows for uniquely identifying your 
     % marker stream across re-starts (or crashes) of your script (i.e., after a crash of your script 
     % other programs could continue to record from the stream with only a minor interruption).
-    fig.UserData.LSL_StreamInfo = lsl_streaminfo(fig.UserData.LSL_Lib,'GestureInstructions','Markers',1,0,'cf_string',sprintf('Gestures%06d',randi(999999,1,1)));
+    fig.UserData.LSL_StreamInfo = lsl_streaminfo(fig.UserData.LSL_Lib, ...
+        'GestureInstructions', ...
+        'Markers', ...
+        1, ...
+        0, ...
+        'cf_string', ...
+        sprintf('Gestures%06d',randi(999999,1,1)));
+    chns = fig.UserData.LSL_StreamInfo.desc().append_child('channels');
+    ch = chns.append_child('channel');
+    ch.append_child_value('label','Instruction');
+    ch.append_child_value('type','Marker');
     fig.UserData.LSL_Outlet = lsl_outlet(fig.UserData.LSL_StreamInfo);
 else
     fig.UserData.LSL_Lib = [];
@@ -120,13 +130,30 @@ fig.UserData.Image = image(ax,[0 1],[1 0],fig.UserData.Gesture{1}(:,:,:,1));
 % fig.UserData.Image = image(ax,[0 1],[1 0],fig.UserData.Gesture(:,:,:,1));
 fig.UserData.Serial = s;
 fig.UserData.Config = load_spike_server_config();
-fig.UserData.UDP = udpport();
+u = udpportfind;
+udpAssign = [];
+for iUDP = 1:numel(u)
+    if u(iUDP).LocalPort == fig.UserData.Config.UDP.Socket.GesturesGUI.Port
+        udpAssign = u(iUDP);
+        break;
+    end
+end
+
+if isempty(udpAssign)
+    fig.UserData.UDP = udpport(...
+        "LocalPort", fig.UserData.Config.UDP.Socket.GesturesGUI.Port, ...
+        'EnablePortSharing', true);
+else
+    fig.UserData.UDP = udpAssign;
+end
 fig.UserData.UDP.UserData.OutputName = sprintf('instructions_%s.mat', string(datetime('now')));
 fig.UserData.UDP.UserData.Parent = fig;
 configureCallback(fig.UserData.UDP,"terminator",@handleNamePingResponse);
 fig.UserData.InstructionList = instructions;
 fig.UserData.GesturesRoot = options.GesturesRoot;
 fig.UserData.GestureList = options.InstructionList;
+fig.UserData.Metronome = struct;
+[fig.UserData.Metronome.Y, fig.UserData.Metronome.fs] = audioread('Metronome.wav');
 fig.UserData.Index = 0;
 fig.DeleteFcn = @handleWindowDeletion;
 fig.WindowKeyReleaseFcn = @handleWindowKeyRelease;
@@ -134,12 +161,13 @@ fig.WindowKeyReleaseFcn = @handleWindowKeyRelease;
     function handleNamePingResponse(src,~)
         msg = readline(src);
         res = jsondecode(msg);
+        disp(msg);
         switch res.type
             case 'name'
                 [p,expr,~] = fileparts(res.value);
                 src.UserData.OuputName = fullfile(p, sprintf(expr, 'instructionList'));
             case 'control'
-                advanceGestureTrial(src.UserData.Parent);
+                advanceGestureTrial(src.UserData.Parent, res.value);
             otherwise
                 error("Expecting response type to be `name` or `control`, but received JSON message for `%s` instead.", res.type);
         end

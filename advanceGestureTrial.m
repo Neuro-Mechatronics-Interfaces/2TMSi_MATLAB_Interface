@@ -1,11 +1,15 @@
-function advanceGestureTrial(figH)
+function advanceGestureTrial(figH, index)
 %ADVANCEGESTURETRIAL  Advances gesture trial in figure handle for gesture prompts GUI.
-if figH.UserData.Index == 0
-    writeline(figH.UserData.UDP,"rec", ...
-        figH.UserData.Config.UDP.Socket.StreamService.Address, ...
-        figH.UserData.Config.UDP.Socket.StreamService.Port.state);
+% if figH.UserData.Index == 0
+%     writeline(figH.UserData.UDP,"run", ...
+%         figH.UserData.Config.UDP.Socket.StreamService.Address, ...
+%         figH.UserData.Config.UDP.Socket.StreamService.Port.state);
+% end
+if nargin < 2
+    figH.UserData.Index = figH.UserData.Index + 1;
+else
+    figH.UserData.Index = index;
 end
-figH.UserData.Index = figH.UserData.Index + 1;
 if figH.UserData.Index > numel(figH.UserData.InstructionList)
     if ~isempty(figH.UserData.Serial)
         writeline(figH.UserData.Serial,"0");
@@ -32,6 +36,7 @@ if ~isempty(figH.UserData.LSL_Outlet)
     figH.UserData.LSL_Outlet.push_sample(gesture);
 end
 
+soundsc(figH.UserData.Metronome.Y, figH.UserData.Metronome.fs);
 if strcmpi(instruction,"REST")
     if figH.UserData.Index > 1
         playRestAnimation(figH.UserData.Image, figH.UserData.Gesture{(figH.UserData.Index-1)/2});

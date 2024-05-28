@@ -21,6 +21,6 @@ delete(figH.UserData.UDP);
 if ~isempty(figH.UserData.LSL_Outlet)
     delete(figH.UserData.LSL_Outlet);
     delete(figH.UserData.LSL_StreamInfo);
-    delete(figH.UserData.LSL_Lib);
+    % delete(figH.UserData.LSL_Lib);
 end
 end
