@@ -27,6 +27,11 @@ if ~isempty(figH.UserData.Serial)
     end
 end
 
+if ~isempty(figH.UserData.LSL_Outlet)
+    gesture = {char(instruction)};
+    figH.UserData.LSL_Outlet.push_sample(gesture);
+end
+
 if strcmpi(instruction,"REST")
     if figH.UserData.Index > 1
         playRestAnimation(figH.UserData.Image, figH.UserData.Gesture{(figH.UserData.Index-1)/2});

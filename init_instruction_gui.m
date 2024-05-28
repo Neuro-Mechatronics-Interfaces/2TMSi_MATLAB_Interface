@@ -2,6 +2,8 @@ function fig = init_instruction_gui(options)
 %INIT_INSTRUCTION_GUI  Initialize GUI with instructions/microcontroller sync outputs
 arguments
     options.Serial = [];
+    options.LSLFolder {mustBeTextScalar} = "C:/MyRepos/Libraries/liblsl-Matlab";
+    options.UseLSL (1,1) logical = true;
     options.PulseSecondary (1,1) logical = true;
     options.GesturesRoot {mustBeFolder} = fullfile(pwd,'configurations/gifs/pro/gray');
     options.InstructionList (1,:) string {mustBeMember(options.InstructionList,["Hand Closing", "Hand Opening", "Pinch", "Radial Deviation", "Supination", "Pronation", "Ulnar Deviation", "Wrist Extension", "Wrist Flexion", "Index Extension", "Index Flexion", "Middle Extension", "Middle Flexion", "Pinky Extension", "Pinky Flexion", "Ring Extension", "Ring Flexion", "Thumb Extension", "Thumb Flexion"])} = ["Hand Closing", "Hand Opening", "Pinch", "Radial Deviation", "Supination", "Pronation", "Ulnar Deviation", "Wrist Extension", "Wrist Flexion", "Index Extension", "Index Flexion", "Middle Extension", "Middle Flexion", "Pinky Extension", "Pinky Flexion", "Ring Extension", "Ring Flexion", "Thumb Extension", "Thumb Flexion"]; % ["Index Extension", "Middle Extension", "Ring Extension"];
@@ -80,6 +82,26 @@ for ii = 1:nInstruct
 end
 % fig.UserData.Gesture = imread(fullfile(options.GesturesRoot,sprintf('%s.gif',options.InstructionList{1})),'Frames','all');
 fig.UserData.PulseSecondary = options.PulseSecondary;
+
+if options.UseLSL
+    addpath(genpath(options.LSLFolder));
+    fig.UserData.LSL_Lib = lsl_loadlib();
+    
+    % make a new stream outlet
+    % the name (here MyMarkerStream) is visible to the experimenter and should be chosen so that 
+    % it is clearly recognizable as your MATLAB software's marker stream
+    % The content-type should be Markers by convention, and the next three arguments indicate the 
+    % data format (1 channel, irregular rate, string-formatted).
+    % The so-called source id is an optional string that allows for uniquely identifying your 
+    % marker stream across re-starts (or crashes) of your script (i.e., after a crash of your script 
+    % other programs could continue to record from the stream with only a minor interruption).
+    fig.UserData.LSL_StreamInfo = lsl_streaminfo(fig.UserData.LSL_Lib,'GestureInstructions','Markers',1,0,'cf_string',sprintf('Gestures%06d',randi(999999,1,1)));
+    fig.UserData.LSL_Outlet = lsl_outlet(fig.UserData.LSL_StreamInfo);
+else
+    fig.UserData.LSL_Lib = [];
+    fig.UserData.LSL_StreamInfo = [];
+    fig.UserData.LSL_Outlet = [];
+end
 
 L = tiledlayout(fig, 5, 1);
 title(L,"Multi-Gesture Task",'FontName','Consolas','Color','w','FontSize',32);
