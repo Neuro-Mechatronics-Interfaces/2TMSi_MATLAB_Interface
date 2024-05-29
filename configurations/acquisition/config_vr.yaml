@@ -22,11 +22,11 @@ SAGA:
  A: 
    Enable: true
    FileType: ".mat"
-   Unit: "SAGAA"
-   # Unit: "SAGA5"
+   # Unit: "SAGAA"
+   Unit: "SAGA4"
    Array: 
     Type: "Large Grid"
-    Location: "A_DISTEXT"
+    Location: "A_FLX"
    Trigger:
     Channel: 73
     Bit: 1
@@ -41,12 +41,12 @@ SAGA:
     COUNT: 75
  B: 
    Enable: true
-   Unit: "SAGAB"
-   # Unit: "SAGA1"
+   # Unit: "SAGAB"
+   Unit: "SAGA5"
    FileType: ".mat"
    Array: 
     Type: "Large Grid"
-    Location: "B_DISTFLX"
+    Location: "B_EXT"
    Trigger:
     Channel: 73
     Bit: 1
