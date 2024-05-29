@@ -3,7 +3,7 @@ function fig = init_oscope_figure(options)
 arguments
     options.ScopeChannel (1,1) {mustBeMember(options.ScopeChannel,1:2)} = 1;
     options.TimeData (1,:) double = nan;
-    options.YLim (1,2) double = [0,2];
+    options.YLim (1,2) double = [-1,1];
 end
 
 % Create a figure and a line handle for plotting

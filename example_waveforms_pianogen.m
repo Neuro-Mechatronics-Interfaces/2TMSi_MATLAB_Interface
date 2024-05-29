@@ -32,13 +32,13 @@ end
 notes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 octaveUp = 2;
 damping = 0.9;
-duration = 10; % seconds
+duration = 1; % seconds
 % duration = 1;
 numSamples = 8192; 
 samplingRate = numSamples * duration;
 % samplingRate = 44100;
-offset = -1.0;  % Set the desired offset (in volts)
-amplitude = 2.0;  % Set the desired amplitude scale (in volts)
+offset = -0.5;  % Set the desired offset (in modulation %)
+amplitude = 1.0;  % Set the desired amplitude scale (in modulation %)
 
 
 % Generate FM and AM arrays for a sample song (e.g., Happy Birthday)
@@ -94,20 +94,25 @@ rgAM_ptr = libpointer('doublePtr', rgAM);
 
 % Set up Wavegen with modulation
 calllib('dwf', 'FDwfAnalogOutNodeEnableSet', hdwf.Value, int32(0), int32(0), int32(1));
-calllib('dwf', 'FDwfAnalogOutNodeFunctionSet', hdwf.Value, int32(0), int32(0), int32(30)); % Custom
-calllib('dwf', 'FDwfAnalogOutNodeFunctionSet', hdwf.Value, int32(0), int32(1), int32(30)); % Custom
+calllib('dwf', 'FDwfAnalogOutNodeEnableSet', hdwf.Value, int32(0), int32(1), int32(1));
+calllib('dwf', 'FDwfAnalogOutNodeEnableSet', hdwf.Value, int32(0), int32(2), int32(1));
+
+% Set the carrier waveform function
+calllib('dwf', 'FDwfAnalogOutNodeFunctionSet', hdwf.Value, int32(0), int32(0), int32(1)); % Sine wave
+
+% Set the FM modulation function
+calllib('dwf', 'FDwfAnalogOutNodeFunctionSet', hdwf.Value, int32(0), int32(1), int32(30)); % Custom waveform
+% Set the AM modulation function
+calllib('dwf', 'FDwfAnalogOutNodeFunctionSet', hdwf.Value, int32(0), int32(2), int32(30)); % Custom waveform
 
 % Set up FM modulation data
 calllib('dwf', 'FDwfAnalogOutNodeDataSet', hdwf.Value, int32(0), int32(0), rgFM_ptr, length(rgFM));
-
 % Set up AM modulation data
 calllib('dwf', 'FDwfAnalogOutNodeDataSet', hdwf.Value, int32(0), int32(1), rgAM_ptr, length(rgAM));
 
 % Set the offset and amplitude of waveform
 calllib('dwf', 'FDwfAnalogOutNodeOffsetSet', hdwf.Value, 0, 0, offset);
 calllib('dwf', 'FDwfAnalogOutNodeAmplitudeSet', hdwf.Value, 0, 0, amplitude);
-
-
 
 % % % Set up Oscilloscope % % %
 calllib('dwf', 'FDwfAnalogInFrequencySet', hdwf.Value, samplingRate);

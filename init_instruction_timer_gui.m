@@ -92,9 +92,27 @@ fig.UserData.StartButton.Layout.Column = 1;
 fig.UserData.StopButton = uibutton(L, "Text", "STOP", "BackgroundColor",'r',"FontColor",'w','FontWeight','bold','ButtonPushedFcn', @stopButtonPushed,'FontName','Tahoma', 'Enable', 'off');
 fig.UserData.StopButton.Layout.Row = 10;
 fig.UserData.StopButton.Layout.Column = 3;
-fig.UserData.Timer.UserData.Button = struct('Start',fig.UserData.StartButton,'Stop',fig.UserData.StopButton);
+fig.UserData.PauseButton = uibutton(L, "Text", "PAUSE", "FontWeight",'bold','ButtonPushedFcn',@pauseButtonPushed, ...
+    'UserData',struct('tPause',[]));
+fig.UserData.PauseButton.Layout.Row = 10;
+fig.UserData.PauseButton.Layout.Column = 2;
+fig.UserData.Timer.UserData.Button = struct('Start',fig.UserData.StartButton,'Stop',fig.UserData.StopButton, 'Pause', fig.UserData.PauseButton);
 fig.UserData.Timer.UserData.Remaining = fig.UserData.Remaining;
 fig.DeleteFcn = @handleInstructionTimerGUIClosing;
+
+    function pauseButtonPushed(src,~)
+        t = src.Parent.Parent.UserData.Timer;
+        if strcmpi(src.Text,"PAUSE")
+            src.UserData.tPause = tic;
+            stop(t);
+            src.Text = "RESUME";
+        else
+            tResume = toc(src.UserData.tPause);
+            t.UserData.tCur = t.UserData.tCur + (uint64(round(tResume * 1e7)));
+            start(t);
+            src.Text = "PAUSE";
+        end
+    end
 
     function startButtonPushed(src,~)
         f = src.Parent.Parent;
@@ -111,12 +129,17 @@ fig.DeleteFcn = @handleInstructionTimerGUIClosing;
         t.UserData.tCur = tic;
         start(t);
         t.UserData.Button.Stop.Enable = 'on';
+        t.UserData.Button.Pause.Text = "PAUSE";
+        t.UserData.Button.Pause.Enable = 'on';
         src.Enable = 'off';
     end
     function stopButtonPushed(src,~)
         t = src.Parent.Parent.UserData.Timer;
         stop(t);
         t.UserData.Button.Start.Enable = 'on';
+        t.UserData.Button.Pause.Text = "PAUSE";
+        t.UserData.Button.Pause.Enable = 'off';
+        t.UserData.Remaining.Text = num2str(t.UserData.Reps * t.UserData.Gestures);
         src.Enable = 'off';
     end
     function runGesturesList(src,~)

@@ -365,7 +365,7 @@ end
                         src.UserData.n_acknowledged = src.UserData.n_acknowledged + 1;
                         if ~isempty(src.UserData.teensy) && (src.UserData.n_ackowledged == src.UserData.n_hosts)
                             pause(0.25);
-                            src.UserData.teensy.write('r'); % RECORDING!
+                            src.UserData.teensy.write('r','char'); % RECORDING!
                             src.UserData.n_acknowledged = 0;
                         end
                         src.UserData.running = true;
@@ -511,7 +511,7 @@ end
     function stopButtonPushed(src, ~)
         udpSender = src.Parent.Parent.UserData.UDP;
         if ~isempty(udpSender.UserData.teensy)
-            udpSender.UserData.teensy.write('s'); % "STOP RECORDING"
+            udpSender.UserData.teensy.write('s','char'); % "STOP RECORDING"
         end
         writeline(udpSender, 'run', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
         src.UserData.rec.Enable = 'on';
@@ -561,7 +561,7 @@ end
     function idleButtonPushed(src, ~)
         udpSender = src.Parent.Parent.UserData.UDP;
         if ~isempty(udpSender.UserData.teensy)
-            udpSender.UserData.teensy.write('s'); % "STOP RECORDING"
+            udpSender.UserData.teensy.write('s','char'); % "STOP RECORDING"
         end
         writeline(udpSender, 'idle', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
         src.Enable = 'off';
@@ -586,7 +586,7 @@ end
             end
         end
         if ~isempty(udpSender.UserData.teensy)
-            udpSender.UserData.teensy.write('s'); % "STOP RECORDING"
+            udpSender.UserData.teensy.write('s','char'); % "STOP RECORDING"
         end
         udpSender.UserData.expect_quit = true;
         writeline(udpSender, 'quit', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);

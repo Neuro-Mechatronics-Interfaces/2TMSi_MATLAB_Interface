@@ -14,7 +14,7 @@ if figH.UserData.Index > numel(figH.UserData.InstructionList)
     if ~isempty(figH.UserData.Serial)
         writeline(figH.UserData.Serial,"0");
     end
-    delete(figH);
+    % delete(figH);
     return;
 end
 instruction = figH.UserData.InstructionList(figH.UserData.Index);
