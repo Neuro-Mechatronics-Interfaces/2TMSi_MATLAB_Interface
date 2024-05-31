@@ -12,7 +12,7 @@ else
 end
 if figH.UserData.Index > numel(figH.UserData.InstructionList)
     if ~isempty(figH.UserData.Serial)
-        writeline(figH.UserData.Serial,"0");
+        write(figH.UserData.Serial,'0','c');
     end
     % delete(figH);
     return;
@@ -22,11 +22,11 @@ figH.UserData.Label.String = instruction;
 drawnow();
 if ~isempty(figH.UserData.Serial)
     if strcmpi(instruction,"REST")
-        writeline(figH.UserData.Serial,"1");
+        write(figH.UserData.Serial,'1','c');
     else
-        writeline(figH.UserData.Serial,"0");
+        write(figH.UserData.Serial,'0','c');
         if figH.UserData.PulseSecondary
-            writeline(figH.UserData.Serial,num2str(figH.UserData.Index/2+1));
+            write(figH.UserData.Serial,char(num2str(figH.UserData.Index/2+1)),'c');
         end
     end
 end

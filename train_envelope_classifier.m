@@ -1,7 +1,7 @@
 function [net, meta, input_data] = train_envelope_classifier(samples, labels, options)
 %TRAIN_ENVELOPE_CLASSIFIER  Train/implement envelope classifier network
 arguments
-    samples (64,:) double
+    samples (:,:) double
     labels (1,:) categorical
     options.HPFCutoff (1,1) double = 100;
     options.HPFOrder (1,1) {mustBePositive, mustBeInteger} = 3;
@@ -35,6 +35,7 @@ meta.channels.keep_pre = setdiff(1:64,meta.channels.exclude_pre);
 
 samples = filter(meta.filter.b_env, meta.filter.a_env, abs(samples), [], 2);
 samples(meta.channels.exclude_pre,:) = nan;
+
 if options.ApplyDiscreteLaplacian
     samples = reshape(del2(reshape(samples,8,8,[])),64,[]);
     meta.channels.exclude_post = find(isnan(samples(:,1)));
