@@ -4,11 +4,11 @@ close all force;
 clc;
 
 %% Parameters
-SUBJ = "Max";
+SUBJ = "Dailyn";
 YYYY = 2024;
 MM = 5;
-DD = 29;
-BLOCK = 1;
+DD = 31;
+BLOCK = 2;
 
 LOOP_DELAY = 0.030; % Seconds
 UNI_CHANNELS = [1:64;75:138];

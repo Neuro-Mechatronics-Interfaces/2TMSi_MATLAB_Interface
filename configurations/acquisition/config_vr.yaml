@@ -23,7 +23,7 @@ SAGA:
    Enable: true
    FileType: ".mat"
    # Unit: "SAGAA"
-   Unit: "SAGA4"
+   Unit: "SAGA5"
    Array: 
     Type: "Large Grid"
     Location: "A_FLX"
@@ -42,7 +42,7 @@ SAGA:
  B: 
    Enable: true
    # Unit: "SAGAB"
-   Unit: "SAGA5"
+   Unit: "SAGA4"
    FileType: ".mat"
    Array: 
     Type: "Large Grid"

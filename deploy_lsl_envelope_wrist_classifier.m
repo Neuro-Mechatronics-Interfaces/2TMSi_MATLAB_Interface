@@ -18,71 +18,22 @@ config = load_spike_server_config();
 
 inlet = {};
 info = {};
-% env_info = {};
-% env_inlet = {};
-% env_outlet = {};
 if config.SAGA.A.Enable % Make sure we grab the correct channels so orientation of rows in data array is as-expected by classifier!
-    % a_outlet_info = lsl_streaminfo(lib, ...
-    %     sprintf('%s_ENV',config.SAGA.A.Unit),...
-    %     'EMG', ...
-    %     64, ...
-    %     4000, ...
-    %     'cf_float32', ...
-    %     sprintf('%s_ENV',config.SAGA.A.Unit));
-    % chns = a_outlet_info.desc().append_child('channels');
-    % for iCh = 1:64
-    %     c = chns.append_child('channel');
-    %     c.append_child_value('name', sprintf('UNI %02d', iCh));
-    %     c.append_child_value('label', sprintf('UNI %02d', iCh));
-    % end
-    % env_outlet{end+1} = lsl_outlet(a_outlet_info);
-    % pause(0.050);
-
     result = {};
     while isempty(result)
         result = lsl_resolve_byprop(lib,'name',char(config.SAGA.A.Unit)); 
     end
     info{end+1} = result{1};
     inlet{end+1} = lsl_inlet(info{end});
-
-    % result = {};
-    % while isempty(result)
-    %     result = lsl_resolve_byprop(lib,'name',sprintf('%s_ENV',config.SAGA.A.Unit)); 
-    % end
-    % env_info{end+1} = result{1};
-    % env_inlet{end+1} = lsl_inlet(env_info{end});
 end
 
 if config.SAGA.B.Enable
-    % b_outlet_info = lsl_streaminfo(lib, ...
-    %     sprintf('%s_ENV',config.SAGA.B.Unit),...
-    %     'EMG', ...
-    %     64, ...
-    %     4000, ...
-    %     'cf_float32', ...
-    %     sprintf('%s_ENV',config.SAGA.B.Unit));
-    % chns = b_outlet_info.desc().append_child('channels');
-    % for iCh = 1:64
-    %     c = chns.append_child('channel');
-    %     c.append_child_value('name', sprintf('UNI %02d', iCh));
-    %     c.append_child_value('label', sprintf('UNI %02d', iCh));
-    % end
-    % env_outlet{end+1} = lsl_outlet(b_outlet_info);
-    % pause(0.050);
-
     result = {};
     while isempty(result)
         result = lsl_resolve_byprop(lib,'name',char(config.SAGA.B.Unit)); 
     end
     info{end+1} = result{1};
     inlet{end+1} = lsl_inlet(info{end});
-
-    % result = {};
-    % while isempty(result)
-    %     result = lsl_resolve_byprop(lib,'name',sprintf('%s_ENV',config.SAGA.B.Unit)); 
-    % end
-    % env_info{end+1} = result{1};
-    % env_inlet{end+1} = lsl_inlet(env_info{end});
 end
 outlet_info = lsl_streaminfo(lib, ...
     'ControllerVelocity', ...       % Name
