@@ -159,17 +159,17 @@ fig.DeleteFcn = @handleFigureDeletion;
 
 if config.Default.Enable_Teensy
     if strlength(options.SerialDevice) < 1
-        s = serialportlist();
-        if numel(s) > 1
+        sList = serialportlist();
+        if numel(sList) > 1
             error("Multiple serial devices detected: ['%s']\n\t->\tSpecify correct device using SerialDevice option.", strjoin(s,"'; '"));
-        elseif numel(s) < 1
+        elseif numel(sList) < 1
             teensy = [];
             warning("No serial devices detected! Sync signal will not be sent on Recording start/stop.");
         else
-            teensy = serialport(s, options.BaudRate);
+            teensy = serialport(sList, options.BaudRate);
         end
     else
-        teensy = [];
+        teensy = serialport(options.SerialDevice, options.BaudRate);
     end
     fig.UserData.UDP.UserData = struct('expect_quit', false, 'running', false, ...
         'subj', fig.UserData.SubjEditField, 'name', fig.UserData.NameEditField, 'block', fig.UserData.BlockEditField, 'atag', fig.UserData.TagAEditField, 'btag', fig.UserData.TagBEditField,  ...

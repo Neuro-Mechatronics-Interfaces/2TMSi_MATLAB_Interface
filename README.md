@@ -83,11 +83,11 @@ As such, you need to get:
 * Determine which script should run the stream service. If you are not sure, use `deploy__nhp_tmsi_sagas.m`. For a more advanced interface, use `deploy__nhp_tmsi_sagas_plus.m`. 
   + Each of these scripts has a `.bat` file associated with it. The `deploy__nhp_...` scripts are just `try..catch` wrappers to the actual `deploy__tmsi_stream_service<x>.m`. Once you have identified which service/script you want, you should make a desktop shortcut pointed to the appropriate `.bat` file. For example, on a Windows 10 device I have a desktop shortcut `1_deploy_tmsi`. If I right-click it and open Properties, then in `Target:` I have:
   ```
-  C:\Windows\System32\cmd.exe /k "C:\MyRepos\NML-NHP\2TMSi_MATLAB_Interface\deploy__nhp_tmsi_sagas_plus.bat"
+  C:\Windows\System32\cmd.exe /k "C:\MyRepos\NML\2TMSi_MATLAB_Interface\deploy__nhp_tmsi_sagas_plus.bat"
   ```
   In `Start in:` I have:
   ```
-  C:\MyRepos\NML-NHP\2TMSi_MATLAB_Interface
+  C:\MyRepos\NML\2TMSi_MATLAB_Interface
   ```
   So the shortcut must run the `.bat` file from this repo in order for everything to work properly.  
   + If you are using the "normal" service, then check in `parameters.m` to see which `parameters.config` you should update (or better, make a copy of the one it currently points to and then change the value in `parameters.m` to point to the new yaml file you made, where you can set your local changes).  
