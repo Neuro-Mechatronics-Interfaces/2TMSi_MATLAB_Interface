@@ -1,5 +1,8 @@
 function fig = init_microcontroller_listener_fig(options)
-
+%INIT_MICROCONTROLLER_LISTENER_FIG Initialize the listener fig for controlling microcontroller write to synchronization output bits.
+%
+% Syntax:
+%   fig = init_microcontroller_listener_fig('Name',value,...);
 arguments
     options.SerialDevice {mustBeTextScalar} = "";
     options.BaudRate (1,1) {mustBePositive, mustBeInteger} = 115200;
