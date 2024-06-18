@@ -72,7 +72,7 @@ end
 x0 = -squiggles.n_samples*0.5;
 tx = sprintf('%d ms', round(-x0/4)); % time scalebar text
 y0 = -squiggles.offset*0.4;
-ty = sprintf('%d μV', round(y0)); % vertical scalebar text
+ty = sprintf('%d μV', round(abs(y0))); % vertical scalebar text
 line(ax, [x0, x0], [y0,  0], 'Color','k','LineWidth',1.25,'LineStyle','-');
 line(ax, [x0,  0], [y0, y0], 'Color','k','LineWidth',1.25,'LineStyle','-');
 text(ax, -0.6*squiggles.n_samples, -0.2*squiggles.offset, ty, 'FontName','Tahoma','HorizontalAlignment','right');
