@@ -22,8 +22,13 @@ SAGA:
  A: 
    Enable: true
    FileType: ".mat"
+<<<<<<< Updated upstream
    # Unit: "SAGAA"
    Unit: "SAGA5"
+=======
+   Unit: "SAGAA"
+   # Unit: "SAGA4"
+>>>>>>> Stashed changes
    Array: 
     Type: "Large Grid"
     Location: "A_FLX"
@@ -41,8 +46,13 @@ SAGA:
     COUNT: 75
  B: 
    Enable: true
+<<<<<<< Updated upstream
    # Unit: "SAGAB"
    Unit: "SAGA4"
+=======
+   Unit: "SAGAB"
+   # Unit: "SAGA5"
+>>>>>>> Stashed changes
    FileType: ".mat"
    Array: 
     Type: "Large Grid"
