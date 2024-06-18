@@ -747,7 +747,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if param.gui.squiggles.triggers.enable 
                         for ii = 1:N_CLIENT
                             if ~isempty(i_assign.(device(ii).tag))
-                                param.gui.squiggles.h.Triggers.(device(ii).tag).YData(i_assign.(device(ii).tag)) = [samples{ii}(config.SAGA.(device(ii).tag).Trigger.Channel,:) + (param.gui.squiggles.triggers.y_bound/2)*(ii-1), nan];
+                                param.gui.squiggles.h.Triggers.(device(ii).tag).YData(i_assign.(device(ii).tag)) = [samples{ii}(config.SAGA.(device(ii).tag).Trigger.Channel,:), nan];
                             end
                         end
                     end

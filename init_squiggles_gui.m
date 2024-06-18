@@ -105,8 +105,8 @@ if squiggles.triggers.enable
     title(ax, sprintf("\\color[rgb]{%3.1f,%3.1f,%3.1f}A Triggers \\color{black} | \\color[rgb]{%3.1f,%3.1f,%3.1f}B Triggers", ...
         cLeft(1),cLeft(2),cLeft(3),cRight(1),cRight(2),cRight(3)), 'FontName', 'Tahoma');
 
-    squiggles.h.Triggers.A = line(ax, x_init, y_init, 'Color', cLeft, 'LineWidth', 1.0);
-    squiggles.h.Triggers.B = line(ax, x_init, y_init, 'Color', cRight, 'LineWidth', 1.0);
+    squiggles.h.Triggers.A = line(ax, x_init, y_init, 'Color', cLeft, 'LineWidth', 1.0,'LineStyle','--');
+    squiggles.h.Triggers.B = line(ax, x_init, y_init, 'Color', cRight, 'LineWidth', 1.0,'LineStyle',':');
 else
     squiggles.h.Triggers.A = [];
     squiggles.h.Triggers.B = [];

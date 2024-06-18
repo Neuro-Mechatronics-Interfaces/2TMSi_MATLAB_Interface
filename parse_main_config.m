@@ -102,9 +102,9 @@ for ii = 1:numel(def_tags)
             if iscell(config.SAGA.(tag).Channels.(chs))
                 config.SAGA.(tag).Channels.(chs) = cell2mat(config.SAGA.(tag).Channels.(chs));
             end
-        end
-        if strcmpi(config.Default.Device_Reference_Mode, 'average')
-            config.SAGA.(tag).Channels.(chs) = config.SAGA.(tag).Channels.(chs) - 1;
+            if strcmpi(config.Default.Device_Reference_Mode, 'average')
+                config.SAGA.(tag).Channels.(chs) = config.SAGA.(tag).Channels.(chs) - 1;
+            end
         end
     end
 end
