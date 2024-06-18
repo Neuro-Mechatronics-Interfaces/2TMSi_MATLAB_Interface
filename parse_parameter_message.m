@@ -8,7 +8,9 @@ end
 fprintf(1,'[TMSi]\t->\tParameter: %s\n',parameter_data);
 parameter_syntax = strsplit(parameter_data, '.');
 parameter_code = lower(parameter_syntax{1});
-parameter_value = parameter_syntax{2};
+if numel(parameter_syntax) > 1
+    parameter_value = parameter_syntax{2};
+end
 switch parameter_code
     case 'a' % CAR
         command_chunks = strsplit(parameter_value, ':');

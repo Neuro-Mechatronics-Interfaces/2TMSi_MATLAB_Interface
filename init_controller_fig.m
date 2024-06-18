@@ -12,18 +12,18 @@ end
 host_pc = getenv("COMPUTERNAME");
 switch host_pc
     case "MAX_LENOVO" % Max Workstation Laptop (Lenovo ThinkPad D16)
-        POSITION_PIX = [100 600  900 250];
+        POSITION_PIX = [100 600  900 300];
     case "NMLVR"
-        POSITION_PIX = [1500 1200 900 250];
+        POSITION_PIX = [500 600 900 300];
     otherwise
-        POSITION_PIX = [150 250  900 250];
+        POSITION_PIX = [150 250  900 300];
 end
 
 fig = uifigure('Color','w',...
     'MenuBar','none','ToolBar','none',...
     'Name','TMSi Recording Controller',...
     'Position',POSITION_PIX,'Icon',"redlogo.jpg");
-L = uigridlayout(fig, [5, 6],'BackgroundColor','k');
+L = uigridlayout(fig, [6, 6],'BackgroundColor','k');
 L.RowHeight = {'1x', '1x', '1x', '1x', '1x'};
 L.ColumnWidth = {'1x', '1x', '1x', '1x', '1x', '1x'};
 
@@ -155,6 +155,10 @@ fig.UserData.ToggleSquigglesButton = uibutton(L, "Text", "Turn Squiggles OFF", '
 fig.UserData.ToggleSquigglesButton.Layout.Row = 5;
 fig.UserData.ToggleSquigglesButton.Layout.Column = 6;
 
+fig.UserData.ToggleSquigglesModeButton = uibutton(L, "Text", "HPF Mode", 'ButtonPushedFcn', @toggleSquigglesModeButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.7 0.3 0.7],'FontColor','k', 'FontWeight','bold', 'UserData', false);
+fig.UserData.ToggleSquigglesModeButton.Layout.Row = 6;
+fig.UserData.ToggleSquigglesModeButton.Layout.Column = 1;
+
 fig.DeleteFcn = @handleFigureDeletion;
 
 if config.Default.Enable_Teensy
@@ -207,6 +211,23 @@ end
             fprintf(1,'[CONTROLLER]::Sent request to toggle squiggles ON: %s\n', cmd);
         end
         src.UserData = ~src.UserData;
+    end
+
+    function toggleSquigglesModeButtonPushed(src,~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        if src.UserData
+            src.Text = "HPF Mode";
+            src.BackgroundColor = [0.7 0.3 0.7];
+            src.UserData = false;
+            writeline(udpSender,"w",src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+            fprintf(1,'[CONTROLLER]::Sent request to toggle squiggles GUI to ENVELOPE mode.\n');
+        else
+            src.Text = "Envelope Mode";
+            src.BackgroundColor = [0.7 0.7 0.3];
+            src.UserData = true;
+            writeline(udpSender,"w",src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+            fprintf(1,'[CONTROLLER]::Sent request to toggle squiggles GUI to HPF mode.\n');
+        end
     end
 
     function calibrateButtonPushed(src,~)
