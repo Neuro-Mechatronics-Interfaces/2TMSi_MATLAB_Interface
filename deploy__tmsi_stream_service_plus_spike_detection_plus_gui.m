@@ -248,7 +248,9 @@ param = struct(...
     'deadzone_pose', config.Default.Pose_Deadzone_Threshold, ...
     'use_channels', struct('A', [], 'B', []), ...
     'n_device', numel(device), ...
-    'pose_smoothing_alpha', config.Default.Pose_Smoothing_Alpha);
+    'pose_smoothing_alpha', config.Default.Pose_Smoothing_Alpha, ...
+    'enable_raw_lsl_outlet', config.Default.Enable_Raw_LSL_Outlet, ...
+    'enable_envelope_lsl_outlet', config.Default.Enable_Envelope_LSL_Outlet);
 param.mvc_data = cell(param.mvc_samples, numel(device));
 if param.gui.squiggles.acc.enable && param.gui.squiggles.acc.differential && (numel(config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX) < 6)
     disconnect(device);
@@ -344,9 +346,28 @@ for iDev = 1:numel(device)
     fprintf(1,'complete\n');
 end
 
+lsl_info_env = lsl_streaminfo(lib_lsl, ...
+        'SAGACombined_Envelope', ...       % Name
+        'EMG', ...                    % Type
+        64*numel(device), ....           % ChannelCount
+        1/param.pause_duration, ...                     % NominalSrate
+        'cf_float32', ...             % ChannelFormat
+        sprintf('StreamService_Envelope_%06d',randi(999999,1)));
+chns = lsl_info_env.desc().append_child('channels');
+for ii = 1:(64*numel(device))
+    c = chns.append_child('channel');
+    c.append_child_value('name', sprintf('UNI-%03d',ii));
+    c.append_child_value('label', sprintf('UNI-%03d',ii));
+    c.append_child_value('unit', 'μV');
+    c.append_child_value('type','EMG');
+end 
+lsl_info_env.desc().append_child_value('manufacturer', 'NML');
+lsl_outlet_env = lsl_outlet(lsl_info_env);
+
 %% Configuration complete, run main control loop.
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
+    envelope_max_sample = zeros(64*N_CLIENT,1);
     cat_iter = 0;
     CAT_ITER_TARGET = 4;
     cat_n = 0;
@@ -468,9 +489,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             for ii = 1:N_CLIENT
                 [samples{ii}, num_sets(ii)] = device(ii).sample();
                 if ~isempty(samples{ii})
-                    lsl_outlet_obj.(device(ii).tag).push_chunk(samples{ii});
+                    if param.enable_raw_lsl_outlet
+                        lsl_outlet_obj.(device(ii).tag).push_chunk(samples{ii});
+                    end
                     [hpf_data.(device(ii).tag), zi.(device(ii).tag)] = filter(param.hpf.b,param.hpf.a,samples{ii}(i_all.(device(ii).tag),:)',zi.(device(ii).tag),1);
                     [env_data.(device(ii).tag), env_history.(device(ii).tag)] = filter(param.b_env, param.a_env, abs(hpf_data.(device(ii).tag)), env_history.(device(ii).tag), 1);
+                    
                     % env_data.(device(ii).tag) = env_data.(device(ii).tag)./param.env_max.(device(ii).tag);
                     switch param.car_mode
                         case 1    
@@ -495,6 +519,14 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         needs_offset = false;
                     end
                 end
+            end
+            
+            if param.enable_envelope_lsl_outlet
+                for ii = 1:N_CLIENT
+                    grid_channels = param.use_channels.(device(ii).tag)(param.use_channels.(device(ii).tag) <= 64);
+                    envelope_max_sample((1:64)+(ii-1)*64,1) = max(env_data.(device(ii).tag)(:,grid_channels),[],1)';
+                end
+                lsl_outlet_env.push_sample(envelope_max_sample);
             end
             if param.acquire_mvc
                 if all(num_sets > 0)
@@ -970,9 +1002,11 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             delete(lsl_info_obj.(device(ii).tag));
             delete(lsl_outlet_obj.(device(ii).tag));
         end
+        delete(lsl_info_env);
+        delete(lsl_outlet_env);
         delete(lib_lsl);
     end
-    clear lsl_info_obj lsl_outlet_obj lib_lsl
+    clear lsl_info_obj lsl_outlet_obj lib_lsl lsl_outlet_env lsl_info_env
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     close all force;
 catch me
@@ -989,9 +1023,11 @@ catch me
             delete(lsl_info_obj.(device(ii).tag));
             delete(lsl_outlet_obj.(device(ii).tag));
         end
+        delete(lsl_info_env);
+        delete(lsl_outlet_env);
         delete(lib_lsl);
     end
-    clear lsl_info_obj lsl_outlet_obj lib_lsl
+    clear lsl_info_obj lsl_outlet_obj lib_lsl lsl_outlet_env lsl_info_env
     close all force;
     fprintf(1, '\n\n-->\tTMSi stream stopped at %s\t<--\n\n', ...
         string(datetime('now')));

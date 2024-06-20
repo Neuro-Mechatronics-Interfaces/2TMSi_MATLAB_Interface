@@ -2,4 +2,4 @@
 fig = init_controller_fig();
 waitfor(fig);
 disp("[CONTROLLER]::SAGA Device handler state machine UDP interface GUI exited.");
-pause(5);
+pause(1);

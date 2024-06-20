@@ -22,18 +22,13 @@ SAGA:
  A: 
    Enable: true
    FileType: ".mat"
-<<<<<<< Updated upstream
-   # Unit: "SAGAA"
-   Unit: "SAGA5"
-=======
    Unit: "SAGAA"
-   # Unit: "SAGA4"
->>>>>>> Stashed changes
+   # Unit: "SAGA5"
    Array: 
-    Type: "Large Grid"
+    Type: "Textiles"
     Location: "A_FLX"
    Trigger:
-    Channel: 73
+    Channel: 72
     Bit: 1
    Channels:
     CREF: 1
@@ -46,19 +41,14 @@ SAGA:
     COUNT: 75
  B: 
    Enable: true
-<<<<<<< Updated upstream
-   # Unit: "SAGAB"
-   Unit: "SAGA4"
-=======
    Unit: "SAGAB"
    # Unit: "SAGA5"
->>>>>>> Stashed changes
    FileType: ".mat"
    Array: 
-    Type: "Large Grid"
+    Type: "Textiles"
     Location: "B_EXT"
    Trigger:
-    Channel: 73
+    Channel: 72
     Bit: 1
    Channels:
     CREF: 1
@@ -100,6 +90,8 @@ Default:
  Pose_Smoothing_Alpha: 0.25
  Pose_Deadzone_Threshold: 5
  Noise_Cluster_ID: 13
+ Enable_Raw_LSL_Outlet: false
+ Enable_Envelope_LSL_Outlet: true
 Accelerometer:
  Enable: false
  Differential: false 
@@ -128,19 +120,20 @@ UDP:
  Socket:
   StreamService:
    # Address: "192.168.88.100"
-   # Address: "127.0.0.1"
-   Address: "10.0.0.102" # multicast on LAN
+   Address: "127.0.0.1"
+   # Address: "10.0.0.102"
    Port: 
     state: 3030
     name: 3031
     params: 3036
   RecordingControllerGUI:
    # Address: "192.168.88.101"
-   # Address: "127.0.0.1"
-   Address: "10.0.0.100" # multicast on LAN
+   Address: "127.0.0.1"
+   # Address: "10.0.0.100"
    Port: 3050
   GesturesGUI:
-   Address: "10.0.0.100" # multicast on LAN
+   # Address: "10.0.0.100"
+   Address: "127.0.0.1"
    Port: 4050
 TCP:
  SpikeServer:

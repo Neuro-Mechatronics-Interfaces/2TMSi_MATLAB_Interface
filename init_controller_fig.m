@@ -165,7 +165,8 @@ if config.Default.Enable_Teensy
     if strlength(options.SerialDevice) < 1
         sList = serialportlist();
         if numel(sList) > 1
-            error("Multiple serial devices detected: ['%s']\n\t->\tSpecify correct device using SerialDevice option.", strjoin(sList,"'; '"));
+            warning("Multiple serial devices detected: ['%s']\n\t->\tSpecify correct device using SerialDevice option.", strjoin(sList,"'; '"));
+            teensy = [];
         elseif numel(sList) < 1
             teensy = [];
             warning("No serial devices detected! Sync signal will not be sent on Recording start/stop.");
@@ -245,9 +246,11 @@ end
         if src.UserData.UDP.UserData.running
             res = questdlg('Close controller? (State machine is still running)', 'Exit Recording Controller', 'Yes', 'No', 'No');
             if strcmpi(res, 'Yes')
+                src.CloseRequestFcn = @closereq;
                 delete(src);
             end
         else
+            src.CloseRequestFcn = @closereq;
             delete(src);
         end
     end
