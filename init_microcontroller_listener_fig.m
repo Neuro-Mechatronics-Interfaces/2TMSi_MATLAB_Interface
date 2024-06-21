@@ -11,7 +11,7 @@ end
 if strlength(options.SerialDevice) < 1
     sList = serialportlist();
     if numel(sList) > 1
-        error("Multiple serial devices detected: ['%s']\n\t->\tSpecify correct device using SerialDevice option.", strjoin(s,"'; '"));
+        error("Multiple serial devices detected: ['%s']\n\t->\tSpecify correct device using SerialDevice option.", strjoin(sList,"'; '"));
     elseif numel(sList) < 1
         teensy = [];
         warning("No serial devices detected! Sync signal will not be sent on Recording start/stop.");

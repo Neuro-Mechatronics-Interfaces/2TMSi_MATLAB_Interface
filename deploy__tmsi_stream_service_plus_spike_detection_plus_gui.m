@@ -1,6 +1,8 @@
-%DEPLOY__TMSI_STREAM_SERVICE - Script that enables sampling from multiple devices, and streams data from those devices to a server continuously.
+%DEPLOY__TMSI_STREAM_SERVICE_PLUS_SPIKE_DETECTION_PLUS_GUI - Script that enables sampling from multiple devices, and streams data from those devices to a server continuously.
 %
 % Starts up the TMSi stream(s) server.
+% Starts up the Tablet "Pressure Tracker" GUI (HIGHLY EXPERIMENTAL FEATURE!)
+%
 % See details in README.MD
 
 %% Handle some basic startup stuff.
@@ -12,7 +14,7 @@ end
 if exist('device', 'var')~=0
     disconnect(device);
 end
-
+    
 if exist('lib', 'var')~=0
     lib.cleanUp();
 end
@@ -250,7 +252,8 @@ param = struct(...
     'n_device', numel(device), ...
     'pose_smoothing_alpha', config.Default.Pose_Smoothing_Alpha, ...
     'enable_raw_lsl_outlet', config.Default.Enable_Raw_LSL_Outlet, ...
-    'enable_envelope_lsl_outlet', config.Default.Enable_Envelope_LSL_Outlet);
+    'enable_envelope_lsl_outlet', config.Default.Enable_Envelope_LSL_Outlet, ...
+    'enable_tablet_figure', config.Default.Enable_Tablet_Figure);
 param.mvc_data = cell(param.mvc_samples, numel(device));
 if param.gui.squiggles.acc.enable && param.gui.squiggles.acc.differential && (numel(config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX) < 6)
     disconnect(device);
@@ -364,6 +367,11 @@ end
 lsl_info_env.desc().append_child_value('manufacturer', 'NML');
 lsl_outlet_env = lsl_outlet(lsl_info_env);
 
+%% If tablet pressure stream is enabled, then show this
+if param.enable_tablet_figure
+    tablet_fig = init_pressure_tracking_fig();
+end
+
 %% Configuration complete, run main control loop.
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
@@ -389,6 +397,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     else
         fname = strrep(fname, tmpExt, ".poly5");
     end
+    fname_tablet = strrep(fname,"%s","TABLET");
+    fname_tablet = strrep(fname_tablet,'.poly5','.bin');
     msgId = uint16(0);
     start(device);
     pause(1.0);
@@ -438,6 +448,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             else
                 fname = strrep(fname, tmpExt, ".poly5");
             end
+            fname_tablet = strrep(fname,"%s","TABLET");
+            fname_tablet = strrep(fname_tablet,'.poly5','.bin');
             fprintf(1, "File name updated: %s\n", fname);
             caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
             param.gui.cal.W = randn(nTotalChannels+4, 4);
@@ -470,6 +482,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 else
                     fname = strrep(fname, tmpExt, ".poly5");
                 end
+                fname_tablet = strrep(fname,'%s','TABLET');
+                fname_tablet = strrep(fname_tablet,'.poly5','.bin');
+
                 caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
                 param.gui.cal.W = randn(nTotalChannels+4, 4);
                 fprintf(1, "File name updated: %s\n", fname);
@@ -488,14 +503,13 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             num_sets = zeros(numel(device),1);
             for ii = 1:N_CLIENT
                 [samples{ii}, num_sets(ii)] = device(ii).sample();
+                
                 if ~isempty(samples{ii})
                     if param.enable_raw_lsl_outlet
                         lsl_outlet_obj.(device(ii).tag).push_chunk(samples{ii});
                     end
                     [hpf_data.(device(ii).tag), zi.(device(ii).tag)] = filter(param.hpf.b,param.hpf.a,samples{ii}(i_all.(device(ii).tag),:)',zi.(device(ii).tag),1);
                     [env_data.(device(ii).tag), env_history.(device(ii).tag)] = filter(param.b_env, param.a_env, abs(hpf_data.(device(ii).tag)), env_history.(device(ii).tag), 1);
-                    
-                    % env_data.(device(ii).tag) = env_data.(device(ii).tag)./param.env_max.(device(ii).tag);
                     switch param.car_mode
                         case 1    
                             hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)) = hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)) - mean(hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)));
@@ -520,14 +534,43 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     end
                 end
             end
-            
-            if param.enable_envelope_lsl_outlet
+
+            if param.enable_envelope_lsl_outlet 
                 for ii = 1:N_CLIENT
-                    grid_channels = param.use_channels.(device(ii).tag)(param.use_channels.(device(ii).tag) <= 64);
-                    envelope_max_sample((1:64)+(ii-1)*64,1) = max(env_data.(device(ii).tag)(:,grid_channels),[],1)';
+                    if ~isempty(env_data.(device(ii).tag))
+                        i_assign_max = find(strcmpi(TAG,device(ii).tag));
+                        grid_channels = param.use_channels.(device(ii).tag)(param.use_channels.(device(ii).tag) <= 64);
+                        envelope_max_sample((1:64)+(i_assign_max-1)*64,1) = max(env_data.(device(ii).tag)(:,grid_channels),[],1)';
+                    end
                 end
-                lsl_outlet_env.push_sample(envelope_max_sample);
+                lsl_outlet_env.push_sample(max(envelope_max_sample,1e-3));
             end
+
+            if param.enable_tablet_figure
+                pkt = WinTabMex(5);
+                if ~isempty(pkt)
+                    tmp = WinTabMex(5);
+                    while ~isempty(tmp) % Always grab the last event in queue.
+                        pkt = tmp;
+                        tmp = WinTabMex(5);
+                    end
+                    tablet_fig.UserData.PressureLine.h.YData(tablet_fig.UserData.PressureLine.idx) = pkt(9);
+                    tablet_fig.UserData.PressureLine.idx = rem(tablet_fig.UserData.PressureLine.idx,1000)+1;
+                    tablet_fig.UserData.PressureLine.h.YData(tablet_fig.UserData.PressureLine.idx) = nan;
+                    
+                    if pkt(9) > 0
+                        tablet_fig.UserData.PressureSpots.h.XData(tablet_fig.UserData.PressureSpots.idx) = pkt(1);
+                        tablet_fig.UserData.PressureSpots.h.YData(tablet_fig.UserData.PressureSpots.idx) = pkt(2);
+                        tablet_fig.UserData.PressureSpots.h.CData = circshift(tablet_fig.UserData.PressureSpots.h.CData,-1);
+                        tablet_fig.UserData.PressureSpots.h.SizeData(tablet_fig.UserData.PressureSpots.idx) = pkt(9)/10;
+                        tablet_fig.UserData.PressureSpots.idx = rem(tablet_fig.UserData.PressureSpots.idx,1000)+1;
+                    end
+                    if recording
+                        fwrite(rec_file_tablet, uint32([samples{1}(end,end),pkt(1),pkt(2),pkt(9)]), 'uint32');
+                    end
+                end
+            end
+
             if param.acquire_mvc
                 if all(num_sets > 0)
                     param.n_mvc_acquired = param.n_mvc_acquired + 1;
@@ -593,6 +636,17 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         for ii = 1:N_CLIENT
                             rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",param.name_tag.(device(ii).tag)), device(ii).sample_rate, ch{ii}.toStruct(), 'w');
                         end
+                        if param.enable_tablet_figure
+                            rec_file_tablet = fopen(fname_tablet, 'w');
+                            % Write header with creation time and column names
+                            creationTime = datestr(now, 'yyyy-mm-dd HH:MM:SS'); %#ok<TNOW1,DATST>
+                            headerLine1 = sprintf('Creation Time: %s\n', creationTime);
+                            headerLine2 = sprintf('%s\n',char(param.name_tag.(device(1).tag)));
+                            headerLine3 = sprintf('Index | X | Y | Pressure\n');
+                            fprintf(rec_file_tablet, headerLine1);
+                            fprintf(rec_file_tablet, headerLine2);
+                            fprintf(rec_file_tablet, headerLine3);
+                        end
                     end
                     recording = true;
                     running = true;
@@ -607,6 +661,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             % delete(rec_file.(device(ii).tag));
                             rec_file.(device(ii).tag).close();
                         end
+                        if param.enable_tablet_figure
+                            fclose(rec_file_tablet);
+                        end
                     end
                     recording = false;
                 end
@@ -617,6 +674,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if ~isempty(samples{ii})
                         rec_file.(device(ii).tag).append(samples{ii});
                     end
+                end
+                if param.enable_tablet_figure
+                    
                 end
             end
             % Handle calibration (if required)

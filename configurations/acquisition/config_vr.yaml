@@ -26,7 +26,7 @@ SAGA:
    # Unit: "SAGA5"
    Array: 
     Type: "Textiles"
-    Location: "A_FLX"
+    Location: "A_EXT"
    Trigger:
     Channel: 72
     Bit: 1
@@ -46,7 +46,7 @@ SAGA:
    FileType: ".mat"
    Array: 
     Type: "Textiles"
-    Location: "B_EXT"
+    Location: "B_FLX"
    Trigger:
     Channel: 72
     Bit: 1
@@ -70,10 +70,10 @@ Default:
  Device_Reference_Mode: 'average' # must be 'average' (uses CAR from SAGA device) or 'common' (with separate CREF)
  CAR_Mode: 0 # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2
  Interpolate_Grid: true # Only applies if CAR_Mode is set to 3
- Subject: "Default"
+ Subject: "Max"
  Sample_Rate: 4000
- Sync_Bit: 7
- File_Type: ".mat"
+ Sync_Bit: 1
+ File_Type: ".poly5"
  N_Samples_Recording: 240000 # Save/pre-allocate in 1-minute chunks.
  Sample_Loop_Pause_Duration: 0.020
  Calibration_State: "x2dof_calibrated"
@@ -92,6 +92,7 @@ Default:
  Noise_Cluster_ID: 13
  Enable_Raw_LSL_Outlet: false
  Enable_Envelope_LSL_Outlet: true
+ Enable_Tablet_Figure: true
 Accelerometer:
  Enable: false
  Differential: false 
