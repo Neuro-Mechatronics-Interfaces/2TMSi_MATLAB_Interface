@@ -509,7 +509,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         lsl_outlet_obj.(device(ii).tag).push_chunk(samples{ii});
                     end
                     [hpf_data.(device(ii).tag), zi.(device(ii).tag)] = filter(param.hpf.b,param.hpf.a,samples{ii}(i_all.(device(ii).tag),:)',zi.(device(ii).tag),1);
-                    [env_data.(device(ii).tag), env_history.(device(ii).tag)] = filter(param.b_env, param.a_env, abs(hpf_data.(device(ii).tag)), env_history.(device(ii).tag), 1);
                     switch param.car_mode
                         case 1    
                             hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)) = hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)) - mean(hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)));
@@ -528,6 +527,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             end
                             hpf_data.(device(ii).tag)(:,1:64) = reshape(del2(tmp),64,num_sets(ii))';
                     end
+                    [env_data.(device(ii).tag), env_history.(device(ii).tag)] = filter(param.b_env, param.a_env, abs(hpf_data.(device(ii).tag)), env_history.(device(ii).tag), 1);
                     if needs_offset && (ii > 1) && (num_sets(1) > 0)
                         counter_offset = samples{1}(config.SAGA.(device(1).tag).Channels.COUNT, end) - samples{ii}(config.SAGA.(device(ii).tag).Channels.COUNT, end);
                         needs_offset = false;
