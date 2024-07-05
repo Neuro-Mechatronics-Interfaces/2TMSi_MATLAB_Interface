@@ -1,41 +1,37 @@
-function fig = init_cst_filter_viz(options)
+function fig = init_ema_filter_viz(options)
 
 arguments
-    options.K = 0;
+    options.alpha = 0;
     options.N = 256;
     options.T = 0.005; % Sample period
     options.LambdaScale = 0.1; % How to scale lambda with each second
 end
 
 
-fig = uifigure('Name', 'CST Filter Stability', 'Color', 'w', ...
+fig = uifigure('Name', 'EMA Filter', 'Color', 'w', ...
     'Position', [70, 100, 560, 840]);
 L = uigridlayout(fig,[3 6], ...
     'ColumnWidth', {'1x', '1x','fit'}, ...
     'RowHeight', {'1x', '3x', '3x', '5x', '1x', '1x'}, ...
     'BackgroundColor', 'w');
 
-scaling = options.LambdaScale * options.T; % There are T steps in a second, so each should increment towards the "per second lambda scaling" by this amount.
-
 fig.UserData = struct;
-fig.UserData.Variables.scaling = scaling;
-fig.UserData.Variables.lambda = @(k)scaling + scaling*k;
-fig.UserData.Variables.k = options.K;
+fig.UserData.Variables.alpha = options.alpha;
 fig.UserData.Variables.n = options.N;
 fig.UserData.Variables.T = options.T; % Sample period, seconds
-[fig.UserData.h,fig.UserData.w,fig.UserData.p] = compute_system(fig.UserData.Variables.lambda, fig.UserData.Variables.k, fig.UserData.Variables.T, fig.UserData.Variables.n);
+[fig.UserData.h,fig.UserData.w,fig.UserData.p] = compute_system(fig.UserData.Variables.alpha, fig.UserData.Variables.T, fig.UserData.Variables.n);
 
-fig.UserData.Mag.Axes = uiaxes(L,'FontName','Tahoma','NextPlot','add');
+fig.UserData.Mag.Axes = uiaxes(L,'FontName','Tahoma','NextPlot','add','XLim',[0, 0.5/fig.UserData.Variables.T]);
 title(fig.UserData.Mag.Axes,"System Response Magnitude","FontName","Tahoma");
 ylabel(fig.UserData.Mag.Axes,"||Y(s)|| (dB)", 'FontName','Tahoma');
-xlabel(fig.UserData.Mag.Axes, "Frequency(rad/s)", 'FontName', 'Tahoma');
+xlabel(fig.UserData.Mag.Axes, "Frequency (Hz)", 'FontName', 'Tahoma');
 fig.UserData.Mag.Axes.Layout.Row = 2;
 fig.UserData.Mag.Axes.Layout.Column = [1 3];
 
 fig.UserData.Phase.Axes = uiaxes(L,'FontName','Tahoma','NextPlot','add','YLim',[-180, 180],'YTick',[-90, 0, 90]);
 title(fig.UserData.Phase.Axes,"System Phase","FontName","Tahoma");
 ylabel(fig.UserData.Phase.Axes,"Phase (degrees)", 'FontName','Tahoma');
-xlabel(fig.UserData.Phase.Axes, "Frequency (deg/s)", 'FontName', 'Tahoma');
+xlabel(fig.UserData.Phase.Axes, "Frequency (Hz)", 'FontName', 'Tahoma');
 fig.UserData.Phase.Axes.Layout.Row = 3;
 fig.UserData.Phase.Axes.Layout.Column = [1 3];
 
@@ -54,19 +50,18 @@ patch(fig.UserData.Pole.Axes,'Faces',F,'Vertices',V,'EdgeColor','k','LineWidth',
 text(fig.UserData.Pole.Axes,0,0,'Stable','FontName','Tahoma','FontWeight','bold','HorizontalAlignment','center');
 text(fig.UserData.Pole.Axes,2,0.5,'Unstable','FontName','Tahoma','FontWeight','bold','HorizontalAlignment','center');
 
-lab = uilabel(L, "Text", "k", 'FontName', 'Tahoma', 'FontSize', 12,'HorizontalAlignment','center');
+lab = uilabel(L, "Text", "α", 'FontName', 'Tahoma', 'FontSize', 12,'HorizontalAlignment','center');
 lab.Layout.Row = 5;
 lab.Layout.Column = 1;
-fig.UserData.Edit.K = uislider(L, ...
+fig.UserData.Edit.alpha = uislider(L, ...
     "Orientation","horizontal", ...
-    "MajorTicks", 0:1e5:4e5, ...
-    "MajorTickLabels", ["0s", "100s", "200s", "300s", "400s"], ...
-    "Limits",[0, 4e5], ...
-    "Value", fig.UserData.Variables.k, ...
-    "Tag", "k", ...
+    "MajorTicks", 0:0.25:1, ...
+    "Limits",[0, 1], ...
+    "Value", fig.UserData.Variables.alpha, ...
+    "Tag", "alpha", ...
     "ValueChangedFcn", @updateAndRecomputeSystem);
-fig.UserData.Edit.K.Layout.Row = 6;
-fig.UserData.Edit.K.Layout.Column = 1;
+fig.UserData.Edit.alpha.Layout.Row = 6;
+fig.UserData.Edit.alpha.Layout.Column = 1;
 
 lab = uilabel(L, "Text", "N", 'FontName', 'Tahoma', 'FontSize', 12,'HorizontalAlignment','center');
 lab.Layout.Row = 5;
@@ -105,15 +100,15 @@ fig.UserData.Title = uilabel(L, "Text", "CST Filter: λ = 0.1", 'FontName','Taho
 fig.UserData.Title.Layout.Row = 1;
 fig.UserData.Title.Layout.Column = [1 3];
 
-    function [h,w,p] = compute_system(lambda, k, T, n)
-        if nargin < 4
+    function [h,w,p] = compute_system(alpha, T , n)
+        if nargin < 3
             n = 256;
         end
-        A = exp(lambda(k)*T); 
-        B = exp(lambda(k)*T)-1;
+        A = min(max(alpha,0),1); 
+        B = 1-A;
         C = 1;
         D = 0;
-        sys = idss(A,B,C,D,'Ts',T);
+        sys = idss(A,B,C,D);
         [b,a] = ss2tf(A,B,C,D);
         [h,w] = freqs(b,a,n);
         [p,~] = pzmap(sys);
@@ -122,15 +117,19 @@ fig.UserData.Title.Layout.Column = [1 3];
     function updateAndRecomputeSystem(src, ~)
         v = src.Parent.Parent.UserData.Variables;
         v.(src.Tag) = src.Value;
-        [h,w,p] = compute_system(v.lambda, v.k, v.T, linspace(0, pi, v.n));
+        [h,w,p] = compute_system(v.alpha, v.T);
+        h_mag = mag2db(abs(h));
+        i_fc = find(h_mag < 0.63*max(h_mag),1,'first');
+        set(src.Parent.Parent.UserData.Mag.Axes,'XLim',[0,0.5/v.T]);
+        set(src.Parent.Parent.UserData.Phase.Axes,'XLim',[0,0.5/v.T]);
         set(src.Parent.Parent.UserData.Mag.Line, ...
-            'XData', w/pi, 'YData', mag2db(abs(h)));
+            'XData', w * (0.5/v.T), 'YData', h_mag, 'Marker', 'v','MarkerIndices',i_fc);
         set(src.Parent.Parent.UserData.Phase.Line, ...
-            'XData', rad2deg(w), 'YData', angle(h));
+            'XData', w * (0.5/v.T), 'YData', angle(h));
         set(src.Parent.Parent.UserData.Pole.Scatter, ...
             'XData', p, 'YData', 0);
         set(src.Parent.Parent.UserData.Title, ...
-            'Text', sprintf("CST Filter: λ = %07.4f", v.lambda(v.k)));
+            'Text', sprintf("EMA Filter: α = %07.4f", v.alpha));
         
         src.Parent.Parent.UserData.Variables = v;
     end
