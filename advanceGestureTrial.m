@@ -7,8 +7,15 @@ function advanceGestureTrial(figH, index)
 % end
 if nargin < 2
     figH.UserData.Index = figH.UserData.Index + 1;
+    figH.UserData.InTypeTransition = true;
 else
+    if index ~= figH.UserData.Index
+        figH.UserData.InTypeTransition = true;
+    else
+        figH.UserData.InTypeTransition = false;
+    end
     figH.UserData.Index = index;
+    figH.UserData.InTypeTransition = false;
 end
 if figH.UserData.Index > numel(figH.UserData.InstructionList)
     if ~isempty(figH.UserData.Serial)
@@ -39,7 +46,11 @@ end
 soundsc(figH.UserData.Metronome.Y, figH.UserData.Metronome.fs);
 if strcmpi(instruction,"REST")
     if figH.UserData.Index > 1
-        playRestAnimation(figH.UserData.Image, figH.UserData.Gesture{(figH.UserData.Index-1)/2});
+        if figH.UserData.InTypeTransition
+            playRestAnimation(figH.UserData.Image, figH.UserData.Gesture{(figH.UserData.Index-1)/2});
+        else
+            playRestAnimation(figH.UserData.Image, figH.UserData.Gesture{(figH.UserData.Index)/2});
+        end
         % playRestAnimation(figH.UserData.Image, figH.UserData.Gesture);
         % figH.UserData.Gesture = imread(fullfile(figH.UserData.GesturesRoot,sprintf('%s.gif',figH.UserData.GestureList{(figH.UserData.Index-1)/2})),'Frames','all');
     end
