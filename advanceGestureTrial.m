@@ -7,24 +7,30 @@ function advanceGestureTrial(figH, index)
 % end
 if nargin < 2
     figH.UserData.Index = figH.UserData.Index + 1;
+    index = figH.UserData.Index;
     figH.UserData.InTypeTransition = true;
 else
-    if index ~= figH.UserData.Index
-        figH.UserData.InTypeTransition = true;
-    else
-        figH.UserData.InTypeTransition = false;
+    if index == 255
+        index = numel(figH.UserData.InstructionList);
+    end
+    if strcmpi(figH.UserData.InstructionList(index), "REST")
+        if index ~= figH.UserData.LastActiveIndex
+            figH.UserData.LastActiveIndex = index;
+            figH.UserData.InTypeTransition = true;
+        else
+            figH.UserData.InTypeTransition = false;
+        end
     end
     figH.UserData.Index = index;
-    figH.UserData.InTypeTransition = false;
 end
-if figH.UserData.Index > numel(figH.UserData.InstructionList)
+if index > numel(figH.UserData.InstructionList)
     if ~isempty(figH.UserData.Serial)
         write(figH.UserData.Serial,'0','c');
     end
     % delete(figH);
     return;
 end
-instruction = figH.UserData.InstructionList(figH.UserData.Index);
+instruction = figH.UserData.InstructionList(index);
 figH.UserData.Label.String = instruction;
 drawnow();
 if ~isempty(figH.UserData.Serial)
@@ -33,7 +39,7 @@ if ~isempty(figH.UserData.Serial)
     else
         write(figH.UserData.Serial,'0','c');
         if figH.UserData.PulseSecondary
-            write(figH.UserData.Serial,char(num2str(figH.UserData.Index/2+1)),'c');
+            write(figH.UserData.Serial,char(num2str(index/2+1)),'c');
         end
     end
 end
@@ -45,12 +51,19 @@ end
 
 soundsc(figH.UserData.Metronome.Y, figH.UserData.Metronome.fs);
 if strcmpi(instruction,"REST")
-    if figH.UserData.Index > 1
+    if index > 1
         if figH.UserData.InTypeTransition
-            playRestAnimation(figH.UserData.Image, figH.UserData.Gesture{(figH.UserData.Index-1)/2});
+            if index > 3
+                k = (index-1)/2 - 1;
+            else
+                k = (index-1)/2;
+            end
         else
-            playRestAnimation(figH.UserData.Image, figH.UserData.Gesture{(figH.UserData.Index)/2});
+            k = (index-1)/2;
         end
+        fprintf(1,'Playing REST for %s\n',figH.UserData.GestureList{k});
+        playRestAnimation(figH.UserData.Image, figH.UserData.Gesture{k});
+        % playRestAnimation(figH.UserData.Image, figH.UserData.Gesture{(figH.UserData.Index)/2});
         % playRestAnimation(figH.UserData.Image, figH.UserData.Gesture);
         % figH.UserData.Gesture = imread(fullfile(figH.UserData.GesturesRoot,sprintf('%s.gif',figH.UserData.GestureList{(figH.UserData.Index-1)/2})),'Frames','all');
     end

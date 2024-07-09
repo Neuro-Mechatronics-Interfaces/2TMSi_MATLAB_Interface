@@ -146,13 +146,14 @@ if isempty(udpAssign)
 else
     fig.UserData.UDP = udpAssign;
 end
-fig.UserData.UDP.UserData.OutputName = sprintf('instructions_%s.mat', string(datetime('now')));
+fig.UserData.UDP.UserData.OutputName = sprintf('instructions_%s.mat', string(utils.datetime_2_date(datetime('now'))));
 fig.UserData.UDP.UserData.Parent = fig;
 fig.UserData.UDP.UserData.Host = fig.UserData.Config.UDP.Socket.TimerGUI;
 configureCallback(fig.UserData.UDP,"terminator",@handleNamePingResponse);
 fig.UserData.InstructionList = instructions;
 fig.UserData.GesturesRoot = options.GesturesRoot;
 fig.UserData.GestureList = options.InstructionList;
+fig.UserData.LastActiveIndex = 0;
 fig.UserData.InTypeTransition = false;
 fig.UserData.Metronome = struct;
 [fig.UserData.Metronome.Y, fig.UserData.Metronome.fs] = audioread('Metronome.wav');
