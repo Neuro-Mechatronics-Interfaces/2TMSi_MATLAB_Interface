@@ -18,3 +18,5 @@ figures/
 Meta/
 
 export/EMA/
+
+*.zip

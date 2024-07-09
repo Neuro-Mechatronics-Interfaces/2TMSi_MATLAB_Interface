@@ -43,3 +43,6 @@
 [submodule "+ckc"]
 	path = +ckc
 	url = https://github.com/Neuro-Mechatronics-Interfaces/matlab_package__ckc
+[submodule "+buf"]
+	path = +buf
+	url = https://github.com/Neuro-Mechatronics-Interfaces/matlab_package__circle_buffer

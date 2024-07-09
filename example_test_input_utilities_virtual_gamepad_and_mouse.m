@@ -2,6 +2,8 @@
 clear; clc;
 gamepad = tcpclient("10.0.0.101", 6053);
 mouse = tcpclient("10.0.0.101", 6054);
+% gamepad = tcpclient("172.25.0.88", 6053);
+% mouse = tcpclient("172.25.0.88", 6054);
 % gamepad = tcpclient("127.0.0.1", 6053);
 % mouse = tcpclient("127.0.0.1", 6054);
 % Analog movement
