@@ -168,6 +168,7 @@ fig.WindowKeyReleaseFcn = @handleWindowKeyRelease;
                 src.UserData.OuputName = fullfile(p, sprintf(expr, 'instructionList'));
             case 'control'
                 advanceGestureTrial(src.UserData.Parent, res.value);
+                writeline(src, "ack", src.UserData.Host.Address, src.UserData.Host.Port);
             otherwise
                 error("Expecting response type to be `name` or `control`, but received JSON message for `%s` instead.", res.type);
         end

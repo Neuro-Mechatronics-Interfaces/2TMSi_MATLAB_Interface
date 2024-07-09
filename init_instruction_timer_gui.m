@@ -1,6 +1,7 @@
 function fig = init_instruction_timer_gui(options)
 arguments
     options.GestureList (1,:) string {mustBeMember(options.GestureList,["Hand Closing", "Hand Opening", "Pinch", "Radial Deviation", "Supination", "Pronation", "Ulnar Deviation", "Wrist Extension", "Wrist Flexion", "Index Extension", "Index Flexion", "Middle Extension", "Middle Flexion", "Pinky Extension", "Pinky Flexion", "Ring Extension", "Ring Flexion", "Thumb Extension", "Thumb Flexion"])}= ["Hand Closing", "Hand Opening", "Pinch", "Radial Deviation", "Supination", "Pronation", "Ulnar Deviation", "Wrist Extension", "Wrist Flexion", "Index Extension", "Index Flexion", "Middle Extension", "Middle Flexion", "Pinky Extension", "Pinky Flexion", "Ring Extension", "Ring Flexion", "Thumb Extension", "Thumb Flexion"]; % ["Index Extension", "Middle Extension", "Ring Extension"];
+    options.GesturesGUIAddress = [];
 end
 fig = uifigure(...
     'Name', 'Instructions Timer', ...
@@ -80,8 +81,13 @@ fig.UserData.Remaining.Layout.Row = 9;
 fig.UserData.Remaining.Layout.Column = [2 3];
 
 config = load_spike_server_config();
+if ~isempty(options.GesturesGUIAddress)
+    config.UDP.Socket.GesturesGUI.Address = options.GesturesGUIAddress;
+end
 fig.UserData.Timer = timer('Name','GesturesTimer-0','ExecutionMode','fixedRate','Period',0.100,'TimerFcn',@runGesturesList);
-fig.UserData.Timer.UserData = struct('UDP',udpport(),'Target',config.UDP.Socket.GesturesGUI, ...
+fig.UserData.Timer.UserData = struct(...
+    'UDP',udpport("LocalPort", config.UDP.Socket.TimerGUI.Port),... 
+    'Target',config.UDP.Socket.GesturesGUI, ...
     'CurrentRep',1,'CurrentGesture',1, ...
     'RestDuration',5,'GestureDuration',5,...
     'Reps',10,'Gestures',numel(options.GestureList),'GestureList',1:numel(options.GestureList), ...
@@ -176,6 +182,7 @@ fig.DeleteFcn = @handleInstructionTimerGUIClosing;
         if transitionToRest
             packet = jsonencode(struct('type','control','value',src.UserData.GestureList(src.UserData.CurrentGesture)*2+1));
             writeline(src.UserData.UDP,packet,src.UserData.Target.Address,src.UserData.Target.Port);
+            readline(src.UserData.UDP); % for ack
             src.UserData.State = 0;
             src.UserData.tCur = tic;
         elseif transitionToNextGesture
@@ -183,6 +190,7 @@ fig.DeleteFcn = @handleInstructionTimerGUIClosing;
             packet = jsonencode(struct('type','control','value',src.UserData.GestureList(src.UserData.CurrentGesture)*2));
             disp(packet);
             writeline(src.UserData.UDP,packet,src.UserData.Target.Address,src.UserData.Target.Port);
+            readline(src.UserData.UDP);
             src.UserData.State = 1;
             src.UserData.tCur = tic;
         end

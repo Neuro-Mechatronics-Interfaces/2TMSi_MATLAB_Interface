@@ -133,9 +133,12 @@ UDP:
    # Address: "10.0.0.100"
    Port: 3050
   GesturesGUI:
-   # Address: "10.0.0.100"
-   Address: "127.0.0.1"
+   Address: "10.0.0.101"
+   # Address: "127.0.0.1"
    Port: 4050
+  TimerGUI:
+   Address: "10.0.0.100" # multicast on LAN
+   Port: 4051
 TCP:
  SpikeServer:
   # Address: "127.168.88.100"
