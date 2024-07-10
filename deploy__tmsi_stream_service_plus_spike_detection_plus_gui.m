@@ -201,6 +201,7 @@ param = struct(...
     'recording_chunk_offset', struct('A', 0, 'B', 0), ...
     'classifier', struct('A', [], 'B', []), ...
     'envelope_regressor', struct('A',[],'B',[]), ...
+    'envelope_classifier', [], ...
     'n_total', struct('A', numel(config_channels.A.uni) + numel(config_channels.A.bip), 'B', numel(config_channels.B.uni) + numel(config_channels.B.bip)), ...
     'sample_rate', config.Default.Sample_Rate, ...
     'spike_detector', config.Default.Spike_Detector, ...
@@ -367,6 +368,22 @@ end
 lsl_info_env.desc().append_child_value('manufacturer', 'NML');
 lsl_outlet_env = lsl_outlet(lsl_info_env);
 
+lsl_info_decode = lsl_streaminfo(lib_lsl, ...
+        'SAGACombined_Envelope_Decode', ...       % Name
+        'Control', ...                    % Type
+        1, ....           % ChannelCount
+        1/param.pause_duration, ...                     % NominalSrate
+        'cf_float32', ...             % ChannelFormat
+        sprintf('StreamService_EnvDecode_%06d',randi(999999,1)));
+chns = lsl_info_decode.desc().append_child('channels');
+c = chns.append_child('channel');
+c.append_child_value('name', 'Class');
+c.append_child_value('label', 'Class');
+c.append_child_value('unit', 'au');
+c.append_child_value('type','Control');
+lsl_info_decode.desc().append_child_value('manufacturer', 'NML');
+lsl_outlet_decode = lsl_outlet(lsl_info_decode);
+
 %% If tablet pressure stream is enabled, then show this
 if param.enable_tablet_figure
     tablet_fig = init_pressure_tracking_fig();
@@ -375,7 +392,7 @@ end
 %% Configuration complete, run main control loop.
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
-    envelope_max_sample = zeros(64*N_CLIENT,1);
+    envelope_bin_sample = zeros(64*N_CLIENT,1);
     cat_iter = 0;
     CAT_ITER_TARGET = 4;
     cat_n = 0;
@@ -540,10 +557,13 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if ~isempty(env_data.(device(ii).tag))
                         i_assign_max = find(strcmpi(TAG,device(ii).tag));
                         grid_channels = param.use_channels.(device(ii).tag)(param.use_channels.(device(ii).tag) <= 64);
-                        envelope_max_sample((1:64)+(i_assign_max-1)*64,1) = max(env_data.(device(ii).tag)(:,grid_channels),[],1)';
+                        envelope_bin_sample((1:64)+(i_assign_max-1)*64,1) = max(env_data.(device(ii).tag)(:,grid_channels),[],1)';
                     end
                 end
-                lsl_outlet_env.push_sample(max(envelope_max_sample,1e-3));
+                lsl_outlet_env.push_sample(max(envelope_bin_sample,1e-3));
+                if ~isempty(param.envelope_classifier)
+                    lsl_outlet_decode.push_sample(double(predict(param.envelope_classifier,envelope_bin_sample')));
+                end
             end
 
             if param.enable_tablet_figure
@@ -728,16 +748,16 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         %     rms_data = struct('SAGA', device(ii).tag, 'data', rms(rms_data.(device(ii).tag)./param.hpf_max.(device(ii).tag),1), 'n', n_samp);
                         %     writeline(tcp_rms_server, jsonencode(rms_data));
                         % end
-                        if tcp_rms_server.Connected
-                            if ~isempty(param.envelope_regressor.(device(ii).tag))
-                                env_img_data = env_data.(device(ii).tag)(:,1:64)';
-                                env_img_data(param.envelope_regressor.(device(ii).tag).ExcludeChannels,:) = 0;
-                                Yhat = predict(param.envelope_regressor.(device(ii).tag).Net, reshape(env_img_data,8,8,1,[]));
-                                packet = struct('N', n_samp, 'SAGA', device(ii).tag, 'Data', int16(mean(Yhat,1)*100), 'Id', msgId);
-                                writeline(tcp_rms_server, jsonencode(packet));
-                                msgId = rem(msgId + 1, 65535);
-                            end
-                        end
+                        % if tcp_rms_server.Connected
+                        %     if ~isempty(param.envelope_regressor.(device(ii).tag))
+                        %         env_img_data = env_data.(device(ii).tag)(:,1:64)';
+                        %         env_img_data(param.envelope_regressor.(device(ii).tag).ExcludeChannels,:) = 0;
+                        %         Yhat = predict(param.envelope_regressor.(device(ii).tag).Net, reshape(env_img_data,8,8,1,[]));
+                        %         packet = struct('N', n_samp, 'SAGA', device(ii).tag, 'Data', int16(mean(Yhat,1)*100), 'Id', msgId);
+                        %         writeline(tcp_rms_server, jsonencode(packet));
+                        %         msgId = rem(msgId + 1, 65535);
+                        %     end
+                        % end
                         if tcp_muap_server.Connected
                             if ~isempty(param.classifier.(device(ii).tag))
                                 if numel(param.classifier.(device(ii).tag).Channels) == param.classifier.(device(ii).tag).Net.input.size
@@ -1064,9 +1084,11 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
         end
         delete(lsl_info_env);
         delete(lsl_outlet_env);
+        delete(lsl_info_decode);
+        delete(lsl_outlet_decode);
         delete(lib_lsl);
     end
-    clear lsl_info_obj lsl_outlet_obj lib_lsl lsl_outlet_env lsl_info_env
+    clear lsl_info_obj lsl_outlet_obj lib_lsl lsl_outlet_env lsl_info_env lsl_outlet_decode lsl_info_decode
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     close all force;
 catch me
@@ -1085,9 +1107,11 @@ catch me
         end
         delete(lsl_info_env);
         delete(lsl_outlet_env);
+        delete(lsl_info_decode);
+        delete(lsl_outlet_decode);
         delete(lib_lsl);
     end
-    clear lsl_info_obj lsl_outlet_obj lib_lsl lsl_outlet_env lsl_info_env
+    clear lsl_info_obj lsl_outlet_obj lib_lsl lsl_outlet_env lsl_info_env lsl_info_decode lsl_outlet_decode
     close all force;
     fprintf(1, '\n\n-->\tTMSi stream stopped at %s\t<--\n\n', ...
         string(datetime('now')));

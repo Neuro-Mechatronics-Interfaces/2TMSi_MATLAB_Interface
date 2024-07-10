@@ -54,7 +54,8 @@ XTest = X(test(cv), :);
 YTest = Y(test(cv));
 
 % Train a classifier using an ensemble method (e.g., Bagged Trees)
-mdl = fitcensemble(XTrain, YTrain, 'Method', 'Bag', ...
+mdl = fitcensemble(XTrain, YTrain, ...
+    'Method', 'Bag', ...
     'NumLearningCycles', options.NumLearningCycles);
 % Predict on the test set
 YPred = predict(mdl, XTest);

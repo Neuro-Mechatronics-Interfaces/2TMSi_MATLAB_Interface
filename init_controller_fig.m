@@ -159,6 +159,18 @@ fig.UserData.ToggleSquigglesModeButton = uibutton(L, "Text", "HPF Mode", 'Button
 fig.UserData.ToggleSquigglesModeButton.Layout.Row = 6;
 fig.UserData.ToggleSquigglesModeButton.Layout.Column = 1;
 
+fig.UserData.UploadModelButton = uibutton(L, "Text", "Upload Model", 'ButtonPushedFcn', @uploadModelButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.65 0.65 0.65],'FontColor',[0.25 0.25 0.25], 'FontWeight','bold', 'UserData', false);
+fig.UserData.UploadModelButton.Layout.Row = 6;
+fig.UserData.UploadModelButton.Layout.Column = 2;
+
+fig.UserData.ModelTextLabel = uilabel(L, "Text", "No Model Sent", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','left');
+fig.UserData.ModelTextLabel.Layout.Row = 6;
+fig.UserData.ModelTextLabel.Layout.Column = [3 4];
+
+fig.UserData.TrainModelButton = uibutton(L, "Text", "Train New Model", 'ButtonPushedFcn', @trainModelButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.1 0.0 0.4],'FontColor','w', 'FontWeight','bold', 'UserData', false);
+fig.UserData.TrainModelButton.Layout.Row = 6;
+fig.UserData.TrainModelButton.Layout.Column = 6;
+
 fig.DeleteFcn = @handleFigureDeletion;
 
 if config.Default.Enable_Teensy
@@ -188,6 +200,36 @@ if config.Default.Enable_Teensy
     fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort);
 
 end
+
+    function trainModelButtonPushed(src, ~)
+        res = inputdlg('Block:', "Input Model Training Block", [1 50], string(num2str(src.Parent.Parent.UserData.BlockEditField.Value-1)));
+        if isempty(res)
+            return;
+        else
+            res = str2double(res{1});
+        end
+        tmp_dt = datetime('today');
+        input_root = strsplit(src.Parent.Parent.UserData.NameEditField.Value, '/');
+        input_root = strjoin(input_root(1:(end-3)),'/');
+        load_ab_saga_poly5_and_train_classifier(src.Parent.Parent.UserData.SubjEditField.Value, year(tmp_dt), month(tmp_dt), day(tmp_dt), res, ...
+            'InputRoot', input_root);
+        set(src,'BackgroundColor', [0.65 0.65 0.65], 'FontColor', [0.25 0.25 0.25]);
+        set(src.Parent.Parent.UserData.UploadModelButton, 'BackgroundColor', [0.1 0.0 0.4], 'FontColor', [1 1 1]);
+    end
+    
+    function uploadModelButtonPushed(src, ~)
+        [file, location] = uigetfile('*.mat', "Select Envelope Classifier Model",fullfile(pwd,'configurations'));
+        if file == 0
+            return;
+        end
+        udpSender = src.Parent.Parent.UserData.UDP;
+        fname = strrep(fullfile(location,file),'\','/');
+        cmd = sprintf('k.%s', fname);
+        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+        src.Parent.Parent.UserData.ModelTextLabel.Text = sprintf('Current: %s', file);
+        src.BackgroundColor = [0.65 0.65 0.65];
+        fprintf(1,'[CONTROLLER]::Sent Classifier Model Upload Request: %s\n', cmd);
+    end
 
     function handleTriggersBoundFieldChanged(src, ~)
         if src.Value <= 0

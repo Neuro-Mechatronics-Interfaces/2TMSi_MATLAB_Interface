@@ -8,7 +8,8 @@ function [S, labels, Y, instructionList] = parse_instruction_triggers(samples,op
 %   samples - Trigger channel time-series data
 %   
 % Options:
-%   'RestBit' (1,1) {mustBeInteger} = 6
+%   'RestBit' (1,1) {mustBeInteger} = 1
+%   'LabelsFile' {mustBeTextScalar} = 'configurations/instructions/InstructionList_Wrist2D.mat' - Set as '' to skip labeling.
 %
 % Output:
 %   S - Table where rows have the Instruction class and start/stop samples
@@ -22,8 +23,8 @@ function [S, labels, Y, instructionList] = parse_instruction_triggers(samples,op
 
 arguments
     samples (1,:) {mustBeNumeric}
-    options.RestBit {mustBeInteger} = 6;
-    options.LabelsFile = [];
+    options.RestBit {mustBeInteger} = 1;
+    options.LabelsFile {mustBeTextScalar} = 'configurations/instructions/InstructionList_Wrist2D.mat';
 end
 
 allBitsPresent = max(samples);
@@ -68,13 +69,18 @@ for ii = 2:size(Y,1)
 end
 Y(1,labels==0) = 1;
 
-if isempty(options.LabelsFile)
+if strlength(options.LabelsFile) < 1
     instructionList = [];
     labels = categorical(labels);
 else
-    instructionList = getfield(load(options.LabelsFile, 'instructionList'),'instructionList');
-    actualInstructions = reshape(instructionList(2:2:end),1,[]);
-    restInstruction = instructionList(1);
+    instructionList = string(getfield(load(options.LabelsFile, 'instructionList'),'instructionList'));
+    if instructionList(1) == "REST"
+        actualInstructions = reshape(instructionList(2:2:end),1,[]);
+        restInstruction = instructionList(1);
+    else
+        restInstruction = "Rest";
+        actualInstructions = instructionList;
+    end
     labels = categorical(labels,0:max(labels),[restInstruction,actualInstructions]);
 end
 end

@@ -129,6 +129,21 @@ switch parameter_code
         end
         param.envelope_regressor.(command_chunks{1}) = load(parameter_value);
         fprintf(1,'[TMSi]\t->\t[%s]: Updated using file = %s\n', parameter_code, parameter_value);
+    case 'k' % Envelope classifier
+        [p,f,~] = fileparts(parameter_value);
+        fname_env_classifier = fullfile(p,sprintf('%s.mat', f));
+        if exist(fname_env_classifier, 'file')==0
+            fprintf(1,'[TMSi]\t->\t[%s]: No such file: %s\n', parameter_code, parameter_value);
+            return;
+        end
+        in = load(fname_env_classifier);
+        if isfield(in,'mdl')
+            param.envelope_classifier = in.mdl;
+        else
+            fprintf(1,'[TMSi]\t->\t[%s]: File %s exists but has no variable named "mdl" in it.\n', parameter_code, parameter_value);
+            return;
+        end
+        fprintf(1,'[TMSi]\t->\t[%s]: Updated using file = %s\n', parameter_code, parameter_value);
     case 'm' % Re-acquire MVC
         param.acquire_mvc = true;
         tmp = round(str2double(parameter_value));
