@@ -155,7 +155,11 @@ fig.UserData.ToggleSquigglesButton = uibutton(L, "Text", "Turn Squiggles OFF", '
 fig.UserData.ToggleSquigglesButton.Layout.Row = 5;
 fig.UserData.ToggleSquigglesButton.Layout.Column = 6;
 
-fig.UserData.ToggleSquigglesModeButton = uibutton(L, "Text", "HPF Mode", 'ButtonPushedFcn', @toggleSquigglesModeButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.7 0.3 0.7],'FontColor','k', 'FontWeight','bold', 'UserData', false);
+if config.GUI.Squiggles.HPF_Mode
+    fig.UserData.ToggleSquigglesModeButton = uibutton(L, "Text", "Envelope Mode", 'ButtonPushedFcn', @toggleSquigglesModeButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.7 0.7 0.3],'FontColor','k', 'FontWeight','bold', 'UserData', false);
+else
+    fig.UserData.ToggleSquigglesModeButton = uibutton(L, "Text", "HPF Mode", 'ButtonPushedFcn', @toggleSquigglesModeButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.7 0.3 0.7],'FontColor','k', 'FontWeight','bold', 'UserData', false);
+end
 fig.UserData.ToggleSquigglesModeButton.Layout.Row = 6;
 fig.UserData.ToggleSquigglesModeButton.Layout.Column = 1;
 
@@ -218,7 +222,8 @@ end
     end
     
     function uploadModelButtonPushed(src, ~)
-        [file, location] = uigetfile('*.mat', "Select Envelope Classifier Model",fullfile(pwd,'configurations'));
+        def_folder = fileparts(src.Parent.Parent.UserData.NameEditField.Value);
+        [file, location] = uigetfile('*.mat', "Select Envelope Classifier Model",def_folder);
         if file == 0
             return;
         end

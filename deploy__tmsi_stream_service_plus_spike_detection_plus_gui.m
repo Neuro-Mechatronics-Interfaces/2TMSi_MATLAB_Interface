@@ -270,7 +270,7 @@ param.gui.squiggles.zi.A = zeros(numel(config.GUI.Squiggles.A),2);
 param.gui.squiggles.zi.B = zeros(numel(config.GUI.Squiggles.B),2);
 [param.hpf.b, param.hpf.a] = butter(3, config.Default.HPF_Cutoff_Frequency/(param.sample_rate/2), 'high');
 [param.b_rms, param.a_rms] = butter(3, 0.1, 'low');
-[param.b_env, param.a_env] = butter(3, 1.5/(param.sample_rate/2), 'low');
+[param.b_env, param.a_env] = butter(3, 1/(param.sample_rate/2), 'low');
 param.n_samples_calibration = param.gui.cal.data.N;
 [~,tmpf,~] = fileparts(config.Default.Calibration_File);
 param.calibration_state = matlab.lang.makeValidName(lower(tmpf));
@@ -429,6 +429,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     end
     caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
     param.gui.cal.W = randn(nTotalChannels+4, 4);
+    grid_ch_uni = struct;
     for ii = 1:N_CLIENT % Determine number of channels definitively
         [samples{ii}, num_sets] = device(ii).sample();
         while (num_sets < 1)
@@ -436,6 +437,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             pause(0.5);
         end
         param.n_channels.(device(ii).tag) = size(samples{ii},1);
+        grid_ch_uni.(device(ii).tag) = param.use_channels.(device(ii).tag)(param.use_channels.(device(ii).tag) <= 64);
         % needs_timestamp.(device(ii).tag) = false;
         % first_timestamp.(device(ii).tag) = datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS', 'TimeZone', 'America/New_York');
     end
@@ -556,13 +558,24 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 for ii = 1:N_CLIENT
                     if ~isempty(env_data.(device(ii).tag))
                         i_assign_max = find(strcmpi(TAG,device(ii).tag));
-                        grid_channels = param.use_channels.(device(ii).tag)(param.use_channels.(device(ii).tag) <= 64);
-                        envelope_bin_sample((1:64)+(i_assign_max-1)*64,1) = max(env_data.(device(ii).tag)(:,grid_channels),[],1)';
+                        envelope_bin_sample((1:64)+(i_assign_max-1)*64,1) = max(env_data.(device(ii).tag)(:,grid_ch_uni.(device(ii).tag)),[],1)';
                     end
                 end
                 lsl_outlet_env.push_sample(max(envelope_bin_sample,1e-3));
-                if ~isempty(param.envelope_classifier)
-                    lsl_outlet_decode.push_sample(double(predict(param.envelope_classifier,envelope_bin_sample')));
+            end
+
+            if ~isempty(param.envelope_classifier)
+                envelope_gesture = nan(1,N_CLIENT*64);
+                for ii = 1:N_CLIENT
+                    if ~isempty(env_data.(device(ii).tag))
+                        i_assign_max = find(strcmpi(TAG,device(ii).tag));
+                        envelope_gesture(1,(1:64)+(i_assign_max-1)*64) = mean(env_data.(device(ii).tag)(:,grid_ch_uni.(device(ii).tag)),1);
+                    end
+                end
+                if ~any(isnan(envelope_gesture))
+                    predicted_gesture = predict(param.envelope_classifier,envelope_gesture);
+                    disp(predicted_gesture);
+                    lsl_outlet_decode.push_sample(double(predicted_gesture));
                 end
             end
 

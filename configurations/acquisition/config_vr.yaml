@@ -68,14 +68,14 @@ Default:
  N_Host_Devices_Per_Controller: 2
  HPF_Cutoff_Frequency: 100 # Hz
  Device_Reference_Mode: 'average' # must be 'average' (uses CAR from SAGA device) or 'common' (with separate CREF)
- CAR_Mode: 0 # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2
- Interpolate_Grid: true # Only applies if CAR_Mode is set to 3
+ CAR_Mode: 3 # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2
+ Interpolate_Grid: false # Only applies if CAR_Mode is set to 3
  Subject: "Max"
  Sample_Rate: 4000
  Sync_Bit: 1
  File_Type: ".poly5"
  N_Samples_Recording: 240000 # Save/pre-allocate in 1-minute chunks.
- Sample_Loop_Pause_Duration: 0.020
+ Sample_Loop_Pause_Duration: 0.010
  Calibration_State: "x2dof_calibrated"
  Calibration_File: "configurations/calibration/2DOF_Calibrated.mat"
  MVC_Sample_Iterations: 10
@@ -91,8 +91,8 @@ Default:
  Pose_Deadzone_Threshold: 5
  Noise_Cluster_ID: 13
  Enable_Raw_LSL_Outlet: false
- Enable_Envelope_LSL_Outlet: true
- Enable_Tablet_Figure: true
+ Enable_Envelope_LSL_Outlet: false
+ Enable_Tablet_Figure: false
 Accelerometer:
  Enable: false
  Differential: false 
@@ -108,7 +108,7 @@ GUI:
  TriggerBound: 256
  Squiggles: 
   Enable: true
-  HPF_Mode: false
+  HPF_Mode: true
   A: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68]
   B: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68]
  Single:

@@ -24,16 +24,17 @@ function [S, labels, Y, instructionList] = parse_instruction_triggers(samples,op
 arguments
     samples (1,:) {mustBeNumeric}
     options.RestBit {mustBeInteger} = 1;
+    options.KeepFirstRest (1,1) logical = true;
     options.LabelsFile {mustBeTextScalar} = 'configurations/instructions/InstructionList_Wrist2D.mat';
 end
 
 allBitsPresent = max(samples);
 AT_REST = find(bitand(samples, 2^options.RestBit)==0);
-enteringRest = AT_REST([true, diff(AT_REST) > 1]);
+enteringRest = AT_REST([options.KeepFirstRest, diff(AT_REST) > 1]);
 
 NOT_AT_REST = find(bitand(samples, 2^options.RestBit) == 2^options.RestBit);
-exitingRest = NOT_AT_REST([false, diff(NOT_AT_REST)>1]);
-N = numel(exitingRest)-1;
+exitingRest = NOT_AT_REST([options.KeepFirstRest, diff(NOT_AT_REST)>1]);
+N = numel(exitingRest);
 
 Instruction_Starts = nan(N,1);
 Instruction_Ends = nan(N,1);
