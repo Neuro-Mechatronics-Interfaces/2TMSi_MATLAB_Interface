@@ -15,6 +15,7 @@ if isempty(options.Serial)
     ports_available = serialportlist();
     if isempty(ports_available)
         s = [];
+        warning('No serial connection to microcontroller available.')
     else
         s = serialport(ports_available{1},options.BaudRate);
     end
