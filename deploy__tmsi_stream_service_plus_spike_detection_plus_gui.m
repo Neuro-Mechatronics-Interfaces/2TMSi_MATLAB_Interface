@@ -371,15 +371,20 @@ lsl_outlet_env = lsl_outlet(lsl_info_env);
 lsl_info_decode = lsl_streaminfo(lib_lsl, ...
         'SAGACombined_Envelope_Decode', ...       % Name
         'Control', ...                    % Type
-        1, ....           % ChannelCount
+        2, ....           % ChannelCount
         1/param.pause_duration, ...                     % NominalSrate
         'cf_float32', ...             % ChannelFormat
         sprintf('StreamService_EnvDecode_%06d',randi(999999,1)));
 chns = lsl_info_decode.desc().append_child('channels');
 c = chns.append_child('channel');
-c.append_child_value('name', 'Class');
-c.append_child_value('label', 'Class');
-c.append_child_value('unit', 'au');
+c.append_child_value('name', 'X');
+c.append_child_value('label', 'X');
+c.append_child_value('unit', 'none');
+c.append_child_value('type','Control');
+c = chns.append_child('channel');
+c.append_child_value('name', 'Y');
+c.append_child_value('label', 'Y');
+c.append_child_value('unit', 'none');
 c.append_child_value('type','Control');
 lsl_info_decode.desc().append_child_value('manufacturer', 'NML');
 lsl_outlet_decode = lsl_outlet(lsl_info_decode);
@@ -565,17 +570,18 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             end
 
             if ~isempty(param.envelope_classifier)
-                envelope_gesture = nan(1,N_CLIENT*64);
+                envelope_gesture = nan(N_CLIENT*64,1);
                 for ii = 1:N_CLIENT
                     if ~isempty(env_data.(device(ii).tag))
                         i_assign_max = find(strcmpi(TAG,device(ii).tag));
-                        envelope_gesture(1,(1:64)+(i_assign_max-1)*64) = mean(env_data.(device(ii).tag)(:,grid_ch_uni.(device(ii).tag)),1);
+                        envelope_gesture((1:64)+(i_assign_max-1)*64,1) = mean(env_data.(device(ii).tag)(:,grid_ch_uni.(device(ii).tag)),1);
                     end
                 end
                 if ~any(isnan(envelope_gesture))
-                    predicted_gesture = predict(param.envelope_classifier,envelope_gesture);
-                    disp(predicted_gesture);
-                    lsl_outlet_decode.push_sample(double(predicted_gesture));
+                    % predicted_gesture = predict(param.envelope_classifier,envelope_gesture);
+                    % disp(predicted_gesture);
+                    % lsl_outlet_decode.push_sample(double(predicted_gesture));
+                    lsl_outlet_decode.push_sample(param.envelope_classifier * envelope_gesture);
                 end
             end
 

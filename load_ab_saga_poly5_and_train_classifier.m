@@ -34,7 +34,7 @@ arguments
     options.ApplyGridInterpolation (1,1) logical = true;
     options.ApplySpatialLaplacian (1,1) logical = true;
     options.HighpassFilterCutoff (1,1) double = 100;
-    options.EnvelopeFilterCutoff (1,1) double = 1;
+    options.EnvelopeFilterCutoff (1,1) double = 0.75;
     options.InputRoot = "C:/Data/TMSi";
     options.RestBit = 1;
     options.ClassifierFileID string {mustBeTextScalar} = "BaggedTreeModel";
@@ -88,17 +88,22 @@ saga = io.load_align_saga_data_many(...
     'RestBit', options.RestBit, ...
     'LabelsFile', options.InstructionListFile);
 
-Y = categorical(interp1(single(labels(101:end)),(1:options.DecimationFactor:(numel(labels)-100))','previous'), unique(single(labels)),string(categories(labels)));
-X = filter(b_env,a_env,abs(saga.samples(iUni,:)'),[],1); % Not filtfilt so that decoder is also using causal data w.r.t. labels!
-X(1:100,:) = []; % Drop initial samples, noise at start of recording + filter not yet converged. 
-X = interp1(movmean(X,options.DecimationFactor,1),(1:options.DecimationFactor:size(X,1))');
+% Y = categorical(interp1(single(labels(101:end)),(1:options.DecimationFactor:(numel(labels)-100))','previous'), unique(single(labels)),string(categories(labels)));
+% X = filter(b_env,a_env,abs(saga.samples(iUni,:)'),[],1); % Not filtfilt so that decoder is also using causal data w.r.t. labels!
+% X(1:100,:) = []; % Drop initial samples, noise at start of recording + filter not yet converged. 
+% X = interp1(movmean(X,options.DecimationFactor,1),(1:options.DecimationFactor:size(X,1))');
 
-mdl = train_ensemble_classifier(X, Y, ...
-    'PlotConfusion', options.PlotConfusion, ...
-    'Title', options.Title, ...
-    'ComputeAccuracy', options.ComputeAccuracy, ...
-    'HoldOut', options.HoldOut, ...
-    'NumLearningCycles', options.NumLearningCycles);
+% mdl = train_ensemble_classifier(X, Y, ...
+%     'PlotConfusion', options.PlotConfusion, ...
+%     'Title', options.Title, ...
+%     'ComputeAccuracy', options.ComputeAccuracy, ...
+%     'HoldOut', options.HoldOut, ...
+%     'NumLearningCycles', options.NumLearningCycles);
+
+Y = labels_2_cartesian(labels(101:end));
+X = filter(b_env,a_env,abs(saga.samples(iUni,:)),[],1); % Not filtfilt so that decoder is also using causal data w.r.t. labels!
+X(:,1:100) = []; % Drop initial samples, noise at start of recording + filter not yet converged. 
+[~, mdl] = fit_poly_model(Y, X);
 
 classifier_filename = sprintf("%s/%s/%s/%s_%s_%d.mat", options.InputRoot, SUBJ, TANK, TANK, options.ClassifierFileID, BLOCK);
 save(classifier_filename, 'mdl', '-v7.3');

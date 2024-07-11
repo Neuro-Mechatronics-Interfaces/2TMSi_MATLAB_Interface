@@ -47,7 +47,7 @@ switch parameter_code
         fprintf(1,'[TMSi]\t->\t[%s]: Initializing new calibration for state: %s\n', parameter_code, new_state);
     case 'd' % Load classifier file
         command_chunks = strsplit(parameter_value, '|');
-        if numel(command_chunks) == 1
+        if isscalar(command_chunks)
             parameter_value = sprintf('%s.mat', parameter_value);
             if exist(parameter_value, 'file')==0
                 fprintf(1,'[TMSi]\t->\t[%s]: No such file: %s\n', parameter_code, parameter_value);
