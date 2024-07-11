@@ -21,6 +21,7 @@ if isempty(options.Serial)
     end
 else
     s = options.Serial;
+    s.write('0','c');
 end
 switch options.SkinColor
     case "Grey"

@@ -12,6 +12,9 @@ if nargin < 2
 else
     if index == 255
         index = numel(figH.UserData.InstructionList);
+        if ~isempty(figH.UserData.Serial)
+            figH.UserData.Serial.write('0','c');
+        end
     end
     if strcmpi(figH.UserData.InstructionList(index), "REST")
         if index ~= figH.UserData.LastActiveIndex
