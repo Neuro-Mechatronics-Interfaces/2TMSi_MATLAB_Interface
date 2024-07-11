@@ -9,6 +9,7 @@ arguments
     options.InstructionList (1,:) string {mustBeMember(options.InstructionList,["Hand Closing", "Hand Opening", "Pinch", "Radial Deviation", "Supination", "Pronation", "Ulnar Deviation", "Wrist Extension", "Wrist Flexion", "Index Extension", "Index Flexion", "Middle Extension", "Middle Flexion", "Pinky Extension", "Pinky Flexion", "Ring Extension", "Ring Flexion", "Thumb Extension", "Thumb Flexion"])} = ["Hand Closing", "Hand Opening", "Pinch", "Radial Deviation", "Supination", "Pronation", "Ulnar Deviation", "Wrist Extension", "Wrist Flexion", "Index Extension", "Index Flexion", "Middle Extension", "Middle Flexion", "Pinky Extension", "Pinky Flexion", "Ring Extension", "Ring Flexion", "Thumb Extension", "Thumb Flexion"]; % ["Index Extension", "Middle Extension", "Ring Extension"];
     options.SkinColor {mustBeMember(options.SkinColor,["White","Tan","Brown","Black","Grey"])} = "Grey";
     options.BaudRate (1,1) {mustBePositive, mustBeInteger, mustBeMember(options.BaudRate,[9600, 115200])} = 115200;
+    options.TimerGUIAddress = [];
 end
 if isempty(options.Serial)
     ports_available = serialportlist();
@@ -149,6 +150,9 @@ end
 fig.UserData.UDP.UserData.OutputName = sprintf('instructions_%s.mat', string(utils.datetime_2_date(datetime('now'))));
 fig.UserData.UDP.UserData.Parent = fig;
 fig.UserData.UDP.UserData.Host = fig.UserData.Config.UDP.Socket.TimerGUI;
+if ~isempty(options.TimerGUIAddress)
+    fig.UserData.UDP.UserData.Host.Address = options.TimerGUIAddress;
+end
 configureCallback(fig.UserData.UDP,"terminator",@handleNamePingResponse);
 fig.UserData.InstructionList = instructions;
 fig.UserData.GesturesRoot = options.GesturesRoot;
