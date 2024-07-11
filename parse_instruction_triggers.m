@@ -33,7 +33,7 @@ AT_REST = find(bitand(samples, 2^options.RestBit)==0);
 enteringRest = AT_REST([options.KeepFirstRest, diff(AT_REST) > 1]);
 
 NOT_AT_REST = find(bitand(samples, 2^options.RestBit) == 2^options.RestBit);
-exitingRest = NOT_AT_REST([options.KeepFirstRest, diff(NOT_AT_REST)>1]);
+exitingRest = NOT_AT_REST([options.KeepFirstRest && NOT_AT_REST(1)~=1, diff(NOT_AT_REST)>1]);
 N = numel(exitingRest);
 
 Instruction_Starts = nan(N,1);

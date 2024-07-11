@@ -37,7 +37,7 @@ arguments
     options.EnvelopeFilterCutoff (1,1) double = 0.75;
     options.InputRoot = "C:/Data/TMSi";
     options.RestBit = 1;
-    options.ClassifierFileID string {mustBeTextScalar} = "BaggedTreeModel";
+    options.ClassifierFileID string {mustBeTextScalar} = "NBModel";
     options.DecimationFactor = 200; % Number of samples to "skip" (binning)
     options.InstructionListFile {mustBeFile, mustBeTextScalar} = 'configurations/instructions/InstructionList_Wrist2D.mat';
     options.IsTextile64 (1,1) logical = true;
@@ -101,9 +101,10 @@ saga = io.load_align_saga_data_many(...
 %     'NumLearningCycles', options.NumLearningCycles);
 
 Y = labels_2_cartesian(labels(101:end));
-X = filter(b_env,a_env,abs(saga.samples(iUni,:)),[],1); % Not filtfilt so that decoder is also using causal data w.r.t. labels!
+X = filter(b_env,a_env,abs(saga.samples(iUni,:)),[],2); % Not filtfilt so that decoder is also using causal data w.r.t. labels!
 X(:,1:100) = []; % Drop initial samples, noise at start of recording + filter not yet converged. 
-[~, mdl] = fit_poly_model(Y, X);
+mdl = struct;
+[mdl.beta0, mdl.beta] = fit_poly_model(Y, X);
 
 classifier_filename = sprintf("%s/%s/%s/%s_%s_%d.mat", options.InputRoot, SUBJ, TANK, TANK, options.ClassifierFileID, BLOCK);
 save(classifier_filename, 'mdl', '-v7.3');

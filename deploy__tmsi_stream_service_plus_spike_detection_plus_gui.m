@@ -582,7 +582,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     % predicted_gesture = predict(param.envelope_classifier,envelope_gesture);
                     % disp(predicted_gesture);
                     % lsl_outlet_decode.push_sample(double(predicted_gesture));
-                    lsl_outlet_decode.push_sample(param.envelope_classifier * envelope_gesture);
+                    lsl_outlet_decode.push_sample(param.envelope_classifier.beta0 + param.envelope_classifier.beta * envelope_gesture);
                 end
             end
 
