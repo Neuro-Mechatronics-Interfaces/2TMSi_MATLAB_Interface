@@ -301,7 +301,8 @@ param.n_mvc_acquired = 0;
 rms_zi = struct('A',zeros(3,param.n_spike_channels),'B',zeros(3,param.n_spike_channels));
 i_mono = struct('A', config.SAGA.A.Channels.UNI, 'B', config.SAGA.B.Channels.UNI);
 i_bip = struct('A', config.SAGA.A.Channels.BIP, 'B', config.SAGA.B.Channels.BIP);
-i_all = struct('A', union(i_mono.A, i_bip.A), 'B', union(i_mono.B, i_bip.B));
+i_all = struct('A', [config.SAGA.A.Channels.UNI, config.SAGA.A.Channels.BIP], ...
+                'B', [config.SAGA.B.Channels.UNI, config.SAGA.B.Channels.BIP]);
 zi = struct('A',zeros(3,numel(i_all.A)), 'B', zeros(3,numel(i_all.B)));
 cur_state = [0, 0, 0, 0];
 
@@ -832,15 +833,15 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         if size(samples{ii},2) > 0
                             sample_counts.(device(ii).tag) = samples{ii}(config.SAGA.(device(ii).tag).Channels.COUNT,:) + counter_offset*(ii-1);
                             i_assign.(device(ii).tag) = rem([sample_counts.(device(ii).tag)-1, sample_counts.(device(ii).tag)(end)], param.gui.squiggles.n_samples)+1;
-                            grid_channels = param.gui.squiggles.channels.(device(ii).tag)(param.gui.squiggles.channels.(device(ii).tag) <= 64);
-                            for iCh = 1:numel(grid_channels)
+                            % grid_channels = param.gui.squiggles.channels.(device(ii).tag)(param.gui.squiggles.channels.(device(ii).tag) <= 64);
+                            for iCh = 1:numel(grid_ch_uni.(device(ii).tag))
                                 cur_ch = param.gui.squiggles.channels.(device(ii).tag)(iCh);
                                 if param.gui.squiggles.hpf_mode
                                     cur_data = hpf_data.(device(ii).tag)(:,cur_ch)';
                                 else
                                     cur_data = env_data.(device(ii).tag)(:,cur_ch)';
                                 end
-                                param.gui.squiggles.h.(device(ii).tag)(iCh).YData(i_assign.(device(ii).tag)) = [cur_data + rem((cur_ch-1),8)*param.gui.squiggles.offset, nan];
+                                param.gui.squiggles.h.(device(ii).tag)(iCh).YData(i_assign.(device(ii).tag)) = [cur_data + (8-rem((cur_ch-1),8))*param.gui.squiggles.offset, nan];
                             end
                         else
                             sample_counts.(device(ii).tag) = [];
