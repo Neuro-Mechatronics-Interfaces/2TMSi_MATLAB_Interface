@@ -270,7 +270,7 @@ param.gui.squiggles.zi.A = zeros(numel(config.GUI.Squiggles.A),2);
 param.gui.squiggles.zi.B = zeros(numel(config.GUI.Squiggles.B),2);
 [param.hpf.b, param.hpf.a] = butter(3, config.Default.HPF_Cutoff_Frequency/(param.sample_rate/2), 'high');
 [param.b_rms, param.a_rms] = butter(3, 0.1, 'low');
-[param.b_env, param.a_env] = butter(3, 1/(param.sample_rate/2), 'low');
+[param.b_env, param.a_env] = butter(3, 0.1/(param.sample_rate/2), 'low');
 param.n_samples_calibration = param.gui.cal.data.N;
 [~,tmpf,~] = fileparts(config.Default.Calibration_File);
 param.calibration_state = matlab.lang.makeValidName(lower(tmpf));
@@ -372,7 +372,7 @@ lsl_outlet_env = lsl_outlet(lsl_info_env);
 lsl_info_decode = lsl_streaminfo(lib_lsl, ...
         'SAGACombined_Envelope_Decode', ...       % Name
         'Control', ...                    % Type
-        2, ....           % ChannelCount
+        3, ....           % ChannelCount
         1/param.pause_duration, ...                     % NominalSrate
         'cf_float32', ...             % ChannelFormat
         sprintf('StreamService_EnvDecode_%06d',randi(999999,1)));
@@ -385,6 +385,10 @@ c.append_child_value('type','Control');
 c = chns.append_child('channel');
 c.append_child_value('name', 'Y');
 c.append_child_value('label', 'Y');
+c.append_child_value('unit', 'none');
+c = chns.append_child('channel');
+c.append_child_value('name', 'Z');
+c.append_child_value('label', 'Z');
 c.append_child_value('unit', 'none');
 c.append_child_value('type','Control');
 lsl_info_decode.desc().append_child_value('manufacturer', 'NML');
@@ -399,6 +403,7 @@ end
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
     envelope_bin_sample = zeros(64*N_CLIENT,1);
+    envelope_gesture = nan(N_CLIENT*64*2,1);
     cat_iter = 0;
     CAT_ITER_TARGET = 4;
     cat_n = 0;
@@ -571,7 +576,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             end
 
             if ~isempty(param.envelope_classifier)
-                envelope_gesture = nan(N_CLIENT*64,1);
+                % envelope_gesture = nan(N_CLIENT*64,1);
+                envelope_gesture((N_CLIENT*64+1):end,1) = envelope_gesture(1:(N_CLIENT*64),1);
                 for ii = 1:N_CLIENT
                     if ~isempty(env_data.(device(ii).tag))
                         i_assign_max = find(strcmpi(TAG,device(ii).tag));

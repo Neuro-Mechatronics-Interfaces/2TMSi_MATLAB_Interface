@@ -33,13 +33,14 @@ arguments
     options.ApplyFilter (1,1) logical = true;
     options.ApplyGridInterpolation (1,1) logical = true;
     options.ApplySpatialLaplacian (1,1) logical = true;
+    options.Channels = [];
     options.HighpassFilterCutoff (1,1) double = 100;
-    options.EnvelopeFilterCutoff (1,1) double = 0.75;
+    options.EnvelopeFilterCutoff (1,1) double = 0.1;
     options.InputRoot = "C:/Data/TMSi";
     options.RestBit = 1;
     options.ClassifierFileID string {mustBeTextScalar} = "NBModel";
     options.DecimationFactor = 200; % Number of samples to "skip" (binning)
-    options.InstructionListFile {mustBeFile, mustBeTextScalar} = 'configurations/instructions/InstructionList_Wrist2D.mat';
+    options.InstructionListFile {mustBeFile, mustBeTextScalar} = 'configurations/instructions/InstructionList_Wrist3D.mat';
     options.IsTextile64 (1,1) logical = true;
     options.TextileTo8x8GridMapping (1,64) {mustBeInteger, mustBeInRange(options.TextileTo8x8GridMapping,1,64)} = [17 16 15	14 13 9	5 1	22 21 20 19	18 10 6	2 27 26	25 24 23 11	7 3	32 31 30 29	28 12 8	4 33 34 35 36 37 53 57 61 38 39 40 41 42 54 58 62 43 44 45 46 47 55 59 63 48 49 50 51 52 56 60 64];
     options.SampleRate (1,1) double {mustBeMember(options.SampleRate, [2000, 4000])} = 4000;
@@ -48,6 +49,8 @@ arguments
     options.HoldOut (1,1) double {mustBeInRange(options.HoldOut,0,1)} = 0.5;
     options.NumLearningCycles (1,1) {mustBePositive, mustBeInteger} = 250;
     options.Title {mustBeTextScalar} = '';
+    options.RMSThreshold (1,1) double = 5;
+    options.Verbose (1,1) logical = true;
 end
 
 TANK = sprintf("%s_%04d_%02d_%02d", SUBJ, YYYY, MM, DD);
@@ -100,13 +103,33 @@ saga = io.load_align_saga_data_many(...
 %     'HoldOut', options.HoldOut, ...
 %     'NumLearningCycles', options.NumLearningCycles);
 
-Y = labels_2_cartesian(labels(101:end));
-X = filter(b_env,a_env,abs(saga.samples(iUni,:)),[],2); % Not filtfilt so that decoder is also using causal data w.r.t. labels!
-X(:,1:100) = []; % Drop initial samples, noise at start of recording + filter not yet converged. 
 mdl = struct;
-[mdl.beta0, mdl.beta] = fit_poly_model(Y, X);
+mdl.Y = labels_2_cartesian(labels(101:end));
+mdl.X = filter(b_env,a_env,abs(saga.samples(iUni,:)),[],2); % Not filtfilt so that decoder is also using causal data w.r.t. labels!
+mdl.X(:,1:100) = []; % Drop initial samples, noise at start of recording + filter not yet converged. 
+if isempty(options.Channels)
+    mdl.channels = find(rms(mdl.X,2) < options.RMSThreshold);
+    mdl.channels = reshape(mdl.channels, 1, []);
+    if options.Verbose
+        fprintf(1,'Using %d / 128 channels (RMS Threshold: %.2f μV)\n', numel(mdl.channels), options.RMSThreshold);
+    end
+    tmp = 129:256;
+    mdl.channels = [mdl.channels, tmp(mdl.channels)];
+else
+    mdl.channels = reshape(options.Channels,1,[]);
+    if max(mdl.channels) <= 128
+        tmp = 129:256;
+        mdl.channels = [mdl.channels, tmp(mdl.channels)];
+    end
+end
+mdl.X = ckc.extend(mdl.X,2);
+mdl.X = mdl.X(:,1:(end-1));
+
+[mdl.beta0, mdl.beta] = fit_poly_model(mdl.Y, mdl.X, mdl.channels);
 
 classifier_filename = sprintf("%s/%s/%s/%s_%s_%d.mat", options.InputRoot, SUBJ, TANK, TANK, options.ClassifierFileID, BLOCK);
 save(classifier_filename, 'mdl', '-v7.3');
-fprintf(1,'Saved file to %s.\n', classifier_filename);
+if options.Verbose
+    fprintf(1,'Saved file to %s.\n', classifier_filename);
+end
 end
