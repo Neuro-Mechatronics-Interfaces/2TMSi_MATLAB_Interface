@@ -147,104 +147,174 @@ set(cursor, 'XData', cursorX, 'YData', cursorY);
 end
 
 function runTaskWithInlet(inlet, ax, cursor, startTarget, targets, options, trialTextBox, trialLogFile, cursorLogFile)
-% Run the Fitts Law task with LSL inlet
-numTargets = length(targets);
-totalTrials = options.TrialsPerTarget * numTargets;
-trialCount = 0;
-targetIndex = randsample(numTargets,1);
-isTrialActive = false;
-trialStartTime = 0;
-hoverStartTime = 0;
-isHovering = false;
-firstContactTime = [];
+    % Run the Fitts Law task with LSL inlet
+    numTargets = length(targets);
+    totalTrials = options.TrialsPerTarget * numTargets;
+    trialCount = 0;
+    targetIndex = randsample(numTargets, 1);
+    isTrialActive = false;
+    trialStartTime = 0;
+    hoverStartTime = 0;
+    leaveStartTargetTime = 0;
+    isHovering = false;
+    firstContactTime = [];
 
-while (trialCount < totalTrials) && ishandle(ax)
-    % Get the current cursor position from the inlet
-    sample = inlet.pull_sample();
-    cursorX = sample(1);
-    cursorY = sample(2);
+    % Calibration phase
+    T = calibrateInlet(ax, trialTextBox, inlet);
 
-    % Update the cursor position
-    set(cursor, 'XData', cursorX, 'YData', cursorY);
+    while (trialCount < totalTrials) && ishandle(ax)
+        % Get the current cursor position from the inlet
+        sample = inlet.pull_sample();
+        sample = T * sample(1:2,1);
+        cursorX = sample(1);
+        cursorY = sample(2);
 
-    if ~isTrialActive
-        % Start the trial when cursor enters the start target
-        if isInTarget(cursorX, cursorY, startTarget)
-            if ~isHovering
-                isHovering = true;
-                hoverStartTime = tic;
-                if ~isempty(ax.UserData)
-                    write(ax.UserData,'1','c');
+        % Update the cursor position
+        set(cursor, 'XData', cursorX, 'YData', cursorY);
+
+        if ~isTrialActive
+            % Start the trial when cursor enters the start target
+            if isInTarget(cursorX, cursorY, startTarget)
+                if ~isHovering
+                    isHovering = true;
+                    hoverStartTime = tic;
+                    if ~isempty(ax.UserData)
+                        write(ax.UserData, '1', 'c');
+                    end
+                    set(startTarget, 'FaceColor', 'c');
+                    randomDelay = options.StartTargetHoldRange(1) + (options.StartTargetHoldRange(2) - options.StartTargetHoldRange(1)) * rand; % Random delay between 0.75 and 1.25 seconds
+                elseif toc(hoverStartTime) >= randomDelay
+                    % Random delay duration met, show the target
+                    isTrialActive = true;
+                    trialStartTime = tic;
+                    if ~isempty(ax.UserData)
+                        write(ax.UserData, '2', 'c');
+                    end
+                    set(targets(targetIndex), 'Visible', 'on'); % Show the target
+                    startTime = datetime('now');
+                    updateTrialText(trialTextBox, trialCount + 1, totalTrials);
                 end
-                set(startTarget,'FaceColor','c');
-                randomDelay = options.StartTargetHoldRange(1) + (options.StartTargetHoldRange(2)-options.StartTargetHoldRange(1))*rand; % Random delay between 0.75 and 1.25 seconds
-            elseif toc(hoverStartTime) >= randomDelay
-                % Random delay duration met, show the target
-                isTrialActive = true;
-                trialStartTime = tic;
-                if ~isempty(ax.UserData)
-                    write(ax.UserData,'2','c');
-                end
-                set(targets(targetIndex), 'Visible', 'on'); % Show the target
-                startTime = datetime('now');
-                updateTrialText(trialTextBox, trialCount + 1, totalTrials);
+            else
+                isHovering = false;
             end
         else
-            isHovering = false;
-        end
-    else
-        set(startTarget,'FaceColor','g');
-        % Check if the trial is completed
-        if isInTarget(cursorX, cursorY, targets(targetIndex))
-            if isempty(firstContactTime)
-                firstContactTime = toc(trialStartTime);
-                if ~isempty(ax.UserData)
-                    write(ax.UserData,'3','c');
+            set(startTarget, 'FaceColor', 'g');
+            % Check if the trial is completed
+            if isInTarget(cursorX, cursorY, targets(targetIndex))
+                if isempty(firstContactTime)
+                    firstContactTime = toc(trialStartTime);
+                    if ~isempty(ax.UserData)
+                        write(ax.UserData, '3', 'c');
+                    end
                 end
+                set(targets(targetIndex), 'Visible', 'off'); % Hide the target
+                trialCount = trialCount + 1;
+                isTrialActive = false;
+                leaveStartTargetTime = toc(trialStartTime);
+                targetIndex = mod(trialCount, numTargets) + 1;
+                endTime = datetime('now');
+                if ~isempty(ax.UserData)
+                    write(ax.UserData, '0', 'c');
+                end
+                duration = toc(trialStartTime);
+                writeFittsLog(trialLogFile, trialCount, startTime, endTime, duration, 'Success', firstContactTime, options.TargetDistance(mod(targetIndex - 1, numel(options.TargetDistance)) + 1), options.TargetWidth(mod(targetIndex - 1, numel(options.TargetWidth)) + 1), randomDelay, leaveStartTargetTime);
+                firstContactTime = [];
             end
-            set(targets(targetIndex), 'Visible', 'off'); % Hide the target
-            trialCount = trialCount + 1;
-            isTrialActive = false;
-            leaveStartTargetTime = toc(trialStartTime);
-            targetIndex = mod(trialCount, numTargets) + 1;
-            endTime = datetime('now');
-            if ~isempty(ax.UserData)
-                write(ax.UserData,'0','c');
+            % End the trial if max duration is reached
+            if toc(trialStartTime) > options.MaxTrialDuration
+                set(targets(targetIndex), 'Visible', 'off'); % Hide the target
+                isTrialActive = false;
+                leaveStartTargetTime = toc(trialStartTime);
+                if ~isempty(ax.UserData)
+                    write(ax.UserData, '0', 'c');
+                end
+                endTime = datetime('now');
+                duration = toc(trialStartTime);
+                writeFittsLog(trialLogFile, trialCount, startTime, endTime, duration, 'Failed', firstContactTime, options.TargetDistance(mod(targetIndex - 1, numel(options.TargetDistance)) + 1), options.TargetWidth(mod(targetIndex - 1, numel(options.TargetWidth)) + 1), randomDelay, leaveStartTargetTime);
+                firstContactTime = [];
             end
-            duration = toc(trialStartTime);
-            writeFittsLog(trialLogFile, trialCount, startTime, endTime, duration, 'Success', firstContactTime, options.TargetDistance(mod(targetIndex-1, numel(options.TargetDistance))+1), options.TargetWidth(mod(targetIndex-1, numel(options.TargetWidth))+1), randomDelay, leaveStartTargetTime);
-            firstContactTime = [];
         end
-        % End the trial if max duration is reached
-        if toc(trialStartTime) > options.MaxTrialDuration
-            set(targets(targetIndex), 'Visible', 'off'); % Hide the target
-            isTrialActive = false;
-            leaveStartTargetTime = toc(trialStartTime);
-            if ~isempty(ax.UserData)
-                write(ax.UserData,'0','c');
-            end
-            endTime = datetime('now');
-            duration = toc(trialStartTime);
-            writeFittsLog(trialLogFile, trialCount, startTime, endTime, duration, 'Failed', firstContactTime, options.TargetDistance(mod(targetIndex-1, numel(options.TargetDistance))+1), options.TargetWidth(mod(targetIndex-1, numel(options.TargetWidth))+1), randomDelay, leaveStartTargetTime);
-            firstContactTime = [];
-        end
+
+        % Log cursor position
+        updateCursorLog(cursorLogFile, cursorX, cursorY);
+
+        drawnow;
+        pause(0.030);
     end
 
-    % Log cursor position
-    updateCursorLog(cursorLogFile, cursorX, cursorY);
-
-    drawnow;
-    pause(0.030);
+    % Task completed
+    if ishandle(ax)
+        msgbox('Task completed!', 'Fitts Law Task');
+        close(ax.Parent);
+    else
+        msgbox('Task exited!', 'Fitts Law Task');
+    end
 end
 
-% Task completed
-if ishandle(ax)
-    msgbox('Task completed!', 'Fitts Law Task');
-    close(ax.Parent);
-else
-    msgbox('Task exited!', 'Fitts Law Task');
+function T = calibrateInlet(ax, trialTextBox, inlet)
+    % Calibration phase for the Fitts Law task with LSL inlet
+    calibrationPrompts = {'Rest', 'Move Right', 'Move Up'};
+    calibrationDurations = [2, 2, 2]; % in seconds
+
+    % Initialize variables to store calibration data
+    restSamples = [];
+    rightSamples = [];
+    upSamples = [];
+
+    for i = 1:length(calibrationPrompts)
+        % Display calibration prompt
+        set(trialTextBox, 'String', calibrationPrompts{i});
+        drawnow;
+
+        % Collect samples during the calibration period
+        calibrationStartTime = tic;
+        currentSamples = [];
+        while toc(calibrationStartTime) < calibrationDurations(i)
+            sample = inlet.pull_sample();
+            cursorX = sample(1);
+            cursorY = sample(2);
+            currentSamples = [currentSamples; cursorX, cursorY]; %#ok<AGROW>
+
+            % Update the cursor position
+            set(cursor, 'XData', cursorX, 'YData', cursorY);
+
+            drawnow;
+            pause(0.030);
+        end
+
+        % Store samples for each calibration phase
+        switch calibrationPrompts{i}
+            case 'Rest'
+                restSamples = currentSamples;
+            case 'Move Right'
+                rightSamples = currentSamples;
+            case 'Move Up'
+                upSamples = currentSamples;
+        end
+
+        % Clear the prompt
+        set(trialTextBox, 'String', '');
+        drawnow;
+        pause(0.5);
+    end
+
+    % Compute average cursor positions for each phase
+    restPos = mean(restSamples, 1);
+    rightPos = mean(rightSamples, 1);
+    upPos = mean(upSamples, 1);
+
+    % Compute transformation matrix to map cursor positions to task space directions
+    rightVector = rightPos - restPos;
+    upVector = upPos - restPos;
+
+    % Normalize the vectors
+    rightVector = rightVector / norm(rightVector);
+    upVector = upVector / norm(upVector);
+
+    % Compute the transformation matrix
+    T = [rightVector(:), upVector(:)];
 end
-end
+
 
 function runTaskWithMouse(ax, cursor, startTarget, targets, options, trialTextBox, trialLogFile, cursorLogFile)
 % Run the Fitts Law task with mouse cursor

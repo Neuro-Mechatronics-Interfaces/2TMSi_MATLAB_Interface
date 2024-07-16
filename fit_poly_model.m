@@ -24,32 +24,38 @@ arguments
     maxChannelsPerRow (1,1) double {mustBePositive, mustBeInteger} = 4;
 end
 
-nRows = size(Y, 1);
-% nChannels = length(channels);
+% nRows = size(Y, 1);
+% % nChannels = length(channels);
+% 
+% % Initialize beta with zeros
+% beta = zeros(nRows, 256);
+% 
+% % Perform initial regression using all channels
+% initial_beta = zeros(nRows, 256);
+% initial_beta(:, channels) = (Y / X(channels,:));
+% 
+% % Select top channels based on initial regression coefficients
+% for i = 1:nRows
+%     [~, sortedIndices] = sort(abs(initial_beta(i, channels)), 'descend');
+%     topChannels = channels(sortedIndices(1:maxChannelsPerRow));
+% 
+%     % Perform regression using the selected top channels
+%     beta(i, topChannels) = Y(i,:) / X(topChannels,:);
+% 
+%     % Remove selected channels from the pool for subsequent iterations
+%     channels = setdiff(channels, topChannels);
+% end
+% 
+% % Compute fitted values
+% Y_hat = beta * X;
+% 
+% % Calculate intercept
+% i_comparison = sum(abs(Y), 1) == 0; % Want to "zero out" the part where we're at rest
+% beta0 = median(Y(:, i_comparison) - Y_hat(:, i_comparison), 2);
 
-% Initialize beta with zeros
-beta = zeros(nRows, 256);
-
-% Perform initial regression using all channels
-initial_beta = zeros(nRows, 256);
-initial_beta(:, channels) = (Y / X(channels,:));
-
-% Select top channels based on initial regression coefficients
-for i = 1:nRows
-    [~, sortedIndices] = sort(abs(initial_beta(i, channels)), 'descend');
-    topChannels = channels(sortedIndices(1:maxChannelsPerRow));
-    
-    % Perform regression using the selected top channels
-    beta(i, topChannels) = Y(i,:) / X(topChannels,:);
-    
-    % Remove selected channels from the pool for subsequent iterations
-    channels = setdiff(channels, topChannels);
-end
-
-% Compute fitted values
+beta = zeros(size(Y,1),256);
+beta(:,channels) = Y/X(channels,:);
 Y_hat = beta * X;
-
-% Calculate intercept
-i_comparison = sum(abs(Y), 1) == 0; % Want to "zero out" the part where we're at rest
-beta0 = median(Y(:, i_comparison) - Y_hat(:, i_comparison), 2);
+i_comparison = sum(abs(Y),1) == 0; % Want to "zero out" the part where we're at rest.
+beta0 = median(Y(:,i_comparison) - Y_hat(:,i_comparison),2);
 end
