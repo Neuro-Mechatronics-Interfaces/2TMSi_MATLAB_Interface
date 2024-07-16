@@ -138,9 +138,9 @@ fig.UserData.Image = image(ax,[0 1],[1 0],fig.UserData.Gesture{1}(:,:,:,1));
 % fig.UserData.Image = image(ax,[0 1],[1 0],fig.UserData.Gesture(:,:,:,1));
 fig.UserData.Serial = s;
 fig.UserData.Config = load_spike_server_config();
+udpAssign = [];
 try
     u = udpportfind;
-    udpAssign = [];
     for iUDP = 1:numel(u)
         if u(iUDP).LocalPort == fig.UserData.Config.UDP.Socket.GesturesGUI.Port
             udpAssign = u(iUDP);
