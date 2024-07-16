@@ -91,7 +91,7 @@ Default:
  Pose_Deadzone_Threshold: 5
  Noise_Cluster_ID: 13
  Enable_Raw_LSL_Outlet: false
- Enable_Envelope_LSL_Outlet: false
+ Enable_Envelope_LSL_Outlet: true
  Enable_Tablet_Figure: false
 Accelerometer:
  Enable: false

@@ -87,7 +87,12 @@ end
 fig.UserData.PulseSecondary = options.PulseSecondary;
 
 if options.UseLSL
-    addpath(genpath(options.LSLFolder));
+    if strlength(options.LSLFolder) < 1
+        lslFolder = parameters('liblsl_folder');
+    else
+        lslFolder = options.LSLFolder;
+    end
+    addpath(genpath(lslFolder));
     fig.UserData.LSL_Lib = lsl_loadlib();
     
     % make a new stream outlet
