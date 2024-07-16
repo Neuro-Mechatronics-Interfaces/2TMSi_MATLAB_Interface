@@ -19,7 +19,8 @@ end
 
 % Initialize the figure
 fig = figure('Name', 'Fitts Law Task', 'NumberTitle', 'off', 'Pointer', 'crosshair', ...
-    'MenuBar', 'none', 'ToolBar', 'none', 'Color', 'k', 'WindowState','maximized');
+    'MenuBar', 'none', 'ToolBar', 'none', 'Color', 'k', 'WindowState','maximized', ...
+    'WindowKeyPressFcn', @updateCursorSettings);
 
 % Set up the axes
 ax = axes('Parent', fig, ...
@@ -44,6 +45,8 @@ end
 
 % Initialize cursor
 cursor = plot(ax, 9, 9, 'b+', 'MarkerSize', 10, 'MarkerFaceColor', 'b', 'MarkerEdgeColor','b','LineWidth',3);
+cursor.UserData = struct('xg',1,'yg',1,'x0',2,'y0',2);
+fig.UserData = struct('cursor', cursor);
 
 % Add text box for trial information
 trialTextBox = uicontrol('Style', 'text', 'String', '', ...
@@ -55,17 +58,18 @@ trialLogFile = fopen(trialLogFileName, 'w');
 fprintf(trialLogFile, 'TrialNumber\tStartTime\tEndTime\tDuration\tResult\tFirstContactTime\tTargetDistance\tTargetWidth\tStartTargetHoldDuration\tTimeToLeaveStart\n');
 cursorLogFile = fopen(cursorLogFileName, 'w');
 
-% Set up the WindowButtonMotionFcn to track mouse movement
-set(fig, 'WindowButtonMotionFcn', @(src, event) mouseMove(src, ax, cursor));
 
 % Close the log files when the figure is closed
 set(fig, 'CloseRequestFcn', @(~,~) onClose(trialLogFile, cursorLogFile, fig));
 dt = datetime('today');
 
-mouseMove(nan, ax, cursor); % Set the initial cursor position.
 
 % Start the task
 if isempty(inlet)
+    % Set up the WindowButtonMotionFcn to track mouse movement
+    set(fig, 'WindowButtonMotionFcn', @(src, event) mouseMove(src, ax, cursor));
+    mouseMove(nan, ax, cursor); % Set the initial cursor position.
+
     runTaskWithMouse(ax, cursor, startTarget, targets, options, trialTextBox, trialLogFile, cursorLogFile);
 else
     runTaskWithInlet(inlet, ax, cursor, startTarget, targets, options, trialTextBox, trialLogFile, cursorLogFile);
@@ -155,17 +159,18 @@ function runTaskWithInlet(inlet, ax, cursor, startTarget, targets, options, tria
     isTrialActive = false;
     trialStartTime = 0;
     hoverStartTime = 0;
-    leaveStartTargetTime = 0;
     isHovering = false;
     firstContactTime = [];
 
+    set(ax)
+
     % Calibration phase
-    T = calibrateInlet(ax, trialTextBox, inlet);
+    [T,mu] = calibrateInlet(cursor, trialTextBox, inlet);
 
     while (trialCount < totalTrials) && ishandle(ax)
         % Get the current cursor position from the inlet
         sample = inlet.pull_sample();
-        sample = T * sample(1:2,1);
+        sample = (sample(1,1:2) - mu) * T + [cursor.UserData.x0, cursor.UserData.y0]; 
         cursorX = sample(1);
         cursorY = sample(2);
 
@@ -230,6 +235,8 @@ function runTaskWithInlet(inlet, ax, cursor, startTarget, targets, options, tria
                 end
                 endTime = datetime('now');
                 duration = toc(trialStartTime);
+                trialCount = trialCount + 1;
+                targetIndex = mod(trialCount, numTargets) + 1;
                 writeFittsLog(trialLogFile, trialCount, startTime, endTime, duration, 'Failed', firstContactTime, options.TargetDistance(mod(targetIndex - 1, numel(options.TargetDistance)) + 1), options.TargetWidth(mod(targetIndex - 1, numel(options.TargetWidth)) + 1), randomDelay, leaveStartTargetTime);
                 firstContactTime = [];
             end
@@ -251,10 +258,10 @@ function runTaskWithInlet(inlet, ax, cursor, startTarget, targets, options, tria
     end
 end
 
-function T = calibrateInlet(ax, trialTextBox, inlet)
+function [T,mu] = calibrateInlet(cursor, trialTextBox, inlet)
     % Calibration phase for the Fitts Law task with LSL inlet
     calibrationPrompts = {'Rest', 'Move Right', 'Move Up'};
-    calibrationDurations = [2, 2, 2]; % in seconds
+    calibrationDurations = [5, 5, 5]; % in seconds
 
     % Initialize variables to store calibration data
     restSamples = [];
@@ -299,13 +306,13 @@ function T = calibrateInlet(ax, trialTextBox, inlet)
     end
 
     % Compute average cursor positions for each phase
-    restPos = mean(restSamples, 1);
+    mu = mean(restSamples, 1);
     rightPos = mean(rightSamples, 1);
     upPos = mean(upSamples, 1);
 
     % Compute transformation matrix to map cursor positions to task space directions
-    rightVector = rightPos - restPos;
-    upVector = upPos - restPos;
+    rightVector = rightPos - mu;
+    upVector = upPos - mu;
 
     % Normalize the vectors
     rightVector = rightVector / norm(rightVector);
@@ -452,5 +459,20 @@ function updateCursorLog(cursorLogFile, cursorX, cursorY)
 % Log cursor position with timestamp
 timestamp = posixtime(datetime('now')) * 1000; % Current time in milliseconds since epoch
 fwrite(cursorLogFile, [timestamp, cursorX, cursorY], 'double');
+end
+
+function updateCursorSettings(src,evt)
+    cursor = src.UserData.cursor;
+    switch evt.Key
+        case 'w'
+            cursor.UserData.y0 = cursor.UserData.y0 + 1;
+        case 's'
+            cursor.UserData.y0 = cursor.UserData.y0 - 1;
+        case 'a'
+            cursor.UserData.x0 = cursor.UserData.x0 - 1;
+        case 'd'
+            cursor.UserData.x0 = cursor.UserData.x0 + 1;
+
+    end
 end
 
