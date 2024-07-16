@@ -1,5 +1,9 @@
 % Add the necessary LSL library
-addpath(genpath('C:/MyRepos/Libraries/liblsl-Matlab'));
+lslFolder = parameters('liblsl_folder');
+if exist(lslFolder,'dir')==0
+    lslFolder = 'C:/MyRepos/Libraries/liblsl-Matlab';
+end
+addpath(genpath(lslFolder));
 lib = lsl_loadlib();
 
 
