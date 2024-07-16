@@ -19,12 +19,12 @@ function [beta0, beta, Y_hat] = fit_poly_model(Y,X,channels)
 % See also: Contents
 
 arguments
-    Y (3,:) double
+    Y double
     X (256,:) double 
     channels % (1,:) {mustBeInteger, mustBeInRange(channels, 1, 256)} = 1:256;
 end
 
-beta = zeros(3,256);
+beta = zeros(size(Y,1),256);
 beta(:,channels) = Y/X(channels,:);
 Y_hat = beta * X;
 i_comparison = sum(abs(Y),1) == 0; % Want to "zero out" the part where we're at rest.

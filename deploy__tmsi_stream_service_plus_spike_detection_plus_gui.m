@@ -270,7 +270,7 @@ param.gui.squiggles.zi.A = zeros(numel(config.GUI.Squiggles.A),2);
 param.gui.squiggles.zi.B = zeros(numel(config.GUI.Squiggles.B),2);
 [param.hpf.b, param.hpf.a] = butter(3, config.Default.HPF_Cutoff_Frequency/(param.sample_rate/2), 'high');
 [param.b_rms, param.a_rms] = butter(3, 0.1, 'low');
-[param.b_env, param.a_env] = butter(3, 0.1/(param.sample_rate/2), 'low');
+[param.b_env, param.a_env] = butter(3, 0.5/(param.sample_rate/2), 'low');
 param.n_samples_calibration = param.gui.cal.data.N;
 [~,tmpf,~] = fileparts(config.Default.Calibration_File);
 param.calibration_state = matlab.lang.makeValidName(lower(tmpf));
@@ -386,6 +386,7 @@ c = chns.append_child('channel');
 c.append_child_value('name', 'Y');
 c.append_child_value('label', 'Y');
 c.append_child_value('unit', 'none');
+c.append_child_value('type','Control');
 c = chns.append_child('channel');
 c.append_child_value('name', 'Z');
 c.append_child_value('label', 'Z');
@@ -403,7 +404,9 @@ end
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
     envelope_bin_sample = zeros(64*N_CLIENT,1);
-    envelope_gesture = nan(N_CLIENT*64*2,1);
+    envelope_gesture = zeros(N_CLIENT*64*2,1);
+    gestures_ready = false(N_CLIENT,1);
+    n_gesture_samples = zeros(N_CLIENT,1);
     cat_iter = 0;
     CAT_ITER_TARGET = 4;
     cat_n = 0;
@@ -577,18 +580,24 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
 
             if ~isempty(param.envelope_classifier)
                 % envelope_gesture = nan(N_CLIENT*64,1);
-                envelope_gesture((N_CLIENT*64+1):end,1) = envelope_gesture(1:(N_CLIENT*64),1);
+                % disp(num_sets);
+                
                 for ii = 1:N_CLIENT
-                    if ~isempty(env_data.(device(ii).tag))
+                    n_new = size(env_data.(device(ii).tag),1);
+                    if (n_gesture_samples(ii)+n_new) >= 200
                         i_assign_max = find(strcmpi(TAG,device(ii).tag));
-                        envelope_gesture((1:64)+(i_assign_max-1)*64,1) = mean(env_data.(device(ii).tag)(:,grid_ch_uni.(device(ii).tag)),1);
+                        i_new = max(200 - n_gesture_samples(ii),1);
+                        envelope_gesture((129:192)+(i_assign_max-1)*64,1) = envelope_gesture((1:64)+(i_assign_max-1)*64,1);
+                        envelope_gesture((1:64)+(i_assign_max-1)*64,1) = env_data.(device(ii).tag)(i_new,grid_ch_uni.(device(ii).tag));
+                        n_gesture_samples(ii) = n_new - i_new;
+                        gestures_ready(ii) = true;
+                    else
+                        n_gesture_samples(ii) = n_gesture_samples(ii)+n_new;
                     end
                 end
-                if ~any(isnan(envelope_gesture))
-                    % predicted_gesture = predict(param.envelope_classifier,envelope_gesture);
-                    % disp(predicted_gesture);
-                    % lsl_outlet_decode.push_sample(double(predicted_gesture));
-                    lsl_outlet_decode.push_sample(param.envelope_classifier.beta0 + param.envelope_classifier.beta * envelope_gesture);
+                if all(gestures_ready)
+                    gesture_decode_sample = (param.envelope_classifier.beta0 + param.envelope_classifier.beta * envelope_gesture);
+                    lsl_outlet_decode.push_sample(gesture_decode_sample);
                 end
             end
 

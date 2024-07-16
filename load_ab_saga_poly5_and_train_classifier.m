@@ -33,9 +33,10 @@ arguments
     options.ApplyFilter (1,1) logical = true;
     options.ApplyGridInterpolation (1,1) logical = true;
     options.ApplySpatialLaplacian (1,1) logical = true;
+    options.GoodChannels = 1:128;
     options.Channels = [];
     options.HighpassFilterCutoff (1,1) double = 100;
-    options.EnvelopeFilterCutoff (1,1) double = 0.1;
+    options.EnvelopeFilterCutoff (1,1) double = 0.5;
     options.InputRoot = "C:/Data/TMSi";
     options.RestBit = 1;
     options.ClassifierFileID string {mustBeTextScalar} = "NBModel";
@@ -104,7 +105,7 @@ saga = io.load_align_saga_data_many(...
 %     'NumLearningCycles', options.NumLearningCycles);
 
 mdl = struct;
-mdl.Y = labels_2_cartesian(labels(101:end));
+mdl.Y = labels_2_cartesian(labels(101:(end-201)));
 mdl.X = filter(b_env,a_env,abs(saga.samples(iUni,:)),[],2); % Not filtfilt so that decoder is also using causal data w.r.t. labels!
 mdl.X(:,1:100) = []; % Drop initial samples, noise at start of recording + filter not yet converged. 
 if isempty(options.Channels)
@@ -122,8 +123,7 @@ else
         mdl.channels = [mdl.channels, tmp(mdl.channels)];
     end
 end
-mdl.X = ckc.extend(mdl.X,2);
-mdl.X = mdl.X(:,1:(end-1));
+mdl.X = [mdl.X(:,1:(end-201)); mdl.X(:,202:end)];
 
 [mdl.beta0, mdl.beta] = fit_poly_model(mdl.Y, mdl.X, mdl.channels);
 
