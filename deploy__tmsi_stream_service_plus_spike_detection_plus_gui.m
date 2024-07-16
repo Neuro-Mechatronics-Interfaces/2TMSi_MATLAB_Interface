@@ -311,12 +311,18 @@ lslMatlabFolder = fullfile(pwd, '..', 'liblsl-Matlab');
 if exist(lslMatlabFolder,'dir')==0
     lslMatlabFolder = parameters('liblsl_folder');
     if exist(lslMatlabFolder, 'dir')==0
-        disp("No valid liblsl-Matlab repository detected on this device.");
-        fprintf(1,'\t->\tTried: "%s"\n', fullfile(pwd, '..', 'liblsl-Matlab'));
-        fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder);
-        disp("Please check parameters.m in the 2TMSi_MATLAB_Interface repository, and try again.");
-        pause(30);
-        error("[TMSi]::Missing liblsl-Matlab repository.");
+        lslMatlabFolder2 = 'C:/MyRepos/Libraries/liblsl-Matlab';
+        if exist(lslMatlabFolder2,'dir')==0
+            disp("No valid liblsl-Matlab repository detected on this device.");
+            fprintf(1,'\t->\tTried: "%s"\n', fullfile(pwd, '..', 'liblsl-Matlab'));
+            fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder);
+            fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder2);
+            disp("Please check parameters.m in the 2TMSi_MATLAB_Interface repository, and try again.");
+            pause(30);
+            error("[TMSi]::Missing liblsl-Matlab repository.");
+        else
+            lslMatlabFolder = lslMatlabFolder2;
+        end
     end
 end
 addpath(genpath(lslMatlabFolder)); % Adds liblsl-Matlab
