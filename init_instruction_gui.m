@@ -2,7 +2,7 @@ function fig = init_instruction_gui(options)
 %INIT_INSTRUCTION_GUI  Initialize GUI with instructions/microcontroller sync outputs
 arguments
     options.Serial = [];
-    options.LSLFolder {mustBeTextScalar} = "C:/MyRepos/Libraries/liblsl-Matlab";
+    options.LSLFolder {mustBeTextScalar} = "";
     options.UseLSL (1,1) logical = true;
     options.PulseSecondary (1,1) logical = true;
     options.GesturesRoot {mustBeFolder} = fullfile(pwd,'configurations/gifs/pro/gray');
