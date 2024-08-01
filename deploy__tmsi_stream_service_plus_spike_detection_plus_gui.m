@@ -237,6 +237,7 @@ param = struct(...
     'save_location', strrep(config.Default.Folder,'\','/'),  ...            % Save folder
     'save_params', config.Default.Save_Parameters, ...
     'pause_duration', config.Default.Sample_Loop_Pause_Duration, ...
+    'samples_per_loop', config.Default.Samples_Per_Loop, ...
     'past_rates', struct('A', zeros(numel(config.Default.Rate_Smoothing_Alpha),64), 'B', zeros(numel(config.Default.Rate_Smoothing_Alpha),64)), ...
     'transform', struct('A', struct(config.Default.Calibration_State, init_n_channel_transform(config.Default.N_Spike_Channels)), ...
                         'B', struct(config.Default.Calibration_State, init_n_channel_transform(config.Default.N_Spike_Channels))), ...
@@ -410,7 +411,8 @@ end
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
     envelope_bin_sample = zeros(64*N_CLIENT,1);
-    envelope_gesture = zeros(N_CLIENT*64*2,1);
+    % envelope_gesture = zeros(N_CLIENT*64*2,1);
+    envelope_gesture = zeros(N_CLIENT*64,1);
     gestures_ready = false(N_CLIENT,1);
     n_gesture_samples = zeros(N_CLIENT,1);
     cat_iter = 0;
@@ -494,6 +496,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             param.gui.cal.W = randn(nTotalChannels+4, 4);
         end
         
+        % Check for parameter updates.
         while udp_param_receiver.NumBytesAvailable > 0
             parameter_data = udp_param_receiver.readline();
             param = parse_parameter_message(parameter_data, param);
@@ -539,10 +542,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 end
             end
 
+            % Sample from both devices (ALWAYS)
             num_sets = zeros(numel(device),1);
             for ii = 1:N_CLIENT
                 [samples{ii}, num_sets(ii)] = device(ii).sample();
-                
+                % If there are samples present from this device, dump to
+                % raw data outlet ( if enabled ), and apply filtering.
                 if ~isempty(samples{ii})
                     if param.enable_raw_lsl_outlet
                         lsl_outlet_obj.(device(ii).tag).push_chunk(samples{ii});
@@ -574,6 +579,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 end
             end
 
+            % Dump envelope samples to LSL outlet (if required)
             if param.enable_envelope_lsl_outlet 
                 for ii = 1:N_CLIENT
                     if ~isempty(env_data.(device(ii).tag))
@@ -584,29 +590,39 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 lsl_outlet_env.push_sample(max(envelope_bin_sample,1e-3));
             end
 
+            % Handle decoding from envelope (if required)
             if ~isempty(param.envelope_classifier)
                 % envelope_gesture = nan(N_CLIENT*64,1);
                 % disp(num_sets);
                 
+                % for ii = 1:N_CLIENT
+                %     n_new = size(env_data.(device(ii).tag),1);
+                %     if (n_gesture_samples(ii)+n_new) >= 200
+                %         i_assign_max = find(strcmpi(TAG,device(ii).tag));
+                %         i_new = max(200 - n_gesture_samples(ii),1);
+                %         envelope_gesture((129:192)+(i_assign_max-1)*64,1) = envelope_gesture((1:64)+(i_assign_max-1)*64,1);
+                %         envelope_gesture((1:64)+(i_assign_max-1)*64,1) = env_data.(device(ii).tag)(i_new,grid_ch_uni.(device(ii).tag));
+                %         n_gesture_samples(ii) = n_new - i_new;
+                %         gestures_ready(ii) = true;
+                %     else
+                %         n_gesture_samples(ii) = n_gesture_samples(ii)+n_new;
+                %     end
+                % end
+                % if all(gestures_ready)
+                %     gesture_decode_sample = (param.envelope_classifier.beta0 + param.envelope_classifier.beta * envelope_gesture);
+                %     lsl_outlet_decode.push_sample(gesture_decode_sample);
+                % end
                 for ii = 1:N_CLIENT
-                    n_new = size(env_data.(device(ii).tag),1);
-                    if (n_gesture_samples(ii)+n_new) >= 200
+                    if ~isempty(env_data.(device(ii).tag))
                         i_assign_max = find(strcmpi(TAG,device(ii).tag));
-                        i_new = max(200 - n_gesture_samples(ii),1);
-                        envelope_gesture((129:192)+(i_assign_max-1)*64,1) = envelope_gesture((1:64)+(i_assign_max-1)*64,1);
-                        envelope_gesture((1:64)+(i_assign_max-1)*64,1) = env_data.(device(ii).tag)(i_new,grid_ch_uni.(device(ii).tag));
-                        n_gesture_samples(ii) = n_new - i_new;
-                        gestures_ready(ii) = true;
-                    else
-                        n_gesture_samples(ii) = n_gesture_samples(ii)+n_new;
+                        envelope_gesture((1:64)+(i_assign_max-1)*64,1) = env_data.(device(ii).tag)(end,grid_ch_uni.(device(ii).tag))';
                     end
                 end
-                if all(gestures_ready)
-                    gesture_decode_sample = (param.envelope_classifier.beta0 + param.envelope_classifier.beta * envelope_gesture);
-                    lsl_outlet_decode.push_sample(gesture_decode_sample);
-                end
+                gesture_decode_sample = (param.envelope_classifier.beta0 + param.envelope_classifier.beta * envelope_gesture);
+                lsl_outlet_decode.push_sample(gesture_decode_sample);
             end
 
+            % Handle using TABLET figure (if required)
             if param.enable_tablet_figure
                 pkt = WinTabMex(5);
                 if ~isempty(pkt)
@@ -632,6 +648,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 end
             end
 
+            % Handle Maximum Voluntary Contraction (if required)
             if param.acquire_mvc
                 if all(num_sets > 0)
                     param.n_mvc_acquired = param.n_mvc_acquired + 1;
@@ -656,6 +673,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     end
                 end
             end
+            
             % Check for a "control state" update.
             if udp_state_receiver.NumBytesAvailable > 0
                 tmpState = lower(string(readline(udp_state_receiver)));
@@ -729,6 +747,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     recording = false;
                 end
             end
+            
             % If recording, log the samples in the recording buffer. 
             if recording
                 for ii = 1:N_CLIENT
@@ -736,10 +755,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         rec_file.(device(ii).tag).append(samples{ii});
                     end
                 end
+                % If using tablet mex, log samples from tablet
                 if param.enable_tablet_figure
                     
                 end
             end
+            
             % Handle calibration (if required)
             for ii = 1:N_CLIENT
                 if param.calibrate.(device(ii).tag) && (size(hpf_data.(device(ii).tag),1) > 0)

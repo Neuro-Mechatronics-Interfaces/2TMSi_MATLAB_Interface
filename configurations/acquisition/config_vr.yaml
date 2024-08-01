@@ -70,7 +70,7 @@ Default:
  Device_Reference_Mode: 'average' # must be 'average' (uses CAR from SAGA device) or 'common' (with separate CREF)
  CAR_Mode: 3 # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2
  Interpolate_Grid: false # Only applies if CAR_Mode is set to 3
- Subject: "Max"
+ Subject: "Jonathan"
  Sample_Rate: 4000
  Sync_Bit: 1
  File_Type: ".poly5"
@@ -92,7 +92,7 @@ Default:
  Noise_Cluster_ID: 13
  Enable_Raw_LSL_Outlet: false
  Enable_Envelope_LSL_Outlet: true
- Enable_Tablet_Figure: false
+ Enable_Tablet_Figure: true
 Accelerometer:
  Enable: false
  Differential: false 
@@ -121,7 +121,7 @@ UDP:
  Socket:
   StreamService:
    # Address: "192.168.88.100"
-   Address: "127.0.0.1"
+   Address: "10.0.0.100"
    # Address: "10.0.0.102"
    Port: 
     state: 3030
@@ -130,7 +130,7 @@ UDP:
   RecordingControllerGUI:
    # Address: "192.168.88.101"
    Address: "127.0.0.1"
-   # Address: "10.0.0.100"
+   # Address: "10.0.0.101"
    Port: 3050
   GesturesGUI:
    # Address: "10.0.0.101"
@@ -147,7 +147,7 @@ TCP:
   Port: 6050
  ControlServer:
   # Address: "192.168.88.101"
-  Address: "127.0.0.1"
+  Address: "10.0.0.100"
   Port: 6051
  RMSServer:
   # Address: "192.168.88.100"
