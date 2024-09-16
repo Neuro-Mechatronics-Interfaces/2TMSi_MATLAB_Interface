@@ -14,11 +14,18 @@ end
 switch parameter_code
     case 'a' % CAR
         command_chunks = strsplit(parameter_value, ':');
-        param.car_mode = str2double(command_chunks{1});
-        if numel(command_chunks) > 1
-            param.threshold_artifact = str2double(command_chunks{2})/1000;
+        virtual_ref_code = str2double(command_chunks{1});
+        if virtual_ref_code < 0
+            param.enable_filters = false;
+            fprintf(1,'[TMSi]\t->\t[%s]: Filtering OFF.\n', parameter_code);
+        else
+            param.enable_filters = true;
+            param.virtual_ref_mode = virtual_ref_code;
+            if numel(command_chunks) > 1
+                param.threshold_artifact = str2double(command_chunks{2})/1000;
+            end
+            fprintf(1,'[TMSi]\t->\t[%s]: Filtering ON. Virtual Reference Mode = %s\n', parameter_code, parameter_value);
         end
-        fprintf(1,'[TMSi]\t->\t[%s]: CAR Mode = %s\n', parameter_code, parameter_value);
     case 'b' % Name Tag
         command_chunks = strsplit(parameter_value, ':');
         if numel(command_chunks) > 1
@@ -29,22 +36,24 @@ switch parameter_code
         else
             fprintf(1,'[TMSi]\t->\t[%s]: Tag **not** updated (invalid value "%s")\n', parameter_code, parameter_value);
         end
-    case 'c' % Load calibration file and initialize new calibration for it
-        cal_file = strcat(parameter_value, ".mat");
-        if exist(cal_file,'file')==0
-            fprintf(1,'[TMSi]\t->\t[%s]: Calibration File %s does not exist!\n', parameter_code, cal_file);
-            return;
+    case 'c' % Set the new bit mask for left/right mouse-click triggers
+        command_chunks = strsplit(parameter_value, ',');
+        click_code = {'Left', 'Right'};
+        for iChunk = 1:numel(command_chunks)
+            parameter_value_numeric = round(str2double(command_chunks{iChunk}));
+            if parameter_value_numeric < 0
+                fprintf(1,'[TMSi]\t->\t[%s]: %s-MOUSE BIT DISABLED\n', parameter_code, upper(click_code{iChunk}));
+                param.trig_out_en(iChunk) = false;
+                return;
+            end
+            if parameter_value_numeric > 15
+                fprintf(1,'[TMSi]\t->\t[%s]: DID NOT UPDATE %s MOUSE TRIGGER BIT (must be <= 15; received value: %s)\n', parameter_code, upper(click_code{iChunk}), parameter_value);
+                return;
+            end
+            param.trig_out_mask(iChunk) = 2^parameter_value_numeric;
+            param.trig_out_en(iChunk) = true;
+            fprintf(1,'[TMSi]\t->\t[%s]: Updated %s-Mouse-Click Trigger Bit to BIT-%d\n', parameter_code, click_code{iChunk}, parameter_value_numeric);
         end
-        param.cal.data = load(cal_file);
-        param.cal.file = cal_file;
-        [~,new_state,~] = fileparts(cal_file);
-        new_state = matlab.lang.makeValidName(lower(new_state));
-        param.calibration_state = new_state;
-        param.n_samples_calibration = param.cal.data.N;
-        param = init_new_calibration(param, new_state);
-        param.exclude_by_rms = struct('A', false(1,param.n_spike_channels), 'B', false(1, param.n_spike_channels));
-        param.gui.sch.state = new_state;
-        fprintf(1,'[TMSi]\t->\t[%s]: Initializing new calibration for state: %s\n', parameter_code, new_state);
     case 'd' % Load classifier file
         command_chunks = strsplit(parameter_value, '|');
         if isscalar(command_chunks)
@@ -80,33 +89,14 @@ switch parameter_code
             param.classifier.(command_chunks{1}) = load(parameter_value);
         end
         fprintf(1,'[TMSi]\t->\t[%s]: Updated using file = %s\n', parameter_code, parameter_value);
-    case 'e' % Single-channel GUI command
-        command_chunks = strsplit(parameter_value, ":");
-        en = str2double(command_chunks{1})==1;
-        if en
-            tmp = round(str2double(command_chunks{3}));
-            if (tmp <= param.n_spike_channels) && (tmp > 0)
-                param.gui.sch.saga = command_chunks{2};
-                param.gui.sch.channel = tmp;
-                param.gui.sch.enable = true;
-                param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
-            else
-                warning("Received command: %s\n\t->\tNEO Channel must be in the range [1, %d]", ...
-                    parameter_data, param.n_spike_channels);
-            end 
-        else
-            param.gui.sch.enable = false;
-            param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
-        end
-        fprintf(1,'[TMSi]\t->\t[%s]: NEO GUI Channel = %s\n', parameter_code, parameter_value);
     case 'f' % Save Location (folder)
         param.save_location = strrep(parameter_value, '\', '/');
         fprintf(1,'[TMSi]\t->\t[%s]: Save Location = %s\n', parameter_code, parameter_value);
     case 'g' % Number of samples for squiggles and/or NEO figure sweeps
         n_samples = round(str2double(parameter_value));
-        param.gui.sch.n_samples = n_samples;
+        % param.gui.sch.n_samples = n_samples;
         param.gui.squiggles.n_samples = n_samples;
-        param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
+        % param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
         param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
         fprintf(1,'[TMSi]\t->\t[%s]: GUI Line Samples = %s\n', parameter_code, parameter_value);
     case 'h' % HPF cutoff frequency
@@ -129,21 +119,76 @@ switch parameter_code
         end
         param.envelope_regressor.(command_chunks{1}) = load(parameter_value);
         fprintf(1,'[TMSi]\t->\t[%s]: Updated using file = %s\n', parameter_code, parameter_value);
-    case 'k' % Envelope classifier
+    case 'k' % Any "model" upload
         [p,f,~] = fileparts(parameter_value);
-        fname_env_classifier = fullfile(p,sprintf('%s.mat', f));
-        if exist(fname_env_classifier, 'file')==0
+        fname = fullfile(p,sprintf('%s.mat', f));
+        if exist(fname, 'file')==0
             fprintf(1,'[TMSi]\t->\t[%s]: No such file: %s\n', parameter_code, parameter_value);
             return;
         end
-        in = load(fname_env_classifier);
+        in = load(fname);
         if isfield(in,'mdl')
             param.envelope_classifier = in.mdl;
-        else
-            fprintf(1,'[TMSi]\t->\t[%s]: File %s exists but has no variable named "mdl" in it.\n', parameter_code, parameter_value);
-            return;
+            fprintf(1,'[TMSi]\t->\t[%s]: Updloaded new envelope classifier model.\n', parameter_code);
+        end
+        if isfield(in, 'extFactor')
+            param.dsp_extension_factor = in.extFactor;
+            param.prev_data = struct('A', zeros(in.extFactor,64), 'B', zeros(in.extFactor,64));
+            fprintf(1,'[TMSi]\t->\t[%s]: Parsed extension factor: %d\n', parameter_code, in.extFactor);
+        end
+        has_new_squiggles = false;
+        if isfield(in,'A')
+            sz = (size(in.A.P,1)/64);
+            if sz == param.dsp_extension_factor
+                param.P.A = in.A;
+                param.P.A.Wz = construct_uni_whitening_window(param.dsp_extension_factor, param.P.A.windowingVector);
+                param.gui.squiggles.whiten.A = true;
+                fprintf(1,'[TMSi]\t->\t[%s]: Updloaded new pseudo-inverse matrix for SAGA-A.\n', parameter_code);
+            else
+                param.P.A = [];
+                param.gui.squiggles.whiten.A = false;
+                fprintf(1,'[TMSi]\t->\t[%s]: Detected new pseudo-inverse matrix for SAGA-A, but DID NOT USE (extension mismatch: found extension factor = %d but should be %d!)\n', parameter_code, sz, param.dsp_extension_factor);
+            end
+            has_new_squiggles = true;
+        end
+        if isfield(in,'B')
+            sz = (size(in.B.P,1)/64);
+            if sz == param.dsp_extension_factor
+                param.P.B = in.B;
+                param.P.B.Wz = construct_uni_whitening_window(param.dsp_extension_factor, param.P.B.windowingVector);
+                param.gui.squiggles.whiten.B = true;
+                fprintf(1,'[TMSi]\t->\t[%s]: Updloaded new pseudo-inverse matrix for SAGA-B.\n', parameter_code);
+            else
+                param.P.B = [];
+                param.gui.squiggles.whiten.B = false;
+                fprintf(1,'[TMSi]\t->\t[%s]: Detected new pseudo-inverse matrix for SAGA-B, but DID NOT USE (extension mismatch: found extension factor = %d but should be %d!)\n', parameter_code, sz, param.dsp_extension_factor);
+            end
+            has_new_squiggles = true;
+        end
+        if has_new_squiggles
+            fprintf(1,'[TMSi]\t->\t[%s]: Entered whitening-mode!\n',parameter_code);
+            param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
+        elseif ~param.gui.squiggles.whiten.A && ~param.gui.squiggles.whiten.B
+            fprintf(1,'[TMSi]\t->\t[%s]: Not using whitening-mode!\n', parameter_code);
         end
         fprintf(1,'[TMSi]\t->\t[%s]: Updated using file = %s\n', parameter_code, parameter_value);
+    case 'l' % Set Left or Right trigger channel for parsing
+        command_chunks = strsplit(parameter_value,':');
+        if numel(command_chunks) < 2
+            fprintf(1,'[TMSi]\t->\t[%s]: Command must be in syntax `l.<L or R>:<channel index>` where channel index ranges between 1 and %d (number of channels on SAGA-A).\n', parameter_code, param.n_channels.A);
+            return;
+        end
+        value_numeric = round(str2double(command_chunks{2}));
+        if (value_numeric < 1) || (value_numeric > param.n_channels.A)
+            fprintf(1,'[TMSi]\t->\t[%s]: Value must be greater than or equal to 1 and less than or equal to number of channels on SAGA-A (%d).\n', parameter_code, param.n_channels.A);
+            return;
+        end
+        if strcmpi(command_chunks{1},'L')
+            param.trig_out_chan(1) = value_numeric;
+        else
+            param.trig_out_chan(2) = value_numeric;
+        end
+        fprintf(1,'[TMSi]\t->\t[%s]: %s-Channel = %d\n', parameter_code, upper(command_chunks{1}), value_numeric);
     case 'm' % Re-acquire MVC
         param.acquire_mvc = true;
         tmp = round(str2double(parameter_value));
@@ -165,6 +210,32 @@ switch parameter_code
         end
         param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
         fprintf(1,'[TMSi]\t->\t[%s]: Squiggles Line Offset = %s (uV)\n', parameter_code, parameter_value);
+    case 'p' % Parse from bits?
+        command_chunks = strsplit(parameter_value,':');
+        param.parse_from_bits = strcmpi(command_chunks{1}, '1');
+        if numel(command_chunks) > 1
+            param.trig_out_sliding_threshold(1,1) = str2double(command_chunks{2})/100;
+        end
+        if numel(command_chunks) > 2
+            param.trig_out_threshold(1,1) = str2double(command_chunks{3})/100;
+        end
+        if numel(command_chunks) > 3
+            param.trig_out_threshold(1,2) = str2double(command_chunks{4})/100;
+        end
+        if numel(command_chunks) > 4
+            param.trig_out_sliding_threshold(1,2) = str2double(command_chunks{5})/100;
+        end
+        if numel(command_chunks) > 5
+            param.trig_out_threshold(2,1) = str2double(command_chunks{6})/100;
+        end
+        if numel(command_chunks) > 6
+            param.trig_out_threshold(2,2) = str2double(command_chunks{7})/100;
+        end
+        if param.parse_from_bits
+            fprintf(1,'[TMSi]\t->\t[%s]: Using BITMASK Parsing for TRIGGERS\n', parameter_code);
+        else
+            fprintf(1,'[TMSi]\t->\t[%s]: Using CHANNEL-THRESHOLDING Parsing for TRIGGERS\n', parameter_code);
+        end
     case 'q' % s**Q**uiggles GUI command
         command_chunks = strsplit(parameter_value, ":");
         en = str2double(command_chunks{1})==1;
@@ -200,6 +271,11 @@ switch parameter_code
         end
         param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), 64), 'B', zeros(numel(param.rate_smoothing_alpha), 64));
         fprintf(1,['[TMSi]\t->\t[%s]: Rate Smoothing Alpha = ' strjoin(repmat({'%4.3f'}, 1, numel(param.rate_smoothing_alpha)),  ', ') '\n'], parameter_code, param.rate_smoothing_alpha);
+    case 's' % Assign covariance matrix
+        
+    case 'v' % Loop debounce iterations
+        param.trig_out_debounce_iterations = str2double(parameter_value);
+        fprintf(1,'[TMSi]\t->\t[%s]: Loop Debounce Iterations = %s\n', parameter_code, parameter_value);
     case 'w' % Toggle squiggles mode
         param.gui.squiggles.hpf_mode = ~param.gui.squiggles.hpf_mode;
         if param.gui.squiggles.hpf_mode
@@ -216,14 +292,18 @@ switch parameter_code
         param.gui.sch.enable = param.spike_detector;
         param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
         fprintf(1,'[TMSi]\t->\t[%s]: Spike Detection Threshold Deviations = %s\n', parameter_code, parameter_value);
-
-    case 'y' % Set upper bound on TRIGGERS axaes
-        tmp = str2double(parameter_value);
-        if ~isnan(tmp) && (tmp > 0)
-            param.gui.squiggles.triggers.y_bound = tmp;
+    case 'y' % Change state of websocket for triggers
+        command_chunks = strsplit(parameter_value, ':');
+        new_enable = strcmpi(command_chunks{1},'1');
+        new_emulation_mode = strcmpi(command_chunks{2},'1');
+        if (new_enable ~= param.enable_trigger_controller) || (new_emulation_mode ~= param.emulate_mouse) 
+            param.enable_trigger_controller = new_enable;
+            param.emulate_mouse = new_emulation_mode;
+            param = setup_or_teardown_triggers_socket_connection(param);
+            fprintf(1,'[TMSi\t->\t[%s]: Updated Triggers Socket connection state. (%s)\n', parameter_code, parameter_value);
+        else
+            fprintf(1,'[TMSi\t->\t[%s]: Triggers Socket connection state UNCHANGED! (No new parameter values: %s)\n', parameter_code, parameter_value);
         end
-        fprintf(1,'[TMSi]\t->\t[%s]: Triggers Y-Bound = %s\n', parameter_code, parameter_value);
-
     case 'z' % Save Parameters
         param.save_params = strcmpi(parameter_value, "1");
         fprintf(1,'[TMSi]\t->\t[%s]: Save Parameters = %s\n', parameter_code, parameter_value);

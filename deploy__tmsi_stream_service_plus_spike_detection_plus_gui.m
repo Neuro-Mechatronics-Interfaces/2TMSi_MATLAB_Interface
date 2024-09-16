@@ -1,15 +1,11 @@
-%DEPLOY__TMSI_STREAM_SERVICE_PLUS_SPIKE_DETECTION_PLUS_GUI - Script that enables sampling from multiple devices, and streams data from those devices to a server continuously.
+%DEPLOY__TMSI_STREAM_SERVICE_PLUS_SPIKE_DETECTION_PLUS_GUI - Script that enables sampling from multiple devices.
 %
-% Starts up the TMSi stream(s) server.
-% Starts up the Tablet "Pressure Tracker" GUI (HIGHLY EXPERIMENTAL FEATURE!)
+% Starts up the Tablet "Pressure Tracker" 
 %
 % See details in README.MD
 
 %% Handle some basic startup stuff.
 clc;
-if exist('server', 'var')~=0
-    delete(server);
-end
 
 if exist('device', 'var')~=0
     disconnect(device);
@@ -56,13 +52,13 @@ config_channel_impedance = struct('uni',1:64, ...
     'bip', 0, ...
     'dig', 0, ...
     'acc', 0);
-config_device = struct('Dividers', {{'uni', 0; 'bip', 0}}, ...
+config_device = struct('Dividers', {{'uni', -1*(numel(config.SAGA.A.Channels.UNI)<64); 'bip', 0}}, ...
     'Triggers', true, ...
     'BaseSampleRate', 4000, ...
     'RepairLogging', false, ...
     'ImpedanceMode', false, ...
     'AutoReferenceMethod', false, ...
-    'ReferenceMethod', config.Default.Device_Reference_Mode,... % must be 'common' or 'average'
+    'ReferenceMethod', config.Default.Device_Reference_Mode, ... % must be 'common' or 'average'
     'SyncOutDivider', -1, ...
     'SyncOutDutyCycle', 500);
 config_channels = struct(...
@@ -162,149 +158,92 @@ end
 %% Create TMSi stream client + udpport
 udp_state_receiver = udpport("byte", ...
     "LocalHost", "0.0.0.0", ...
-    ..."LocalHost", config.UDP.Socket.StreamService.Address, ...
     "LocalPort", config.UDP.Socket.StreamService.Port.state, ...
     "EnablePortSharing", true);
 udp_name_receiver = udpport("byte", ...
     "LocalHost", "0.0.0.0", ...
-    ..."LocalHost", config.UDP.Socket.StreamService.Address, ...
     "LocalPort", config.UDP.Socket.StreamService.Port.name, ...
     "EnablePortSharing", true);
 udp_param_receiver = udpport("byte", ...
     "LocalHost", "0.0.0.0", ...
-    ... "LocalHost", config.UDP.Socket.StreamService.Address, ...
     "LocalPort", config.UDP.Socket.StreamService.Port.params, ...
     "EnablePortSharing", true);
-tcp_spike_server = tcpserver("0.0.0.0", ... % Allow any IP to connect
-                             config.TCP.SpikeServer.Port);
-tcp_spike_server.ConnectionChangedFcn = @reportSocketConnectionChange;
-tcp_rms_server = tcpserver("0.0.0.0", ...
-                            config.TCP.RMSServer.Port);
-tcp_rms_server.ConnectionChangedFcn = @reportSocketConnectionChange;
-tcp_muap_server = tcpserver("0.0.0.0", ...
-                            config.TCP.MUAPServer.Port);
-tcp_muap_server.ConnectionChangedFcn = @reportSocketConnectionChange;
-tcp_squiggles_server = tcpserver("0.0.0.0",config.TCP.SquiggleServer.Port);
-tcp_squiggles_server.UserData = struct('current_channel',1,'has_new_channel',true,'SAGA',"A");
-tcp_squiggles_server.ConnectionChangedFcn = @reportSocketConnectionChange;
-configureCallback(tcp_squiggles_server, "terminator", @handleChannelChangeRequest);
-configureCallback(tcp_muap_server, "terminator", @handleMUAPserverMessages);
 
 %% Initialize parameters and parameter sub-fields, figures
 param = struct(...
     'n_channels', struct('A', [], 'B', []), ...
-    'n_spike_channels', max(numel(config.GUI.Squiggles.A), numel(config.GUI.Squiggles.B)), ...
-    'name_tag', struct('A', "A", 'B', "B"), ...
-    'selected_spike_channels', struct('A', [4, 24, 55], 'B', [4, 24, 55]), ...
-    'n_samples_recording', config.Default.N_Samples_Recording, ...
-    'recording_samples_acquired', struct('A', 0, 'B', 0), ...
-    'recording_chunk_offset', struct('A', 0, 'B', 0), ...
-    'classifier', struct('A', [], 'B', []), ...
-    'envelope_regressor', struct('A',[],'B',[]), ...
-    'envelope_classifier', [], ...
-    'n_total', struct('A', numel(config_channels.A.uni) + numel(config_channels.A.bip), 'B', numel(config_channels.B.uni) + numel(config_channels.B.bip)), ...
+    'name_tag', struct('A', config.SAGA.A.Array.Location, 'B', config.SAGA.B.Array.Location), ...
+    'n_total', struct('A', numel(config_channels.A.uni) + numel(config_channels.A.bip), ...
+                      'B', numel(config_channels.B.uni) + numel(config_channels.B.bip)), ...
     'sample_rate', config.Default.Sample_Rate, ...
-    'spike_detector', config.Default.Spike_Detector, ...
-    'car_mode', config.Default.CAR_Mode, ...
+    'virtual_ref_mode', config.Default.Virtual_Reference_Mode, ...
     'interpolate_grid', config.Default.Interpolate_Grid, ...
-    'acquire_mvc',false, ...
-    'mvc_samples', config.Default.MVC_Sample_Iterations, ...
-    'mvc_data', [], ...
-    'hpf', struct('b', [], 'a', []), ...
-    'gui', struct('squiggles', struct('enable', config.GUI.Squiggles.Enable, 'fig', [], 'h', [], 'offset', config.GUI.Offset, 'hpf_mode', config.GUI.Squiggles.HPF_Mode, ...
-                                      'channels', struct('A', [], 'B', []), 'zi', struct('A', [], 'B', []), 'n_samples', config.GUI.N_Samples, 'color', config.GUI.Color, ...
-                                      'acc', struct('enable', config.Accelerometer.Enable, 'differential', config.Accelerometer.Differential, 'saga', config.Accelerometer.SAGA), ...
-                                      'triggers', struct('enable', config.Triggers.Enable, 'y_bound', config.GUI.TriggerBound), ...
-                                      'tag', struct('A', "A", 'B', "B")), ...
-                  'cal', struct('enable', config.GUI.Calibration.Enable, 'fig', [], 'h', [], ...
-                                'data', load(config.Default.Calibration_File), ...
-                                'file', config.Default.Calibration_File), ...
-                  'sch', struct('enable', config.GUI.Single.Enable, 'fig', [], 'h', [], ...
-                                'saga', config.GUI.Single.SAGA, ...
-                                'channel', config.GUI.Single.Channel,  ...
-                                'n_samples', config.GUI.N_Samples, ...
-                                'color', config.GUI.Color, ...
-                                'state', config.Default.Calibration_State, ...
-                                'tag', struct('A', "A", 'B', "B"))), ...
-    'calibrate', struct('A', false, 'B', false), ...
-    'calibration_running', false, ...
-    'calibration_samples_acquired', struct('A', 0, 'B', 0),  ...
-    'reinit_calibration_data', false, ...
-    'hpf_max', struct('A', ones(1,numel(config_channels.A.uni)+numel(config_channels.A.bip)),'B', ones(1,numel(config_channels.B.uni)+numel(config_channels.B.bip))), ...
-    'env_max', struct('A', ones(1,numel(config_channels.A.uni)+numel(config_channels.A.bip)),'B', ones(1,numel(config_channels.B.uni)+numel(config_channels.B.bip))), ...
-    'rate_smoothing_alpha', reshape(config.Default.Rate_Smoothing_Alpha,numel(config.Default.Rate_Smoothing_Alpha),1), ...
-    'learning_rate', 0.00001, ...
+    'hpf', struct('b', [], 'a', []), ... % Filter transfer function numerator (b) and denominator (a) coefficients
+    'lpf', struct('b', [], 'a', []), ... % Filter transfer function numerator (b) and denominator (a) coefficients
+    'gui', struct('squiggles', struct('enable', config.GUI.Squiggles.Enable, ...
+                                      'fig', [], ...
+                                      'h', [], ...
+                                      'offset', config.GUI.Offset, ...
+                                      'hpf_mode', config.GUI.Squiggles.HPF_Mode, ...
+                                      'whiten', struct('A', false, 'B', false), ...
+                                      'channels', struct('A', [], 'B', []), ...
+                                      'n_samples', config.GUI.N_Samples, ...
+                                      'color', config.GUI.Color, ...
+                                      'triggers', struct('enable', config.Triggers.Enable), ...
+                                      'tag', struct('A', config.SAGA.A.Array.Location, 'B', config.SAGA.B.Array.Location))), ...
     'save_location', strrep(config.Default.Folder,'\','/'),  ...            % Save folder
-    'save_params', config.Default.Save_Parameters, ...
     'pause_duration', config.Default.Sample_Loop_Pause_Duration, ...
-    'past_rates', struct('A', zeros(numel(config.Default.Rate_Smoothing_Alpha),64), 'B', zeros(numel(config.Default.Rate_Smoothing_Alpha),64)), ...
-    'transform', struct('A', struct(config.Default.Calibration_State, init_n_channel_transform(config.Default.N_Spike_Channels)), ...
-                        'B', struct(config.Default.Calibration_State, init_n_channel_transform(config.Default.N_Spike_Channels))), ...
-    'threshold', struct('A', struct(config.Default.Calibration_State, inf(1,numel(config_channels.A.uni)+numel(config_channels.A.bip))), ...
-                        'B', struct(config.Default.Calibration_State, inf(1,numel(config_channels.A.uni)+numel(config_channels.A.bip)))), ...
-    'threshold_deviations', config.Default.Threshold_Deviations, ...
-    'threshold_artifact', config.Default.Artifact_Channel_Proportion_Threshold, ...
-    'noise_cluster_id', config.Default.Noise_Cluster_ID, ...
-    'min_rms_artifact', config.Default.Minimum_RMS_Per_Channel, ...
-    'exclude_by_rms', struct('A', false(1,numel(config.GUI.Squiggles.A)), 'B', false(1,numel(config.GUI.Squiggles.B))), ...
-    'threshold_pose', config.Default.Pose_Threshold, ...
-    'deadzone_pose', config.Default.Pose_Deadzone_Threshold, ...
     'use_channels', struct('A', [], 'B', []), ...
     'n_device', numel(device), ...
-    'pose_smoothing_alpha', config.Default.Pose_Smoothing_Alpha, ...
     'enable_raw_lsl_outlet', config.Default.Enable_Raw_LSL_Outlet, ...
     'enable_envelope_lsl_outlet', config.Default.Enable_Envelope_LSL_Outlet, ...
-    'enable_tablet_figure', config.Default.Enable_Tablet_Figure);
-param.mvc_data = cell(param.mvc_samples, numel(device));
-if param.gui.squiggles.acc.enable && param.gui.squiggles.acc.differential && (numel(config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX) < 6)
-    disconnect(device);
-    lib.cleanUp();
-    close all force;
-    error("[TMSi]::[Acc Config Error]::Enabled differential accelerometers, but not enough SAGA %s channels are configured for AUX (check %s)", param.gui.squiggles.acc.saga, config_file);
-end
+    'enable_tablet_figure', config.Default.Enable_Tablet_Figure, ...
+    'enable_lsl_gesture_decode', config.Default.Enable_LSL_Gesture_Decode, ...
+    'enable_trigger_controller', config.Default.Enable_Trigger_Controller, ...
+    'enable_filters', config.Default.Enable_Filters, ...
+    'dsp_extension_factor', config.Default.Extension_Factor, ...
+    'prev_data', struct('A', zeros(config.Default.Extension_Factor,64), 'B', zeros(config.Default.Extension_Factor,64)), ...
+    'parse_from_bits', config.Triggers.Parse_From_Bits, ...
+    'trig_out_mask', [2^config.Triggers.Left.Bit, 2^config.Triggers.Right.Bit], ...
+    'trig_out_en', [config.Triggers.Left.Enable, config.Triggers.Right.Enable], ...
+    'trig_out_chan', [config.Triggers.Left.Channel, config.Triggers.Right.Channel],...
+    'trig_out_threshold', [[config.Triggers.Left.RisingThreshold, config.Triggers.Left.FallingThreshold]; [config.Triggers.Right.RisingThreshold, config.Triggers.Right.FallingThreshold]], ...
+    'trig_out_sliding_threshold', [config.Triggers.Left.SlidingThreshold, config.Triggers.Right.SlidingThreshold], ...
+    'trig_out_debounce_iterations', config.Triggers.Debounce_Loop_Iterations, ...
+    'emulate_mouse', config.Triggers.Emulate_Mouse, ...
+    'gamepad', struct('client',[],'address',config.TCP.InputUtilities.Address,'port',config.TCP.InputUtilities.Port.Gamepad), ...
+    'mouse', struct('client',[],'address',config.TCP.InputUtilities.Address,'port',config.TCP.InputUtilities.Port.Mouse), ...
+    'P', struct('A',[],'B',[]));
+param = setup_or_teardown_triggers_socket_connection(param);
 param.gui.squiggles.channels.A = config.GUI.Squiggles.A;
 param.gui.squiggles.channels.B = config.GUI.Squiggles.B;
 param.use_channels.A = config.GUI.Squiggles.A;
 param.use_channels.B = config.GUI.Squiggles.B;
-param.gui.squiggles.zi.A = zeros(numel(config.GUI.Squiggles.A),2);
-param.gui.squiggles.zi.B = zeros(numel(config.GUI.Squiggles.B),2);
 [param.hpf.b, param.hpf.a] = butter(3, config.Default.HPF_Cutoff_Frequency/(param.sample_rate/2), 'high');
-[param.b_rms, param.a_rms] = butter(3, 0.1, 'low');
-[param.b_env, param.a_env] = butter(3, 0.5/(param.sample_rate/2), 'low');
-param.n_samples_calibration = param.gui.cal.data.N;
-[~,tmpf,~] = fileparts(config.Default.Calibration_File);
-param.calibration_state = matlab.lang.makeValidName(lower(tmpf));
-param.calibration_data = struct('A', struct(param.calibration_state, randn(param.n_samples_calibration, param.n_total.A)), ...
-                                'B', struct(param.calibration_state, randn(param.n_samples_calibration, param.n_total.B)));
-param.gui.cal = init_calibration_gui(param.gui.cal);
+[param.lpf.b, param.lpf.a] = butter(3, 0.5/(param.sample_rate/2), 'low');
 if numel(device) > 1
     nTotalChannels = param.n_total.A + param.n_total.B;
-    
 else
     nTotalChannels = param.n_total.(device.tag);
 end
-param.gui.cal.W = randn(nTotalChannels+4, 4);
-param.gui.cal.W([1:64,69:136],:) = 0;
-
 ch = device.getActiveChannels();
 if ~iscell(ch)
     ch = {ch};
 end
 
 param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
-param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
 hpf_data = struct('A', [], 'B', []);
 rms_data = struct('A',[],'B',[]);
 env_data = struct('A',[],'B',[]);
-env_history = struct('A', zeros(3,param.n_total.A), 'B', zeros(3, param.n_total.B));
 param.n_mvc_acquired = 0;
-rms_zi = struct('A',zeros(3,param.n_spike_channels),'B',zeros(3,param.n_spike_channels));
 i_mono = struct('A', config.SAGA.A.Channels.UNI, 'B', config.SAGA.B.Channels.UNI);
 i_bip = struct('A', config.SAGA.A.Channels.BIP, 'B', config.SAGA.B.Channels.BIP);
 i_all = struct('A', [config.SAGA.A.Channels.UNI, config.SAGA.A.Channels.BIP], ...
-                'B', [config.SAGA.B.Channels.UNI, config.SAGA.B.Channels.BIP]);
-zi = struct('A',zeros(3,numel(i_all.A)), 'B', zeros(3,numel(i_all.B)));
-cur_state = [0, 0, 0, 0];
+               'B', [config.SAGA.B.Channels.UNI, config.SAGA.B.Channels.BIP]);
+zi = struct; % Filter states
+zi.squiggles = struct('A',zeros(3,numel(i_all.A)), 'B', zeros(3,numel(i_all.B)));
+zi.envelope = struct('A', zeros(3,param.n_total.A), 'B', zeros(3, param.n_total.B));
+trig_out_state = [false, false];
 
 %% Load the LSL library
 lslMatlabFolder = fullfile(pwd, '..', 'liblsl-Matlab');
@@ -329,77 +268,80 @@ addpath(genpath(lslMatlabFolder)); % Adds liblsl-Matlab
 lib_lsl = lsl_loadlib();
 
 %% Initialize the LSL stream information and outlets
-lsl_info_obj = struct;
-lsl_outlet_obj = struct;
-for iDev = 1:numel(device)
-    tag = device(iDev).tag;
-    fprintf(1,'[TMSi]::[LSL]::Creating LSL streaminfo for %s...',config.SAGA.(tag).Unit);
-    lsl_info_obj.(tag) = lsl_streaminfo(lib_lsl, ...
-        char(config.SAGA.(tag).Unit), ...       % Name
-        'EMG', ...                    % Type
-        numel(ch{ii}), ....           % ChannelCount
-        4000, ...                     % NominalSrate
-        'cf_float32', ...             % ChannelFormat
-        char(config.SAGA.(tag).Unit));      % Unique ID: SAGAA, SAGAB, SAGA1, ... SAGA5
-    chns = lsl_info_obj.(tag).desc().append_child('channels');
-    for iCh = 1:numel(ch{ii})
-        c = chns.append_child('channel');
-        c.append_child_value('name',ch{ii}(iCh).name);
-        c.append_child_value('label',ch{ii}(iCh).name);
-        c.append_child_value('unit',ch{ii}(iCh).unit_name);
-        c.append_child_value('type', TMSiSAGA.TMSiUtils.toChannelTypeString(ch{ii}(iCh).type));
-    end    
-    lsl_info_obj.(tag).desc().append_child_value('manufacturer', 'NML');
-    lsl_info_obj.(tag).desc().append_child_value('layout', 'Grid_8_x_8');
-    fprintf(1,'complete\n');
-    fprintf('[TMSi]::[LSL]::Opening outlet...');
-    lsl_outlet_obj.(tag) = lsl_outlet(lsl_info_obj.(tag));
-    fprintf(1,'complete\n');
+if param.enable_raw_lsl_outlet
+    lsl_info_obj = struct;
+    lsl_outlet_obj = struct;
+    for iDev = 1:numel(device)
+        tag = device(iDev).tag;
+        fprintf(1,'[TMSi]::[LSL]::Creating LSL streaminfo for %s...',config.SAGA.(tag).Unit);
+        lsl_info_obj.(tag) = lsl_streaminfo(lib_lsl, ...
+            char(config.SAGA.(tag).Unit), ...       % Name
+            'EMG', ...                    % Type
+            numel(ch{ii}), ....           % ChannelCount
+            4000, ...                     % NominalSrate
+            'cf_float32', ...             % ChannelFormat
+            char(config.SAGA.(tag).Unit));      % Unique ID: SAGAA, SAGAB, SAGA1, ... SAGA5
+        chns = lsl_info_obj.(tag).desc().append_child('channels');
+        for iCh = 1:numel(ch{ii})
+            c = chns.append_child('channel');
+            c.append_child_value('name',ch{ii}(iCh).name);
+            c.append_child_value('label',ch{ii}(iCh).name);
+            c.append_child_value('unit',ch{ii}(iCh).unit_name);
+            c.append_child_value('type', TMSiSAGA.TMSiUtils.toChannelTypeString(ch{ii}(iCh).type));
+        end    
+        lsl_info_obj.(tag).desc().append_child_value('manufacturer', 'NML');
+        lsl_info_obj.(tag).desc().append_child_value('layout', 'Grid_8_x_8');
+        fprintf(1,'complete\n');
+        fprintf('[TMSi]::[LSL]::Opening outlet...');
+        lsl_outlet_obj.(tag) = lsl_outlet(lsl_info_obj.(tag));
+        fprintf(1,'complete\n');
+    end
 end
-
-lsl_info_env = lsl_streaminfo(lib_lsl, ...
-        'SAGACombined_Envelope', ...       % Name
-        'EMG', ...                    % Type
-        64*numel(device), ....           % ChannelCount
-        1/param.pause_duration, ...                     % NominalSrate
-        'cf_float32', ...             % ChannelFormat
-        sprintf('StreamService_Envelope_%06d',randi(999999,1)));
-chns = lsl_info_env.desc().append_child('channels');
-for ii = 1:(64*numel(device))
+if param.enable_envelope_lsl_outlet
+    lsl_info_env = lsl_streaminfo(lib_lsl, ...
+            'SAGACombined_Envelope', ...     % Name
+            'EMG', ...                       % Type
+            64*numel(device), ....           % ChannelCount
+            1/param.pause_duration, ...      % NominalSrate
+            'cf_float32', ...                % ChannelFormat
+            sprintf('StreamService_Envelope_%06d',randi(999999,1)));
+    chns = lsl_info_env.desc().append_child('channels');
+    for ii = 1:(64*numel(device))
+        c = chns.append_child('channel');
+        c.append_child_value('name', sprintf('UNI-%03d',ii));
+        c.append_child_value('label', sprintf('UNI-%03d',ii));
+        c.append_child_value('unit', 'μV');
+        c.append_child_value('type','EMG');
+    end 
+    lsl_info_env.desc().append_child_value('manufacturer', 'NML');
+    lsl_outlet_env = lsl_outlet(lsl_info_env);
+    
+    lsl_info_decode = lsl_streaminfo(lib_lsl, ...
+            'SAGACombined_Envelope_Decode', ...       % Name
+            'Control', ...                    % Type
+            3, ....           % ChannelCount
+            1/param.pause_duration, ...                     % NominalSrate
+            'cf_float32', ...             % ChannelFormat
+            sprintf('StreamService_EnvDecode_%06d',randi(999999,1)));
+    chns = lsl_info_decode.desc().append_child('channels');
     c = chns.append_child('channel');
-    c.append_child_value('name', sprintf('UNI-%03d',ii));
-    c.append_child_value('label', sprintf('UNI-%03d',ii));
-    c.append_child_value('unit', 'μV');
-    c.append_child_value('type','EMG');
-end 
-lsl_info_env.desc().append_child_value('manufacturer', 'NML');
-lsl_outlet_env = lsl_outlet(lsl_info_env);
-
-lsl_info_decode = lsl_streaminfo(lib_lsl, ...
-        'SAGACombined_Envelope_Decode', ...       % Name
-        'Control', ...                    % Type
-        3, ....           % ChannelCount
-        1/param.pause_duration, ...                     % NominalSrate
-        'cf_float32', ...             % ChannelFormat
-        sprintf('StreamService_EnvDecode_%06d',randi(999999,1)));
-chns = lsl_info_decode.desc().append_child('channels');
-c = chns.append_child('channel');
-c.append_child_value('name', 'X');
-c.append_child_value('label', 'X');
-c.append_child_value('unit', 'none');
-c.append_child_value('type','Control');
-c = chns.append_child('channel');
-c.append_child_value('name', 'Y');
-c.append_child_value('label', 'Y');
-c.append_child_value('unit', 'none');
-c.append_child_value('type','Control');
-c = chns.append_child('channel');
-c.append_child_value('name', 'Z');
-c.append_child_value('label', 'Z');
-c.append_child_value('unit', 'none');
-c.append_child_value('type','Control');
-lsl_info_decode.desc().append_child_value('manufacturer', 'NML');
-lsl_outlet_decode = lsl_outlet(lsl_info_decode);
+    c.append_child_value('name', 'X');
+    c.append_child_value('label', 'X');
+    c.append_child_value('unit', 'none');
+    c.append_child_value('type','Control');
+    c = chns.append_child('channel');
+    c.append_child_value('name', 'Y');
+    c.append_child_value('label', 'Y');
+    c.append_child_value('unit', 'none');
+    c.append_child_value('type','Control');
+    c = chns.append_child('channel');
+    c.append_child_value('name', 'Z');
+    c.append_child_value('label', 'Z');
+    c.append_child_value('unit', 'none');
+    c.append_child_value('type','Control');
+    lsl_info_decode.desc().append_child_value('manufacturer', 'NML');
+    lsl_outlet_decode = lsl_outlet(lsl_info_decode);
+end
 
 %% If tablet pressure stream is enabled, then show this
 if param.enable_tablet_figure
@@ -410,13 +352,7 @@ end
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
     envelope_bin_sample = zeros(64*N_CLIENT,1);
-    % envelope_gesture = zeros(N_CLIENT*64*2,1);
-    envelope_gesture = zeros(N_CLIENT*64,1);
     gestures_ready = false(N_CLIENT,1);
-    n_gesture_samples = zeros(N_CLIENT,1);
-    cat_iter = 0;
-    CAT_ITER_TARGET = 4;
-    cat_n = 0;
     cat_data = [];
     state = "idle";
     dt = datetime("today","Format","uuuu-MM-dd","Locale","system");
@@ -437,19 +373,18 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     end
     fname_tablet = strrep(fname,"%s","TABLET");
     fname_tablet = strrep(fname_tablet,'.poly5','.bin');
-    msgId = uint16(0);
     start(device);
     pause(1.0);
     counter_offset = 0;
+    nTrigsPrev = 0;
+    statePrev = [0 0];
+    stateDebounceIterations = [0 0];
     needs_offset = true;
-    pose_vec = zeros(6,1);
     if N_CLIENT > 1
         past_state = zeros(2,param.n_total.A + param.n_total.B);
     else
         past_state = zeros(2,param.n_total.(device.tag));
     end
-    caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
-    param.gui.cal.W = randn(nTotalChannels+4, 4);
     grid_ch_uni = struct;
     for ii = 1:N_CLIENT % Determine number of channels definitively
         [samples{ii}, num_sets] = device(ii).sample();
@@ -459,8 +394,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
         end
         param.n_channels.(device(ii).tag) = size(samples{ii},1);
         grid_ch_uni.(device(ii).tag) = param.use_channels.(device(ii).tag)(param.use_channels.(device(ii).tag) <= 64);
-        % needs_timestamp.(device(ii).tag) = false;
-        % first_timestamp.(device(ii).tag) = datetime('now', 'Format', 'uuuu-MM-dd HH:mm:ss.SSS', 'TimeZone', 'America/New_York');
     end
     stop(device);
     
@@ -491,18 +424,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             fname_tablet = strrep(fname,"%s","TABLET");
             fname_tablet = strrep(fname_tablet,'.poly5','.bin');
             fprintf(1, "File name updated: %s\n", fname);
-            caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
-            param.gui.cal.W = randn(nTotalChannels+4, 4);
         end
         
         % Check for parameter updates.
         while udp_param_receiver.NumBytesAvailable > 0
             parameter_data = udp_param_receiver.readline();
             param = parse_parameter_message(parameter_data, param);
-            if param.reinit_calibration_data
-                caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
-                param.gui.cal.W = randn(nTotalChannels+4, 4);
-            end
         end
 
         while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit")) && (~strcmpi(state, "imp"))
@@ -525,9 +452,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 end
                 fname_tablet = strrep(fname,'%s','TABLET');
                 fname_tablet = strrep(fname_tablet,'.poly5','.bin');
-
-                caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
-                param.gui.cal.W = randn(nTotalChannels+4, 4);
                 fprintf(1, "File name updated: %s\n", fname);
             end
 
@@ -535,42 +459,262 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             while udp_param_receiver.NumBytesAvailable > 0
                 parameter_data = udp_param_receiver.readline();
                 param = parse_parameter_message(parameter_data, param);
-                if param.reinit_calibration_data
-                    caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
-                    param.gui.cal.W = randn(nTotalChannels+4, 4);
-                end
             end
 
             % Sample from both devices (ALWAYS)
             num_sets = zeros(numel(device),1);
             for ii = 1:N_CLIENT
                 [samples{ii}, num_sets(ii)] = device(ii).sample();
+                while num_sets(ii) < 1
+                    pause(0.0001);
+                    [samples{ii}, num_sets(ii)] = device(ii).sample();
+                end
                 % If there are samples present from this device, dump to
                 % raw data outlet ( if enabled ), and apply filtering.
                 if ~isempty(samples{ii})
+                    if param.enable_filters
+                        [hpf_data.(device(ii).tag), zi.squiggles.(device(ii).tag)] = filter(param.hpf.b,param.hpf.a,samples{ii}(i_all.(device(ii).tag),:)',zi.squiggles.(device(ii).tag),1);
+                        if size(hpf_data.(device(ii).tag),2) >= 64
+                            if param.gui.squiggles.whiten.(device(ii).tag) % Then do the Whitening chain
+                                cat_data = [param.prev_data.(device(ii).tag); hpf_data.(device(ii).tag)(:,1:64)];
+                                edata = fast_extend(cat_data', param.dsp_extension_factor);
+                                hpf_data.(device(ii).tag)(:,1:64) = (param.gui.squiggles.offset .* param.P.(device(ii).tag).Wz * param.P.(device(ii).tag).P * edata(:,(param.dsp_extension_factor+1):(end-param.dsp_extension_factor+1)))';
+                                param.prev_data.(device(ii).tag) = cat_data((end-param.dsp_extension_factor+1):end,:);
+                            else
+                                switch param.virtual_ref_mode
+                                    case 1    
+                                        hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)) = hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)) - mean(hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)));
+                                    case 2 
+                                        iGrid1 = param.use_channels.(device(ii).tag)(param.use_channel.(device(ii).tag) <= 32);
+                                        iGrid2 = setdiff(param.use_channels.(device(ii).tag), iGrid1);
+                                        hpf_data.(device(ii).tag)(:,iGrid1) = hpf_data.(device(ii).tag)(:,iGrid1) - mean(hpf_data.(device(ii).tag)(:,iGrid1));
+                                        hpf_data.(device(ii).tag)(:,iGrid2) = hpf_data.(device(ii).tag)(:,iGrid2) - mean(hpf_data.(device(ii).tag)(:,iGrid2));
+                                    case 3
+                                        tmp = reshape(hpf_data.(device(ii).tag)(:,1:64)', 8, 8, num_sets(ii));
+                                        if param.interpolate_grid
+                                            for ik = 1:num_sets(ii)
+                                                tmp(:,:,ik) = fillmissing2(tmp(:,:,ik),'linear');
+                                            end
+                                        end
+                                        hpf_data.(device(ii).tag)(:,1:64) = reshape(del2(tmp),64,num_sets(ii))';
+                                    case 4
+                                        % tmp = reshape(hpf_data.(device(ii).tag)(:,1:32)', 8, 4, num_sets(ii));
+                                        % tmp2 = reshape(hpf_data.(device(ii).tag)(:,33:64)', 8, 4, num_sets(ii));
+                                        % if param.interpolate_grid
+                                        %     for ik = 1:num_sets(ii)
+                                        %         tmp(:,:,ik) = fillmissing2(tmp(:,:,ik),'linear');
+                                        %         tmp2(:,:,ik) = fillmissing2(tmp2(:,:,ik),'linear');
+                                        %     end
+                                        % end
+                                        % hpf_data.(device(ii).tag)(:,1:32) = reshape(del2(tmp),32,num_sets(ii))';
+                                        % hpf_data.(device(ii).tag)(:,33:64) = reshape(del2(tmp2),32,num_sets(ii))';
+                                        hpf_data.(device(ii).tag)(:,1:64) = handle_2textile_del2_interp(hpf_data.(device(ii).tag)(:,1:64),param.interpolate_grid);
+                                end
+                            end
+                        end
+                        [env_data.(device(ii).tag), zi.envelope.(device(ii).tag)] = filter(param.lpf.b, param.lpf.a, abs(hpf_data.(device(ii).tag)), zi.envelope.(device(ii).tag), 1);
+                    end
+                    if param.enable_trigger_controller && strcmpi(device(ii).tag,'A') % Only use SAGA-A
+                        if param.parse_from_bits
+                            trigSamples = samples{ii}(config.SAGA.A.Trigger.Channel,:);
+                            disp(size(trigSamples,2));
+                            if param.emulate_mouse
+                                if param.trig_out_en(1)
+                                    if trig_out_state(1)   % If we have been holding the mouse down:
+                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(1))==0)
+                                            writeline(param.mouse.client, 'off,left'); % Release the left D-pad ('ArrowLeft' keypress)
+                                            trig_out_state(1) = false;
+                                        end
+                                    else % Otherwise, check if we should go to mouse-down state
+                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(1))==param.trig_out_mask(1))
+                                            writeline(param.mouse.client, 'on,left'); % Begin the click left D-pad ('ArrowLeft' keypress)
+                                            trig_out_state(1) = true;
+                                        end
+                                    end
+                                end
+    
+                                if param.trig_out_en(2)
+                                    if trig_out_state(2) 
+                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(2))==0)
+                                            writeline(param.mouse.client, 'off,right'); % Release the rightD-pad ('ArrowRight' keypress)
+                                            trig_out_state(2) = false;
+                                        end
+                                    else
+                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(2))==param.trig_out_mask(2))
+                                            writeline(param.mouse.client, 'on,right'); % Begin the click right D-pad ('ArrowRight' keypress)
+                                            trig_out_state(2) = true;
+                                        end
+                                    end
+                                end
+                            else
+                                if param.trig_out_en(1)
+                                    if trig_out_state(1)  % If we have been holding the mouse down:
+                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(1))==0)
+                                            writeline(param.gamepad.client, '41'); % Release the left D-pad ('ArrowLeft' keypress)
+                                            trig_out_state(1) = false;
+                                        end
+                                    else % Otherwise, check if we should go to mouse-down state
+                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(1))==param.trig_out_mask(1))
+                                            writeline(param.gamepad.client, '40'); % Begin the click left D-pad ('ArrowLeft' keypress)
+                                            trig_out_state(1) = true;
+                                        end
+                                    end
+                                end
+        
+                                if param.trig_out_en(2)
+                                    if trig_out_state(2) 
+                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(2))==0)
+                                            writeline(param.gamepad.client, '61'); % Release the rightD-pad ('ArrowRight' keypress)
+                                            trig_out_state(2) = false;
+                                        end
+                                    else
+                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(2))==param.trig_out_mask(2))
+                                            writeline(param.gamepad.client, '60'); % Begin the click right D-pad ('ArrowRight' keypress)
+                                            trig_out_state(2) = true;
+                                        end
+                                    end
+                                end
+                            end
+                        else
+                            if param.enable_filters
+                                if param.gui.squiggles.hpf_mode
+                                    trigSamples = hpf_data.A(:,param.trig_out_chan)';
+                                else
+                                    trigSamples = env_data.A(:,param.trig_out_chan)';
+                                end
+                            else
+                                trigSamples = samples{ii}(param.trig_out_chan,:);
+                            end
+                            
+                            nTrigs = size(trigSamples,2);
+                            % disp(nTrigs);
+                            if param.emulate_mouse
+                                if param.trig_out_en(1)
+                                    if trig_out_state(1)  % If we have been holding the mouse down:
+                                        [makeTransition, statePrev(1,1)] = detectFallingStateTransition(trigSamples(1,:), param.trig_out_sliding_threshold(1,1), param.trig_out_threshold(1,1), nTrigs, statePrev(1,1), nTrigsPrev);
+                                        if (stateDebounceIterations(1) > param.trig_out_debounce_iterations)
+                                            
+                                            if makeTransition
+                                                disp('Left FALLING');
+                                                writeline(param.mouse.client, 'off,left'); % Release the left D-pad ('ArrowLeft' keypress)
+                                                trig_out_state(1) = false;
+                                                stateDebounceIterations(1) = 0;
+                                            end
+                                        else
+                                            stateDebounceIterations(1) = stateDebounceIterations(1) + 1;
+                                        end
+                                    else % Otherwise, check if we should go to mouse-down state
+                                        [makeTransition, statePrev(1,1)] = detectRisingStateTransition(trigSamples(1,:), param.trig_out_sliding_threshold(1,1), param.trig_out_threshold(1,2), nTrigs, statePrev(1,1), nTrigsPrev);
+                                        if (stateDebounceIterations(1) > param.trig_out_debounce_iterations)
+                                            
+                                            if makeTransition
+                                                disp('Left RISING');
+                                                writeline(param.mouse.client, 'on,left'); % Begin the click left D-pad ('ArrowLeft' keypress)
+                                                trig_out_state(1) = true;
+                                                stateDebounceIterations(1) = 0;
+                                            end
+                                        else
+                                            stateDebounceIterations(1) = stateDebounceIterations(1) + 1;
+                                        end
+                                    end
+                                end
+    
+                                if param.trig_out_en(2)
+                                    if trig_out_state(2) 
+                                        [makeTransition, statePrev(1,2)] = detectFallingStateTransition(trigSamples(2,:), param.trig_out_sliding_threshold(1,2), param.trig_out_threshold(2,1), nTrigs, statePrev(1,2), nTrigsPrev);
+                                        if (stateDebounceIterations(2) > param.trig_out_debounce_iterations)
+                                            
+                                            if makeTransition
+                                                disp('Right FALLING');
+                                                writeline(param.mouse.client, 'off,right'); % Release the rightD-pad ('ArrowRight' keypress)
+                                                trig_out_state(2) = false;
+                                                stateDebounceIterations(2) = 0;
+                                            end
+                                        else
+                                            stateDebounceIterations(2) = stateDebounceIterations(2) + 1;
+                                        end
+                                    else
+                                        [makeTransition, statePrev(1,2)] = detectRisingStateTransition(trigSamples(2,:), param.trig_out_sliding_threshold(1,2), param.trig_out_threshold(2,2), nTrigs, statePrev(1,2), nTrigsPrev);
+                                        if (stateDebounceIterations(2) > param.trig_out_debounce_iterations)
+                                            
+                                            if makeTransition
+                                                disp('Right RISING');
+                                                writeline(param.mouse.client, 'on,right'); % Begin the click right D-pad ('ArrowRight' keypress)
+                                                trig_out_state(2) = true;
+                                                stateDebounceIterations(2) = 0;
+                                            end
+                                        else
+                                            stateDebounceIterations(2) = stateDebounceIterations(2) + 1;
+                                        end
+                                    end
+                                end
+                            else
+                                if param.trig_out_en(1)
+                                    if trig_out_state(1)  % If we have been holding the mouse down:
+                                        [makeTransition, statePrev(1,1)] = detectFallingStateTransition(trigSamples(1,:), param.trig_out_sliding_threshold(1,1), param.trig_out_threshold(1,1), nTrigs, statePrev(1,1), nTrigsPrev);
+                                        if (stateDebounceIterations(1) > param.trig_out_debounce_iterations)
+                                            
+                                            if makeTransition
+                                                disp('Left FALLING');
+                                                writeline(param.gamepad.client, '41'); % Release the left D-pad ('ArrowLeft' keypress)
+                                                trig_out_state(1) = false;
+                                                stateDebounceIterations(1) = 0;
+                                            end
+                                        else
+                                            stateDebounceIterations(1) = stateDebounceIterations(1) + 1;
+                                        end
+                                    else % Otherwise, check if we should go to mouse-down state
+                                        [makeTransition, statePrev(1,1)] = detectRisingStateTransition(trigSamples(1,:), param.trig_out_sliding_threshold(1,1), param.trig_out_threshold(1,2), nTrigs, statePrev(1,1), nTrigsPrev);
+                                        if (stateDebounceIterations(1) > param.trig_out_debounce_iterations)
+                                           
+                                            if makeTransition
+                                                disp('Left RISING');
+                                                writeline(param.gamepad.client, '40'); % Begin the click left D-pad ('ArrowLeft' keypress)
+                                                trig_out_state(1) = true;
+                                                stateDebounceIterations(1) = 0;
+                                            end
+                                        else
+                                            stateDebounceIterations(1) = stateDebounceIterations(1) + 1;
+                                        end
+                                    end
+                                end
+        
+                                if param.trig_out_en(2)
+                                    if trig_out_state(2) 
+                                        [makeTransition, statePrev(1,2)] = detectFallingStateTransition(trigSamples(2,:), param.trig_out_sliding_threshold(1,2), param.trig_out_threshold(2,1), nTrigs, statePrev(1,2), nTrigsPrev);
+                                        if stateDebounceIterations(2) > param.trig_out_debounce_iterations
+                                            if makeTransition
+                                                disp('Right FALLING');
+                                                writeline(param.gamepad.client, '61'); % Release the rightD-pad ('ArrowRight' keypress)
+                                                trig_out_state(2) = false;
+                                                stateDebounceIterations(2) = 0;
+                                            end
+                                        else
+                                            stateDebounceIterations(2) = stateDebounceIterations(2) + 1;
+                                        end
+                                    else
+                                        [makeTransition, statePrev(1,2)] = detectRisingStateTransition(trigSamples(2,:), param.trig_out_sliding_threshold(1,2), param.trig_out_threshold(2,2), nTrigs, statePrev(1,2), nTrigsPrev);
+                                        if stateDebounceIterations(2) > param.trig_out_debounce_iterations
+                                            if makeTransition
+                                                disp('Right RISING');
+                                                writeline(param.gamepad.client, '60'); % Begin the click right D-pad ('ArrowRight' keypress)
+                                                trig_out_state(2) = true;
+                                                stateDebounceIterations(2) = 0;
+                                            end
+                                        else
+                                            stateDebounceIterations(2) = stateDebounceIterations(2) + 1;
+                                        end
+                                    end
+                                end
+                            end
+                            nTrigsPrev = nTrigs;
+                        end
+                    
+                    end
                     if param.enable_raw_lsl_outlet
                         lsl_outlet_obj.(device(ii).tag).push_chunk(samples{ii});
                     end
-                    [hpf_data.(device(ii).tag), zi.(device(ii).tag)] = filter(param.hpf.b,param.hpf.a,samples{ii}(i_all.(device(ii).tag),:)',zi.(device(ii).tag),1);
-                    switch param.car_mode
-                        case 1    
-                            hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)) = hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)) - mean(hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)));
-                        case 2 
-                            iGrid1 = param.use_channels.(device(ii).tag)(param.use_channel.(device(ii).tag) <= 32);
-                            iGrid2 = setdiff(param.use_channels.(device(ii).tag), iGrid1);
-                            hpf_data.(device(ii).tag)(:,iGrid1) = hpf_data.(device(ii).tag)(:,iGrid1) - mean(hpf_data.(device(ii).tag)(:,iGrid1));
-                            hpf_data.(device(ii).tag)(:,iGrid2) = hpf_data.(device(ii).tag)(:,iGrid2) - mean(hpf_data.(device(ii).tag)(:,iGrid2));
-                        case 3
-                            hpf_data.(device(ii).tag)(:,param.exclude_by_rms.(device(ii).tag)) = missing;
-                            tmp = reshape(hpf_data.(device(ii).tag)(:,1:64)', 8, 8, num_sets(ii));
-                            if param.interpolate_grid
-                                for ik = 1:num_sets(ii)
-                                    tmp(:,:,ik) = fillmissing2(tmp(:,:,ik),'linear');
-                                end
-                            end
-                            hpf_data.(device(ii).tag)(:,1:64) = reshape(del2(tmp),64,num_sets(ii))';
-                    end
-                    [env_data.(device(ii).tag), env_history.(device(ii).tag)] = filter(param.b_env, param.a_env, abs(hpf_data.(device(ii).tag)), env_history.(device(ii).tag), 1);
+                    
                     if needs_offset && (ii > 1) && (num_sets(1) > 0)
                         counter_offset = samples{1}(config.SAGA.(device(1).tag).Channels.COUNT, end) - samples{ii}(config.SAGA.(device(ii).tag).Channels.COUNT, end);
                         needs_offset = false;
@@ -587,38 +731,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     end
                 end
                 lsl_outlet_env.push_sample(max(envelope_bin_sample,1e-3));
-            end
-
-            % Handle decoding from envelope (if required)
-            if ~isempty(param.envelope_classifier)
-                % envelope_gesture = nan(N_CLIENT*64,1);
-                % disp(num_sets);
-                
-                % for ii = 1:N_CLIENT
-                %     n_new = size(env_data.(device(ii).tag),1);
-                %     if (n_gesture_samples(ii)+n_new) >= 200
-                %         i_assign_max = find(strcmpi(TAG,device(ii).tag));
-                %         i_new = max(200 - n_gesture_samples(ii),1);
-                %         envelope_gesture((129:192)+(i_assign_max-1)*64,1) = envelope_gesture((1:64)+(i_assign_max-1)*64,1);
-                %         envelope_gesture((1:64)+(i_assign_max-1)*64,1) = env_data.(device(ii).tag)(i_new,grid_ch_uni.(device(ii).tag));
-                %         n_gesture_samples(ii) = n_new - i_new;
-                %         gestures_ready(ii) = true;
-                %     else
-                %         n_gesture_samples(ii) = n_gesture_samples(ii)+n_new;
-                %     end
-                % end
-                % if all(gestures_ready)
-                %     gesture_decode_sample = (param.envelope_classifier.beta0 + param.envelope_classifier.beta * envelope_gesture);
-                %     lsl_outlet_decode.push_sample(gesture_decode_sample);
-                % end
-                for ii = 1:N_CLIENT
-                    if ~isempty(env_data.(device(ii).tag))
-                        i_assign_max = find(strcmpi(TAG,device(ii).tag));
-                        envelope_gesture((1:64)+(i_assign_max-1)*64,1) = env_data.(device(ii).tag)(end,grid_ch_uni.(device(ii).tag))';
-                    end
-                end
-                gesture_decode_sample = (param.envelope_classifier.beta0 + param.envelope_classifier.beta * envelope_gesture);
-                lsl_outlet_decode.push_sample(gesture_decode_sample);
             end
 
             % Handle using TABLET figure (if required)
@@ -647,32 +759,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 end
             end
 
-            % Handle Maximum Voluntary Contraction (if required)
-            if param.acquire_mvc
-                if all(num_sets > 0)
-                    param.n_mvc_acquired = param.n_mvc_acquired + 1;
-                    for ii = 1:numel(device)
-                        param.mvc_data{param.n_mvc_acquired,ii} = hpf_data.(device(ii).tag);
-                    end
-                    if param.n_mvc_acquired == param.mvc_samples
-                        param.acquire_mvc = false;
-                        for ii = 1:numel(device)
-                            tmpdata = vertcat(param.mvc_data{:,ii});
-                            tmpdata(1:100,:) = 0;
-                            param.hpf_max.(device(ii).tag) = max(abs(tmpdata),[],1);
-                            param.hpf_max.(device(ii).tag)(param.hpf_max.(device(ii).tag) < eps) = 1; % So we don't divide by zero
-                            param.env_max.(device(ii).tag) = max(filter(param.b_env,param.a_env,tmpdata,[],1),[],1);
-                            param.env_max.(device(ii).tag)(param.env_max.(device(ii).tag) < eps) = 1; % So we don't divide by zero
-                            param.calibrate.(device(ii).tag) = true;
-                        end
-                        param.calibration_running = param.gui.cal.enable;
-                        param = init_new_calibration(param, param.calibration_state);
-                        param.gui.cal = init_calibration_gui(param.gui.cal);
-                        caldata_out = init_caldata_out(ORDERED_TAG, param.gui.cal.data);
-                    end
-                end
-            end
-            
             % Check for a "control state" update.
             if udp_state_receiver.NumBytesAvailable > 0
                 tmpState = lower(string(readline(udp_state_receiver)));
@@ -759,111 +845,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     
                 end
             end
-            
-            % Handle calibration (if required)
-            for ii = 1:N_CLIENT
-                if param.calibrate.(device(ii).tag) && (size(hpf_data.(device(ii).tag),1) > 0)
-                    n_cal_samples = param.calibration_samples_acquired.(device(ii).tag) + size(hpf_data.(device(ii).tag),1);
-                    if n_cal_samples >= param.n_samples_calibration
-                        last_sample = size(hpf_data.(device(ii).tag),1) - (n_cal_samples - param.n_samples_calibration);
-                        param.calibration_data.(device(ii).tag).(param.calibration_state)((param.calibration_samples_acquired.(device(ii).tag)+1):param.n_samples_calibration,:) = hpf_data.(device(ii).tag)(1:last_sample,:);
-                        % param.hpf_max.(device(ii).tag) = max(max(param.calibration_data.(device(ii).tag).(param.calibration_state),[],1),ones(1,param.n_spike_channels));
-                        % param.hpf_max.(device(ii).tag)(param.hpf_max.(device(ii).tag)<eps) = 1;
-                        param.exclude_by_rms.(device(ii).tag) = rms(param.calibration_data.(device(ii).tag).(param.calibration_state),1) < param.min_rms_artifact;
-                        [param.transform.(device(ii).tag).(param.calibration_state), score] = pca(param.calibration_data.(device(ii).tag).(param.calibration_state), 'NumComponents', param.n_spike_channels);
-                        param.threshold.(device(ii).tag).(param.calibration_state) = median(abs(param.calibration_data.(device(ii).tag).(param.calibration_state)), 1) * param.threshold_deviations;
-                        param.calibrate.(device(ii).tag) = false;
-                        param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
-                        caldata_out.(device(ii).tag) = param.calibration_data.(device(ii).tag).(param.calibration_state);
-                        caldata_out.sampling_complete(ii) = true;
-                        if all(caldata_out.sampling_complete)
-                            fname_cal = strrep(strrep(fname,"%s_",""),".poly5",sprintf("_%s_cal.mat",param.calibration_state));
-                            save(fname_cal,"-struct","caldata_out");
-                        end
-                        fprintf(1,'[TMSi]::[Calibration]::SAGA-%s "%s" calibration complete.\n', device(ii).tag, param.calibration_state);
-                    else
-                        param.calibration_data.(device(ii).tag).(param.calibration_state)((param.calibration_samples_acquired.(device(ii).tag)+1):n_cal_samples,:) = hpf_data.(device(ii).tag);
-                        param.calibration_samples_acquired.(device(ii).tag) = n_cal_samples;
-                    end
-                end
-            end
-
-            % Handle spike detection if required
-            if param.spike_detector
-                for ii = 1:N_CLIENT
-                    if size(samples{ii},2) > 3
-                        grid_channels = param.use_channels.(device(ii).tag)(param.use_channels.(device(ii).tag) <= 64);
-                        tmp_rates = detect_spikes(hpf_data.(device(ii).tag)(:,grid_channels), ...
-                            param.threshold.(device(ii).tag).(param.calibration_state)(grid_channels), ...
-                            param.sample_rate, ...
-                            param.threshold_artifact);
-                        param.past_rates.(device(ii).tag) = param.rate_smoothing_alpha.*param.past_rates.(device(ii).tag) + (1-param.rate_smoothing_alpha).*repmat(tmp_rates,numel(param.rate_smoothing_alpha),1);
-                        
-                        n_samp = size(samples{ii},2);
-                        if tcp_spike_server.Connected
-                            spike_data = struct('SAGA', device(ii).tag, 'data', param.past_rates.(device(ii).tag), 'n', n_samp);
-                            writeline(tcp_spike_server, jsonencode(spike_data));
-                        end
-                        % if tcp_rms_server.Connected
-                        %     [rms_data.(device(ii).tag), rms_zi.(device(ii).tag)] = filter(param.b_rms, param.a_rms, hpf_data.(device(ii).tag), rms_zi.(device(ii).tag),1);
-                        %     rms_data = struct('SAGA', device(ii).tag, 'data', rms(rms_data.(device(ii).tag)./param.hpf_max.(device(ii).tag),1), 'n', n_samp);
-                        %     writeline(tcp_rms_server, jsonencode(rms_data));
-                        % end
-                        % if tcp_rms_server.Connected
-                        %     if ~isempty(param.envelope_regressor.(device(ii).tag))
-                        %         env_img_data = env_data.(device(ii).tag)(:,1:64)';
-                        %         env_img_data(param.envelope_regressor.(device(ii).tag).ExcludeChannels,:) = 0;
-                        %         Yhat = predict(param.envelope_regressor.(device(ii).tag).Net, reshape(env_img_data,8,8,1,[]));
-                        %         packet = struct('N', n_samp, 'SAGA', device(ii).tag, 'Data', int16(mean(Yhat,1)*100), 'Id', msgId);
-                        %         writeline(tcp_rms_server, jsonencode(packet));
-                        %         msgId = rem(msgId + 1, 65535);
-                        %     end
-                        % end
-                        if tcp_muap_server.Connected
-                            if ~isempty(param.classifier.(device(ii).tag))
-                                if numel(param.classifier.(device(ii).tag).Channels) == param.classifier.(device(ii).tag).Net.input.size
-                                    locs = cell(64,1);
-                                    for ik = param.classifier.(device(ii).tag).Channels
-                                        locs{ik} = find(abs(hpf_data.(device(ii).tag)(:,ik)) > param.classifier.(device(ii).tag).MinPeakHeight(ik));
-                                        if ~isempty(locs{ik})
-                                            locs{ik} = locs{ik}([true; diff(locs{ik})>1]);
-                                        end
-                                    end
-                                    all_locs = unique(vertcat(locs{:}));
-                                    [~,clus] = max(param.classifier.(device(ii).tag).Net(hpf_data.(device(ii).tag)(all_locs,param.classifier.(device(ii).tag).Channels)'),[],1);
-                                    clus(clus == param.classifier.A.Net.outputs{1}.size) = param.noise_cluster_id;
-                                    packet = struct('N', n_samp, 'Saga', device(ii).tag, 'Sample', all_locs, 'Cluster', clus, 'Id', msgId);
-                                    msgId = rem(msgId + 1,65535);
-                                    writeline(tcp_muap_server, jsonencode(packet));
-                                end
-                            end
-                        end
-                        if (tcp_squiggles_server.Connected && strcmpi(device(ii).tag, tcp_squiggles_server.UserData.SAGA))
-                            if ~isempty(param.classifier.(device(ii).tag))
-                                squiggle_data = param.classifier.(device(ii).tag).Net(hpf_data.(device(ii).tag)(:,param.classifier.(device(ii).tag).Channels)');
-                            else
-                                if param.gui.squiggles.hpf_mode
-                                    squiggle_data = hpf_data.(device(ii).tag)';
-                                else
-                                    squiggle_data = env_data.(device(ii).tag)';
-                                end
-                            end
-                            cat_data = [cat_data; int16(squiggle_data(tcp_squiggles_server.UserData.current_channel,:)'*100)]; %#ok<AGROW>
-                            cat_n = cat_n + n_samp;
-                            cat_iter = cat_iter + 1;
-                            if cat_iter == CAT_ITER_TARGET
-                                packet = struct('N', cat_n, 'Saga', tcp_squiggles_server.UserData.SAGA, 'Sample', cat_data, 'Channel', tcp_squiggles_server.UserData.current_channel, 'Id', msgId);
-                                msgId = rem(msgId + 1, 65535);
-                                writeline(tcp_squiggles_server, jsonencode(packet));
-                                cat_n = 0;
-                                cat_data = [];
-                                cat_iter = 0;
-                            end
-                            
-                        end
-                    end
-                end
-            end
 
             % Handle updating the "Squiggles" GUI if required
             if param.gui.squiggles.enable
@@ -889,34 +870,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             i_assign.(device(ii).tag) = [];
                         end
                     end
-                    if param.gui.squiggles.acc.enable && ~isempty(i_assign.(param.gui.squiggles.acc.saga))
-                        iTag = strcmpi(ORDERED_TAG,param.gui.squiggles.acc.saga);
-                        if param.gui.squiggles.acc.differential
-                            iDistal = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX([1,4]); 
-                            iMedial = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX([2,5]); 
-                            iSuperior = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX([3,6]); 
-                            distalData = samples{iTag}(iDistal(1),:) - samples{iTag}(iDistal(2),:);
-                            medialData = samples{iTag}(iMedial(1),:) - samples{iTag}(iMedial(2),:);
-                            superiorData = samples{iTag}(iSuperior(1),:) - samples{iTag}(iSuperior(2),:);  
-                        else
-                            iDistal = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX(1); 
-                            iMedial = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX(2); 
-                            iSuperior = config.SAGA.(param.gui.squiggles.acc.saga).Channels.AUX(3);  
-                            distalData = samples{iTag}(iDistal,:);
-                            medialData = samples{iTag}(iMedial,:);
-                            superiorData = samples{iTag}(iSuperior,:);
-                        end
-                        param.gui.squiggles.h.Acc.Distal.YData(i_assign.(param.gui.squiggles.acc.saga)) = [distalData, nan];
-                        param.gui.squiggles.h.Acc.Medial.YData(i_assign.(param.gui.squiggles.acc.saga)) = [medialData + 7, nan];
-                        param.gui.squiggles.h.Acc.Superior.YData(i_assign.(param.gui.squiggles.acc.saga)) = [superiorData + 14, nan];
-                        pose_vec = param.pose_smoothing_alpha.*pose_vec + (1-param.pose_smoothing_alpha).*([sum(distalData > param.threshold_pose); ...
-                                    sum((-distalData) > param.threshold_pose); ...
-                                    sum(medialData > param.threshold_pose); ...
-                                    sum((-medialData) > param.threshold_pose); ...
-                                    sum(superiorData > param.threshold_pose); ...
-                                    sum((-superiorData) > param.threshold_pose)]);
-
-                    end
                     if param.gui.squiggles.triggers.enable 
                         for ii = 1:N_CLIENT
                             if ~isempty(i_assign.(device(ii).tag))
@@ -927,83 +880,11 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 else
                     param.gui.squiggles.fig = [];
                     param.gui.squiggles.enable = false;
-                    fprintf(1,'[TMSi]::[SQUIGGLES] Gui was closed.\n');
-                end
-            end
-
-            % Handle updating the "Calibrator" GUI if required
-            if param.gui.cal.enable && param.calibrate.(device(1).tag)
-                if isvalid(param.gui.cal.fig) && all(num_sets > 2)
-                    cur_samples = param.gui.cal.data.current_samples + param.calibration_samples_acquired.(device(1).tag)+1;
-                    cur_samples(cur_samples > param.gui.cal.data.N) = param.gui.cal.data.N;
-                    target_plot = param.gui.cal.data.target_data(cur_samples,1:2);
-                    % target_state = [target_plot(3:end,:), target_plot(2:(end-1),:), target_plot(1:(end-2),:)];
-                    set(param.gui.cal.h.target,'XData',target_plot(:,1),'YData',target_plot(:,2));
-                    if param.gui.cal.data.use_feedback
-                        %TODO: Add in user feedback for controlling point position here.
-                        
-                        if numel(device) > 1
-                            n_min = min(num_sets);
-                            cur_emg = [env_data.A(1:n_min,:), env_data.B(1:n_min,:)];
-                            % [xy_state, past_state] = envelope_proj_2_state([env_data.A(1:n_min,:),env_data.B(1:n_min,:)],past_state,param.gui.cal.data.transform.coeff,param.gui.cal.data.transform.mu);
-                            % cur_xy = predict(param.gui.cal.data.net,[env_data.A(1:n_min,:), env_data.B(1:n_min,:)]);
-                            
-                        else
-                            cur_emg = env_data.(device.tag);
-                            n_min = size(cur_emg,1);
-                            % [xy_state, past_state] = envelope_proj_2_state(env_data.(device.tag),past_state,param.gui.cal.data.transform.coeff,param.gui.cal.data.transform.mu);
-                            % cur_xy = predict(param.gui.cal.data.net,env_data.(device.tag));
-                        end
-                        % predState = zeros(n_min,4);
-                        % U = zeros(size(cur_emg,1),size(cur_emg,2)+4);
-                        % Y = [target_plot(2:(n_min+1),:), target_plot(3:(n_min+2),:)];
-                        % for iPred = 1:n_min
-                        %     U(iPred,:) = [cur_emg(iPred,:), cur_state];
-                        %     predState(iPred,:) = U(iPred,:) * param.gui.cal.W;
-                        %     cur_state = predState(iPred,:);
-                        % 
-                        %     dW = (U(iPred,:)' * (predState(iPred,:) - Y(iPred,:))) / size(U, 1);  % Gradient of loss w.r.t. weights
-                        % 
-                        %     param.gui.cal.W = param.gui.cal.W - param.learning_rate * dW;  % Update weights
-                        % end
-                        % Backward pass: Update model parameters (gradient descent)
- 
-                        % cur_xy = xy_state * param.gui.cal.data.transform.beta;
-                        % cur_xy = cur_state(1,[3,4]);
-                        prev_xy = [param.gui.cal.h.feedback.XData,param.gui.cal.h.feedback.YData];
-                        cur_xy = [mean(cur_emg(:,65)) - mean(cur_emg(:,67)), mean(cur_emg(:,66)) - mean(cur_emg(:,68))];
-                        new_xy = 0.25*cur_xy + 0.75*prev_xy;
-                        set(param.gui.cal.h.feedback,'XData',new_xy(1,1),'YData',new_xy(1,2));
-                        % set(param.gui.cal.h.feedback,'XData',cur_xy(:,1),'YData',cur_xy(:,2));
-                    elseif size(target_plot,1)>=5
-                        cur_xy = target_plot(5,:);
-                        set(param.gui.cal.h.feedback,'XData',cur_xy(1,1),'YData',cur_xy(1,2));
-                    end
-                end
-            end
-
-            % Handle updating the "SCH" (single-channel) GUI if required
-            if param.gui.sch.enable && param.spike_detector
-                if isvalid(param.gui.sch.fig)
-                    iTag = find(ORDERED_TAG == param.gui.sch.saga,1);
-                    if size(samples{iTag},2) > 3
-                        sample_counts = samples{iTag}(config.SAGA.(param.gui.sch.saga).Channels.COUNT,:) + (iTag-1)*counter_offset;
-                        i_assign = rem([sample_counts, sample_counts(end)+1]-1, param.gui.sch.n_samples)+1;
-                        y = [hpf_data.(param.gui.sch.saga)(:,param.gui.sch.channel); nan];
-                        param.gui.sch.h.data.YData(i_assign) = y;
-                        i_ts = rem(sample_counts,param.gui.sch.n_samples) == round(param.gui.sch.n_samples/2);
-                        if sum(i_ts) == 1
-                            param.gui.sch.h.xline.Label = seconds_2_str(sample_counts(i_ts)/param.sample_rate);
-                        end
-                    end
-                else
-                    param.gui.sch.fig = [];
-                    param.gui.sch.enable = false;
-                    fprintf(1,'[TMSi]::[NEO] Gui was closed.\n');
+                    fprintf(1,'[TMSi]::[Squiggles GUI] Gui was closed.\n');
                 end
             end
             pause(param.pause_duration); % Allow the other callbacks to process.
-            drawnow;
+            drawnow limitrate;
         end % END: while running or recording
         while udp_state_receiver.NumBytesAvailable > 0
             tmpState = lower(string(readline(udp_state_receiver)));
@@ -1110,7 +991,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             if num_sets > 0
                                 s{ii} = samples{ii} ./ 10^6; % need to divide by 10^6
                                 iPlot{ii}.grid_layout(s{ii});
-                                drawnow;
+                                drawnow limitrate;
                             end
                             pause(param.pause_duration);
                         end
@@ -1149,6 +1030,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
         delete(lsl_outlet_decode);
         delete(lib_lsl);
     end
+    if ~isempty(param.mouse.client)
+        delete(param.mouse.client);
+    end
+    if ~isempty(param.gamepad.client)
+        delete(param.gamepad.client);
+    end
     clear lsl_info_obj lsl_outlet_obj lib_lsl lsl_outlet_env lsl_info_env lsl_outlet_decode lsl_info_decode
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     close all force;
@@ -1159,6 +1046,12 @@ catch me
     writeline(udp_state_receiver, jsonencode(struct('type', 'status', 'value', 'stop')), config.UDP.Socket.RecordingControllerGUI.Address, config.UDP.Socket.RecordingControllerGUI.Port);
     warning(me.message);
     disp(me.stack);
+    if ~isempty(param.mouse.client)
+        delete(param.mouse.client);
+    end
+    if ~isempty(param.gamepad.client)
+        delete(param.gamepad.client);
+    end
     clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     try %#ok<TRYNC>

@@ -23,105 +23,102 @@ SAGA:
    Enable: true
    FileType: ".mat"
    Unit: "SAGAA"
-   # Unit: "SAGA5"
    Array: 
     Type: "Textiles"
-    Location: "A_EXT"
+    Location: "A_PROX"
    Trigger:
-    Channel: 72
+    Channel: 69 # parser subtracts 1 from this value if detected ref mode is 'average'
     Bit: 1
    Channels:
     CREF: 1
-    UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
-    BIP: [66,67,68,69]
-    AUX: [70,71,72]
-    DIG: []
+    UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65] # parser subtracts 1 from this value if detected ref mode is 'average'
+    BIP: [] # parser subtracts 1 from this value if detected ref mode is 'average'
+    AUX: [66,67,68] # parser subtracts 1 from this value if detected ref mode is 'average'
+    DIG: [] # parser subtracts 1 from this value if detected ref mode is 'average'
     ACC_EN: 0  # set to 1 to enable internal accelerometer channels
-    STAT: 74
-    COUNT: 75
+    STAT: 70 # parser subtracts 1 from this value if detected ref mode is 'average'
+    COUNT: 71 # parser subtracts 1 from this value if detected ref mode is 'average'
  B: 
    Enable: true
    Unit: "SAGAB"
-   # Unit: "SAGA5"
    FileType: ".mat"
    Array: 
     Type: "Textiles"
-    Location: "B_FLX"
+    Location: "B_DIST"
    Trigger:
-    Channel: 72
+    Channel: 69 # parser subtracts 1 from this value if detected ref mode is 'average'
     Bit: 1
    Channels:
     CREF: 1
-    UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65]
-    BIP: [66,67,68,69]
-    AUX: [70,71,72]
-    DIG: []
+    UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65] # parser subtracts 1 from this value if detected ref mode is 'average'
+    BIP: [] # parser subtracts 1 from this value if detected ref mode is 'average'
+    AUX: [66,67,68] # parser subtracts 1 from this value if detected ref mode is 'average'
+    DIG: [] # parser subtracts 1 from this value if detected ref mode is 'average'
     ACC_EN: 0  # set to 1 to enable internal accelerometer channels
-    STAT: 74
-    COUNT: 75
+    STAT: 70 # parser subtracts 1 from this value if detected ref mode is 'average'
+    COUNT: 71 # parser subtracts 1 from this value if detected ref mode is 'average'
 Default:
  # Interface: "optical"
  Interface: "electrical"
  Folder: "C:/Data/TMSi"
  # Folder: "C:/Users/Daily/TempData"
- Enable_Teensy: true 
+ Enable_Teensy: false
  N_Host_Devices_Per_Controller: 2
  HPF_Cutoff_Frequency: 100 # Hz
  Device_Reference_Mode: 'average' # must be 'average' (uses CAR from SAGA device) or 'common' (with separate CREF)
- CAR_Mode: 3 # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2
- Interpolate_Grid: false # Only applies if CAR_Mode is set to 3
- Subject: "Jonathan"
+ Virtual_Reference_Mode: 0        # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2 (if Interpolate_Grid); 4: del2 for 2textile after interp2 (if Interpolate_Grid)
+ Interpolate_Grid: false          # Only applies if CAR_Mode is set to 3 or 4
+ Subject: "MCP06"
  Sample_Rate: 4000
  Sync_Bit: 1
  File_Type: ".poly5"
- N_Samples_Recording: 240000 # Save/pre-allocate in 1-minute chunks.
- Sample_Loop_Pause_Duration: 0.010
- Calibration_State: "x2dof_calibrated"
- Calibration_File: "configurations/calibration/2DOF_Calibrated.mat"
+ Sample_Loop_Pause_Duration: 0.0005
  MVC_Sample_Iterations: 10
  N_Spike_Channels: 64
- Spike_Detector: true
- Threshold_Deviations: 2.5
- Save_Parameters: true
- Rate_Smoothing_Alpha: [0.02] 
- Artifact_Channel_Proportion_Threshold: 0.4
- Minimum_RMS_Per_Channel: 1.0 # microvolts
- Pose_Threshold: 1.5
- Pose_Smoothing_Alpha: 0.25
- Pose_Deadzone_Threshold: 5
- Noise_Cluster_ID: 13
+ Extension_Factor: 30 # For online MUAP detection
  Enable_Raw_LSL_Outlet: false
- Enable_Envelope_LSL_Outlet: true
- Enable_Tablet_Figure: true
-Accelerometer:
- Enable: false
- Differential: false 
- SAGA: "A"
+ Enable_Envelope_LSL_Outlet: false
+ Enable_LSL_Gesture_Decode: false
+ Enable_Filters: true 
+ Enable_Tablet_Figure: false
+ Enable_Trigger_Controller: false
 Triggers:
  Enable: true
+ Emulate_Mouse: false
+ Parse_From_Bits: true
+ Debounce_Loop_Iterations: 2
+ Left:
+  Bit: 8
+  Enable: true
+  Channel: 1 # 1-indexed with UNI then BIP. Parser will not subtract 1 from this value regardless of ref mode.
+  RisingThreshold: 0.75 # state (a.u.)
+  FallingThreshold: 0.25 # state (a.u.)
+  SlidingThreshold: 25 # microvoltes
+ Right:
+  Bit: 7
+  Enable: true
+  Channel: 2 # 1-indexed with UNI then BIP. Parser will not subtract 1 from this value regardless of ref mode.
+  RisingThreshold: 0.75 # state (a.u.)
+  FallingThreshold: 0.25 # state (a.u.)
+  SlidingThreshold: 25 # microvolts
 GUI:
  Color:
   A: "r"
   B: "b"
  N_Samples: 1000
  Offset: 100 
- TriggerBound: 256
  Squiggles: 
   Enable: true
   HPF_Mode: true
   A: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68]
   B: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68]
- Single:
-  Enable: false   
-  SAGA: "A"
-  Channel: 65
  Calibration:
   Enable: false   
 UDP:
  Socket:
   StreamService:
    # Address: "192.168.88.100"
-   Address: "10.0.0.100"
+   Address: "127.0.0.1"
    # Address: "10.0.0.102"
    Port: 
     state: 3030
@@ -140,6 +137,9 @@ UDP:
    # Address: "10.0.0.100" # multicast on LAN
    Address: "127.0.0.1"
    Port: 4051
+  TracerGUI:
+   Address: "127.0.0.1"
+   Port: 5050
 TCP:
  SpikeServer:
   # Address: "127.168.88.100"
@@ -147,7 +147,7 @@ TCP:
   Port: 6050
  ControlServer:
   # Address: "192.168.88.101"
-  Address: "10.0.0.100"
+  Address: "127.0.0.1"
   Port: 6051
  RMSServer:
   # Address: "192.168.88.100"
@@ -173,3 +173,9 @@ TCP:
   # Address: "192.168.88.100"
   Address: "127.0.0.1"
   Port: 6057
+ InputUtilities:
+  # Address: "10.0.0.101"
+  Address: "127.0.0.1"
+  Port:
+   Gamepad: 6053
+   Mouse: 6054

@@ -7,24 +7,25 @@ function fig = init_controller_fig(options)
 arguments
     options.SerialDevice {mustBeTextScalar} = "";
     options.BaudRate (1,1) {mustBePositive, mustBeInteger} = 115200;
+    options.ForceEnable (1,1) logical = false;
 end
 
 host_pc = getenv("COMPUTERNAME");
 switch host_pc
     case "MAX_LENOVO" % Max Workstation Laptop (Lenovo ThinkPad D16)
-        POSITION_PIX = [100 600  900 300];
+        POSITION_PIX = [100 400  900 400];
     case "NMLVR"
-        POSITION_PIX = [500 600 900 300];
+        POSITION_PIX = [500 400 900 400];
     otherwise
-        POSITION_PIX = [150 250  900 300];
+        POSITION_PIX = [150 150  900 400];
 end
 
 fig = uifigure('Color','w',...
     'MenuBar','none','ToolBar','none',...
     'Name','TMSi Recording Controller',...
     'Position',POSITION_PIX,'Icon',"redlogo.jpg");
-L = uigridlayout(fig, [6, 6],'BackgroundColor','k');
-L.RowHeight = {'1x', '1x', '1x', '1x', '1x'};
+L = uigridlayout(fig, [8, 6],'BackgroundColor','k');
+L.RowHeight = {'1x', '1x', '1x', '1x', '1x', '1x'};
 L.ColumnWidth = {'1x', '1x', '1x', '1x', '1x', '1x'};
 
 config = load_spike_server_config();
@@ -64,11 +65,14 @@ fig.UserData.BlockEditField = uieditfield(L, 'numeric', "FontName", "Consolas", 
 fig.UserData.BlockEditField.Layout.Row = 1;
 fig.UserData.BlockEditField.Layout.Column = 6;
 
+def_name_init = sprintf('%s/%s/%s/%s_%%%%s_%%d.poly5', config.Default.Folder, config.Default.Subject, tank, tank);
+def_folder_init = sprintf('%s/%s/%s', config.Default.Folder, config.Default.Subject, tank);
 fig.UserData.NameEditField = uieditfield(L, 'text', ...
-    "Value", sprintf('%s/%s/%s/%s_%%%%s_%%d.poly5', config.Default.Folder, config.Default.Subject, tank, tank), ...
+    "Value", def_name_init, ...
     "ValueChangedFcn", @nameFieldValueChanged, "FontName", 'Consolas','Enable','off');
 fig.UserData.NameEditField.Layout.Row = 2;
 fig.UserData.NameEditField.Layout.Column = [1 6];
+fig.UserData.DefaultModelFolder = def_folder_init;
 
 lab = uilabel(L,"Text", "Offset (μV)", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
 lab.Layout.Row = 4;
@@ -79,7 +83,11 @@ fig.UserData.OffsetEditField = uieditfield(L, 'numeric', ...
 fig.UserData.OffsetEditField.Layout.Row = 4;
 fig.UserData.OffsetEditField.Layout.Column = 2;
 
-lab = uilabel(L,"Text", "Timescale (samples)", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+lab = uilabel(L, ...
+    "Text", "Timescale (samples)", ...
+    'FontName', 'Tahoma', ...
+    'FontColor', 'w', ...
+    'HorizontalAlignment','right');
 lab.Layout.Row = 4;
 lab.Layout.Column = 3;
 fig.UserData.SamplesEditField = uieditfield(L, 'numeric', ...
@@ -88,35 +96,48 @@ fig.UserData.SamplesEditField = uieditfield(L, 'numeric', ...
 fig.UserData.SamplesEditField.Layout.Row = 4;
 fig.UserData.SamplesEditField.Layout.Column = 4;
 
-lab = uilabel(L,"Text", "Channel (FOCUSED)", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+lab = uilabel(L,"Text", "CAR Mode", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
 lab.Layout.Row = 4;
 lab.Layout.Column = 5;
-fig.UserData.SingleChannelEditField = uieditfield(L, 'text', ...
-    "Value", sprintf('%d:%s:%d', config.GUI.Single.Enable, config.GUI.Single.SAGA, config.GUI.Single.Channel), ...
-    "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
-    'ValueChangedFcn', @channelFieldValueChanged);
-fig.UserData.SingleChannelEditField.Layout.Row = 4;
-fig.UserData.SingleChannelEditField.Layout.Column = 6;
+if config.Default.Enable_Filters
+    refVal = config.Default.Virtual_Reference_Mode;
+else
+    refVal = -1;
+end
+fig.UserData.RefModeEditField = uieditfield(L, 'numeric', ...
+    "RoundFractionalValues", 'on', ...
+    "Value", refVal, ...
+    "FontName", 'Consolas', ...
+    'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @refModeChanged);
+fig.UserData.RefModeEditField.Layout.Row = 4;
+fig.UserData.RefModeEditField.Layout.Column = 6;
 
-runButton = uibutton(L, "Text", "RUN", 'ButtonPushedFcn', @runButtonPushed,'FontName','Tahoma','Enable','off');
+runButton = uibutton(L, "Text", "RUN", 'ButtonPushedFcn', @runButtonPushed,...
+    'FontName','Tahoma','Enable',matlab.lang.OnOffSwitchState(options.ForceEnable));
 runButton.Layout.Row = 3;
 runButton.Layout.Column = 1;
 
-recButton = uibutton(L, "Text", "REC", 'ButtonPushedFcn', @recButtonPushed,'FontName','Tahoma', 'Enable', 'off');
+recButton = uibutton(L, "Text", "REC", 'ButtonPushedFcn', @recButtonPushed,...
+    'FontName','Tahoma', 'Enable',matlab.lang.OnOffSwitchState(options.ForceEnable));
 recButton.Layout.Row = 3;
 recButton.Layout.Column = 2;
 
-stopButton = uibutton(L, "Text", "STOP", 'ButtonPushedFcn', @stopButtonPushed,'FontName','Tahoma','Enable','off');
+stopButton = uibutton(L, "Text", "STOP", 'ButtonPushedFcn', @stopButtonPushed,...
+    'FontName','Tahoma','Enable',matlab.lang.OnOffSwitchState(options.ForceEnable));
 stopButton.Layout.Row = 3;
 stopButton.Layout.Column = 3;
 
-idleButton = uibutton(L, "Text", "IDLE", 'ButtonPushedFcn', @idleButtonPushed,'FontName','Tahoma','Enable','off');
+idleButton = uibutton(L, "Text", "IDLE", 'ButtonPushedFcn', @idleButtonPushed,...
+    'FontName','Tahoma','Enable',matlab.lang.OnOffSwitchState(options.ForceEnable));
 idleButton.Layout.Row = 3;
 idleButton.Layout.Column = 4;
 
-impButton = uibutton(L, "Text", "IMP", 'ButtonPushedFcn', @impButtonPushed,'FontName','Tahoma','Enable','off');
+impButton = uibutton(L, "Text", "IMP", 'ButtonPushedFcn', @impButtonPushed,...
+    'FontName','Tahoma','Enable',matlab.lang.OnOffSwitchState(options.ForceEnable));
 impButton.Layout.Row = 3;
 impButton.Layout.Column = 5;
+
 impButton.UserData = struct('rec', recButton, 'stop', stopButton);
 idleButton.UserData = struct('rec', recButton, 'stop', stopButton, 'run', runButton, 'imp', impButton);
 runButton.UserData = struct('rec', recButton, 'stop', stopButton, 'idle', idleButton, 'imp', impButton);
@@ -128,51 +149,133 @@ quitButton.Layout.Row = 3;
 quitButton.Layout.Column = 6;
 quitButton.UserData = struct('idle', idleButton, 'run', runButton, 'rec', recButton, 'stop', stopButton, 'imp', impButton);
 
-fig.UserData.PButton = struct;
-fig.UserData.PButton.Calibrate = uibutton(L, "Text", "Re-Calibrate", 'ButtonPushedFcn', @calibrateButtonPushed, 'FontName','Tahoma');
-fig.UserData.PButton.Calibrate.Layout.Row = 5;
-fig.UserData.PButton.Calibrate.Layout.Column = 5;
+fig.UserData.EnableTriggerControllerCheckBox = uicheckbox(L, ...
+    "Text", "Trigger Controller", ...
+    "Value", config.Triggers.Enable, ...
+    "FontColor", 'w', ...
+    "FontName", 'Consolas', ...
+    "ValueChangedFcn", @handleTriggerControllerEnableChange);
+fig.UserData.EnableTriggerControllerCheckBox.Layout.Row = 5;
+fig.UserData.EnableTriggerControllerCheckBox.Layout.Column = 1;
+fig.UserData.EmulateMouseCheckBox = uicheckbox(L, ...
+    "Text", "Emulate Mouse", ...
+    "Value", config.Triggers.Emulate_Mouse, ...
+    "FontColor", 'w', ...
+    "FontName", 'Consolas', ...
+    "ValueChangedFcn", @handleTriggerControllerEnableChange);
+fig.UserData.EmulateMouseCheckBox.Layout.Row = 5;
+fig.UserData.EmulateMouseCheckBox.Layout.Column = 2;
 
-lab = uilabel(L,"Text", "Calibration File", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
-lab.Layout.Row = 5;
-lab.Layout.Column = 1;
-fig.UserData.CalNameEditField = uieditfield(L, 'text', ...
-    "Value", config.Default.Calibration_File, ...
-    "FontName", 'Consolas', 'HorizontalAlignment', 'center');
-fig.UserData.CalNameEditField.Layout.Row = 5;
-fig.UserData.CalNameEditField.Layout.Column = 2;
-
-lab = uilabel(L,"Text", "Triggers YLim", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+lab = uilabel(L,"Text", "Mouse Bits", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
 lab.Layout.Row = 5;
 lab.Layout.Column = 3;
-fig.UserData.TriggersBoundEditField = uieditfield(L, 'numeric', ...
-    "Value", config.GUI.TriggerBound, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
-    'ValueChangedFcn', @handleTriggersBoundFieldChanged, 'RoundFractionalValues','on');
-fig.UserData.TriggersBoundEditField.Layout.Row = 5;
-fig.UserData.TriggersBoundEditField.Layout.Column = 4;
+if config.Triggers.Left.Enable
+    configTrigBit = config.Triggers.Left.Bit;
+else
+    configTrigBit = -1;
+end
+fig.UserData.MouseLeftClickTriggerEditField = uieditfield(L, 'numeric', ...
+    "Value", configTrigBit, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @handleMouseClickTriggerBitChange, 'RoundFractionalValues','on');
+fig.UserData.MouseLeftClickTriggerEditField.Layout.Row = 5;
+fig.UserData.MouseLeftClickTriggerEditField.Layout.Column = 4;
+
+if config.Triggers.Right.Enable
+    configTrigBit = config.Triggers.Right.Bit;
+else
+    configTrigBit = -1;
+end
+fig.UserData.MouseRightClickTriggerEditField = uieditfield(L, 'numeric', ...
+    "Value", configTrigBit, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @handleMouseClickTriggerBitChange, 'RoundFractionalValues','on');
+fig.UserData.MouseRightClickTriggerEditField.Layout.Row = 5;
+fig.UserData.MouseRightClickTriggerEditField.Layout.Column = 5;
 
 fig.UserData.ToggleSquigglesButton = uibutton(L, "Text", "Turn Squiggles OFF", 'ButtonPushedFcn', @toggleSquigglesButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.2 0.3 0.7],'UserData',config.GUI.Squiggles.Enable,'FontColor','w');
 fig.UserData.ToggleSquigglesButton.Layout.Row = 5;
 fig.UserData.ToggleSquigglesButton.Layout.Column = 6;
+
+fig.UserData.TriggerFromBitsCheckBox = uicheckbox(L, ...
+    "Text", "Parse From Bits", ...
+    "Value", config.Triggers.Parse_From_Bits, ...
+    "FontColor", 'w', ...
+    "FontName", 'Consolas', ...
+    "ValueChangedFcn", @handleTriggerThresholdModeChange);
+fig.UserData.TriggerFromBitsCheckBox.Layout.Row = 6;
+fig.UserData.TriggerFromBitsCheckBox.Layout.Column = 2;
+
+lab = uilabel(L,"Text", "Trigger Channels", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+lab.Layout.Row = 6;
+lab.Layout.Column = 3;
+fig.UserData.LeftTriggerChannelEditField = uieditfield(L, 'numeric', ...
+    "Value", config.Triggers.Left.Channel, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @handleTriggerChannelChange, 'RoundFractionalValues','on', 'UserData', "L");
+fig.UserData.LeftTriggerChannelEditField.Layout.Row = 6;
+fig.UserData.LeftTriggerChannelEditField.Layout.Column = 4;
+
+fig.UserData.RightTriggerChannelEditField = uieditfield(L, 'numeric', ...
+    "Value", config.Triggers.Right.Channel, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @handleTriggerChannelChange, 'RoundFractionalValues','on', 'UserData', "R");
+fig.UserData.RightTriggerChannelEditField.Layout.Row = 6;
+fig.UserData.RightTriggerChannelEditField.Layout.Column = 5;
+
+lab = uilabel(L,"Text", "Debounce Iterations", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+lab.Layout.Row = 7;
+lab.Layout.Column = 1;
+fig.UserData.LoopDebounceEditField = uieditfield(L, 'numeric', ...
+    "Value", config.Triggers.Debounce_Loop_Iterations, ...
+    "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    "RoundFractionalValues","on", ...
+    'ValueChangedFcn', @handleTriggerDebounceChange);
+fig.UserData.LoopDebounceEditField.Layout.Row = 7;
+fig.UserData.LoopDebounceEditField.Layout.Column = 2;
+
+lab = uilabel(L,"Text", "Trigger Thresholds", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+lab.Layout.Row = 7;
+lab.Layout.Column = 3;
+fig.UserData.LeftTriggerThresholdEditField = uieditfield(L, 'text', ...
+    "Value", sprintf('%d:%d:%d',config.Triggers.Left.SlidingThreshold*100,config.Triggers.Left.FallingThreshold*100, config.Triggers.Left.RisingThreshold*100), ...
+    "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @handleTriggerThresholdModeChange, 'UserData', "L");
+fig.UserData.LeftTriggerThresholdEditField.Layout.Row = 7;
+fig.UserData.LeftTriggerThresholdEditField.Layout.Column = 4;
+
+fig.UserData.RightTriggerThresholdEditField = uieditfield(L, 'text', ...
+    "Value", sprintf('%d:%d:%d', config.Triggers.Right.SlidingThreshold*100,config.Triggers.Right.FallingThreshold*100, config.Triggers.Right.RisingThreshold*100), ...
+    "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @handleTriggerThresholdModeChange, 'UserData', "R");
+fig.UserData.RightTriggerThresholdEditField.Layout.Row = 7;
+fig.UserData.RightTriggerThresholdEditField.Layout.Column = 5;
+
+lab = uilabel(L,"Text", "Gamma (μV)", 'FontName', 'Consolas', 'FontColor', 'w', ...
+    'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center', 'FontWeight','bold');
+lab.Layout.Row = 6;
+lab.Layout.Column = 6;
+fig.UserData.GammaEditField = uieditfield(L, 'numeric', ...
+    "Value", 50, ...
+    "FontName", 'Consolas', ...
+    'HorizontalAlignment', 'center');
+fig.UserData.GammaEditField.Layout.Row = 7;
+fig.UserData.GammaEditField.Layout.Column = 6;
 
 if config.GUI.Squiggles.HPF_Mode
     fig.UserData.ToggleSquigglesModeButton = uibutton(L, "Text", "Envelope Mode", 'ButtonPushedFcn', @toggleSquigglesModeButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.7 0.7 0.3],'FontColor','k', 'FontWeight','bold', 'UserData', false);
 else
     fig.UserData.ToggleSquigglesModeButton = uibutton(L, "Text", "HPF Mode", 'ButtonPushedFcn', @toggleSquigglesModeButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.7 0.3 0.7],'FontColor','k', 'FontWeight','bold', 'UserData', false);
 end
-fig.UserData.ToggleSquigglesModeButton.Layout.Row = 6;
+fig.UserData.ToggleSquigglesModeButton.Layout.Row = 8;
 fig.UserData.ToggleSquigglesModeButton.Layout.Column = 1;
 
 fig.UserData.UploadModelButton = uibutton(L, "Text", "Upload Model", 'ButtonPushedFcn', @uploadModelButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.65 0.65 0.65],'FontColor',[0.25 0.25 0.25], 'FontWeight','bold', 'UserData', false);
-fig.UserData.UploadModelButton.Layout.Row = 6;
+fig.UserData.UploadModelButton.Layout.Row = 8;
 fig.UserData.UploadModelButton.Layout.Column = 2;
 
 fig.UserData.ModelTextLabel = uilabel(L, "Text", "No Model Sent", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','left');
-fig.UserData.ModelTextLabel.Layout.Row = 6;
+fig.UserData.ModelTextLabel.Layout.Row = 8;
 fig.UserData.ModelTextLabel.Layout.Column = [3 4];
 
 fig.UserData.TrainModelButton = uibutton(L, "Text", "Train New Model", 'ButtonPushedFcn', @trainModelButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.1 0.0 0.4],'FontColor','w', 'FontWeight','bold', 'UserData', false);
-fig.UserData.TrainModelButton.Layout.Row = 6;
+fig.UserData.TrainModelButton.Layout.Row = 8;
 fig.UserData.TrainModelButton.Layout.Column = 6;
 
 fig.DeleteFcn = @handleFigureDeletion;
@@ -192,38 +295,71 @@ if config.Default.Enable_Teensy
     else
         teensy = serialport(options.SerialDevice, options.BaudRate);
     end
-    fig.UserData.UDP.UserData = struct('expect_quit', false, 'running', false, ...
-        'subj', fig.UserData.SubjEditField, 'name', fig.UserData.NameEditField, 'block', fig.UserData.BlockEditField, 'atag', fig.UserData.TagAEditField, 'btag', fig.UserData.TagBEditField,  ...
-        'idle', idleButton, 'run', runButton, 'rec', recButton, 'stop', stopButton, 'imp', impButton, 'quit', quitButton, ...
-        'address', fig.UserData.Address, 'parameter_port', fig.UserData.ParameterPort, ...
-        'n_hosts', config.Default.N_Host_Devices_Per_Controller,'n_acknowledged', 0, 'teensy', teensy);
-
-    configureCallback(fig.UserData.UDP, "terminator", @handleUDPmessage);
-    impButton.UserData = struct('run', runButton, 'idle', idleButton, 'quit', quitButton);
-    fig.CloseRequestFcn = @handleFigureCloseRequest;
-    fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort);
-
+else
+    teensy = [];
 end
 
+fig.UserData.UDP.UserData = struct('expect_quit', false, 'running', false, ...
+    'subj', fig.UserData.SubjEditField, 'name', fig.UserData.NameEditField, 'block', fig.UserData.BlockEditField, 'atag', fig.UserData.TagAEditField, 'btag', fig.UserData.TagBEditField,  ...
+    'idle', idleButton, 'run', runButton, 'rec', recButton, 'stop', stopButton, 'imp', impButton, 'quit', quitButton, ...
+    'address', fig.UserData.Address, 'parameter_port', fig.UserData.ParameterPort, ...
+    'n_hosts', config.Default.N_Host_Devices_Per_Controller,'n_acknowledged', 0, 'teensy', teensy);
+
+configureCallback(fig.UserData.UDP, "terminator", @handleUDPmessage);
+impButton.UserData = struct('run', runButton, 'idle', idleButton, 'quit', quitButton);
+fig.CloseRequestFcn = @handleFigureCloseRequest;
+fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort);
+
+    function handleTriggerDebounceChange(src,~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        cmd = sprintf('v.%d', src.Value);
+        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+        fprintf(1,'[CONTROLLER]::Sent Loop Debounce Iterations Updated: %s\n', cmd);
+    end
+
+    function handleTriggerControllerEnableChange(src,~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        cmd = sprintf('y.%d:%d', src.Parent.Parent.UserData.EnableTriggerControllerCheckBox.Value, src.Parent.Parent.UserData.EmulateMouseCheckBox.Value);
+        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+        fprintf(1,'[CONTROLLER]::Sent Controller Trigger Configuration Update: %s\n', cmd);
+    end
+
+    function handleTriggerThresholdModeChange(src,~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        cmd = sprintf('p.%d:%s:%s', src.Parent.Parent.UserData.TriggerFromBitsCheckBox.Value, src.Parent.Parent.UserData.LeftTriggerThresholdEditField.Value, src.Parent.Parent.UserData.RightTriggerThresholdEditField.Value);
+        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+        fprintf(1,'[CONTROLLER]::Sent Controller Trigger-Mode/Thresholding Update: %s\n', cmd);
+    end
+
     function trainModelButtonPushed(src, ~)
+        input_folder = uigetdir(src.Parent.Parent.UserData.DefaultModelFolder,  "Select Experiment Folder");
+        if input_folder == 0
+            return;
+        end
         res = inputdlg('Block:', "Input Model Training Block", [1 50], string(num2str(src.Parent.Parent.UserData.BlockEditField.Value-1)));
         if isempty(res)
             return;
         else
             res = str2double(res{1});
         end
-        tmp_dt = datetime('today');
-        input_root = strsplit(src.Parent.Parent.UserData.NameEditField.Value, '/');
-        input_root = strjoin(input_root(1:(end-3)),'/');
-        load_ab_saga_poly5_and_train_classifier(src.Parent.Parent.UserData.SubjEditField.Value, year(tmp_dt), month(tmp_dt), day(tmp_dt), res, ...
-            'InputRoot', input_root);
+        [p,f] = fileparts(input_folder);
+        finfo = strsplit(f,'_');
+
+        input_root = strsplit(p, '/');
+        input_root = strjoin(input_root(1:(end-1)),'/');
+        [out,saga] = load_ab_saga_poly5_and_initialize_covariance( ...
+            finfo{1}, str2double(finfo{2}), str2double(finfo{3}), str2double(finfo{4}), res, ...
+            'InputRoot', input_root, 'GammaPrior', src.Parent.Parent.UserData.GammaEditField.Value);
         set(src,'BackgroundColor', [0.65 0.65 0.65], 'FontColor', [0.25 0.25 0.25]);
         set(src.Parent.Parent.UserData.UploadModelButton, 'BackgroundColor', [0.1 0.0 0.4], 'FontColor', [1 1 1]);
+        src.Parent.Parent.UserData.DefaultModelFolder = input_folder;
+        assignin('base', 'out', out);
+        assignin('base', 'saga', saga);
     end
-    
+
     function uploadModelButtonPushed(src, ~)
-        def_folder = fileparts(src.Parent.Parent.UserData.NameEditField.Value);
-        [file, location] = uigetfile('*.mat', "Select Envelope Classifier Model",def_folder);
+        def_folder = src.Parent.Parent.UserData.DefaultModelFolder;
+        [file, location] = uigetfile('*.mat', "Select Calibration/Model to Upload",def_folder);
         if file == 0
             return;
         end
@@ -236,14 +372,21 @@ end
         fprintf(1,'[CONTROLLER]::Sent Classifier Model Upload Request: %s\n', cmd);
     end
 
-    function handleTriggersBoundFieldChanged(src, ~)
-        if src.Value <= 0
+    function handleMouseClickTriggerBitChange(src, ~)
+        if src.Value > 15
             return;
         end
         udpSender = src.Parent.Parent.UserData.UDP;
-        cmd = sprintf('y.%d', src.Value);
+        cmd = sprintf('c.%d,%d', src.Parent.Parent.UserData.MouseLeftClickTriggerEditField.Value, src.Parent.Parent.UserData.MouseRightClickTriggerEditField.Value);
         writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
-        fprintf(1,'[CONTROLLER]::Sent Triggers Bound Request: %s\n', cmd);
+        fprintf(1,'[CONTROLLER]::Sent Mouse Trigger-Bit Change Request: %s\n', cmd);
+    end
+
+    function handleTriggerChannelChange(src, ~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        cmd = sprintf('l.%s:%d', src.UserData, src.Value);
+        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+        fprintf(1,'[CONTROLLER]::Sent %s Channel-Change Request: %s\n', src.UserData, cmd);
     end
 
     function toggleSquigglesButtonPushed(src,~)
@@ -276,17 +419,6 @@ end
             writeline(udpSender,"w",src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
             fprintf(1,'[CONTROLLER]::Sent request to toggle squiggles GUI to HPF mode.\n');
         end
-    end
-
-    function calibrateButtonPushed(src,~)
-        val = src.Parent.Parent.UserData.CalNameEditField.Value;
-        [p,f,~] = fileparts(val);
-        p = strrep(p,filesep,"/");
-        val = strcat(p,"/",f);
-        udpSender = src.Parent.Parent.UserData.UDP;
-        cmd = sprintf('c.%s', val);
-        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
-        fprintf(1,'[CONTROLLER]::Sent recalibration request: %s\n', cmd);
     end
 
     function handleFigureCloseRequest(src, ~)
@@ -347,14 +479,21 @@ end
         fprintf(1,'[CONTROLLER]::Sent samples: %s\n', cmd);
     end
 
-    function channelFieldValueChanged(src,~)
-        if ~contains(src.Value, ":")
+    function refModeChanged(src,evt)
+        % REMINDER: `evt` has following fields:
+        %   -> 'Value' (updated value)  
+        %   -> 'PreviousValue' (value before this edit)
+        %   -> 'Source' (same as `src`)
+        %   -> 'EventName' :: 'ValueChanged'
+        if (evt.Value < -1) || (evt.Value > 3)
+            warning("Value must be integer between 0 and 3.");
+            src.Value = evt.PreviousValue;
             return;
         end
         udpSender = src.Parent.Parent.UserData.UDP;
-        cmd = sprintf("e.%s", src.Value);
+        cmd = sprintf("a.%d", src.Value);
         writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
-        fprintf(1,'[CONTROLLER]::Sent channel: %s\n', cmd);
+        fprintf(1,'[CONTROLLER]::Sent Virtual_Reference_Mode Change Request %s\n', cmd);
     end
 
     function handleUDPmessage(src, ~)

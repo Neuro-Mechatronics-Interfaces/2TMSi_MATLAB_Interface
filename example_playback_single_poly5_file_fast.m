@@ -181,13 +181,13 @@ while isvalid(fig)
     data = reshape(del2(reshape(data,[],8,8)),[],64);
     
     for iH = 1:64
-        % h(iH).YData(iVec) = data(:,iH)+LINE_VERTICAL_OFFSET*rem(iH-1,8);
+        h(iH).YData(iVec) = data(:,iH)+LINE_VERTICAL_OFFSET*rem(iH-1,8);
         if ismember(iH, meta.channels.keep_post)
             locs{iH} = find(data(:,iH) > MIN_PK_HEIGHT);
         end
     end
     % 
-    % h_trigs.YData(iVec) = samples(TRIGS_CH,:);
+    h_trigs.YData(iVec) = samples(TRIGS_CH,:);
     all_locs = unique(vertcat(locs{:}));
     [~,clus] = max(net(data(all_locs,meta.channels.keep_post)'),[],1);
     cat_data = [cat_data; int16(data(:,squiggles_server.UserData.current_channel))*10]; %#ok<AGROW>
