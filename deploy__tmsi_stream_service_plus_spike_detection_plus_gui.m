@@ -483,10 +483,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             else
                                 switch param.virtual_ref_mode
                                     case 1    
-                                        hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)) = hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)) - mean(hpf_data.(device(ii).tag)(:,param.use_channels.(device(ii).tag)));
+                                        hpf_data.(device(ii).tag)(:,1:64) = hpf_data.(device(ii).tag)(:,1:64) - mean(hpf_data.(device(ii).tag)(:,1:64));
                                     case 2 
-                                        iGrid1 = param.use_channels.(device(ii).tag)(param.use_channel.(device(ii).tag) <= 32);
-                                        iGrid2 = setdiff(param.use_channels.(device(ii).tag), iGrid1);
+                                        % iGrid1 = param.use_channels.(device(ii).tag)(param.use_channels.(device(ii).tag) <= 32);
+                                        % iGrid2 = setdiff(param.use_channels.(device(ii).tag)(param.use_channels.(device(ii).tag)<=64), iGrid1);
+                                        iGrid1 = 1:32;
+                                        iGrid2 = 33:64;
                                         hpf_data.(device(ii).tag)(:,iGrid1) = hpf_data.(device(ii).tag)(:,iGrid1) - mean(hpf_data.(device(ii).tag)(:,iGrid1));
                                         hpf_data.(device(ii).tag)(:,iGrid2) = hpf_data.(device(ii).tag)(:,iGrid2) - mean(hpf_data.(device(ii).tag)(:,iGrid2));
                                     case 3
@@ -513,6 +515,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             end
                         end
                         [env_data.(device(ii).tag), zi.envelope.(device(ii).tag)] = filter(param.lpf.b, param.lpf.a, abs(hpf_data.(device(ii).tag)), zi.envelope.(device(ii).tag), 1);
+                    else
+                        hpf_data.(device(ii).tag) = samples{ii}(i_all.(device(ii).tag),:)';
+                        env_data.(device(ii).tag) = hpf_data.(device(ii).tag);
                     end
                     if param.enable_trigger_controller && strcmpi(device(ii).tag,'A') % Only use SAGA-A
                         if param.parse_from_bits
