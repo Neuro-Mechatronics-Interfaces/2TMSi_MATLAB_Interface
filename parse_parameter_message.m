@@ -21,9 +21,6 @@ switch parameter_code
         else
             param.enable_filters = true;
             param.virtual_ref_mode = virtual_ref_code;
-            if numel(command_chunks) > 1
-                param.threshold_artifact = str2double(command_chunks{2})/1000;
-            end
             fprintf(1,'[TMSi]\t->\t[%s]: Filtering ON. Virtual Reference Mode = %s\n', parameter_code, parameter_value);
         end
     case 'b' % Name Tag
