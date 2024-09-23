@@ -438,7 +438,7 @@ fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort)
             src.BackgroundColor = [0.7 0.7 0.3];
             src.FontColor = 'k';
             src.UserData = false;
-            writeline(udpSender,"w",src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+            writeline(udpSender,"w.0",src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
             fprintf(1,'[CONTROLLER]::Sent request to toggle squiggles GUI to ENVELOPE mode.\n');
         else
             src.Text = "Envelope Mode";
@@ -447,7 +447,7 @@ fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort)
             src.BackgroundColor = [0.7 0.3 0.7];
             src.FontColor = 'w';
             src.UserData = true;
-            writeline(udpSender,"w",src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+            writeline(udpSender,"w.1",src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
             fprintf(1,'[CONTROLLER]::Sent request to toggle squiggles GUI to HPF mode.\n');
         end
     end

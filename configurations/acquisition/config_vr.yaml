@@ -25,7 +25,7 @@ SAGA:
    Unit: "SAGAA"
    Array: 
     Type: "Textiles"
-    Location: "A_P2"
+    Location: "A_PROX"
    Trigger:
     Channel: 69 # parser subtracts 1 from this value if detected ref mode is 'average'
     Bit: 1
@@ -44,7 +44,7 @@ SAGA:
    FileType: ".mat"
    Array: 
     Type: "Textiles"
-    Location: "B_P1"
+    Location: "B_DIST"
    Trigger:
     Channel: 69 # parser subtracts 1 from this value if detected ref mode is 'average'
     Bit: 1
