@@ -271,7 +271,7 @@ switch parameter_code
         param.trig_out_debounce_iterations = str2double(parameter_value);
         fprintf(1,'[TMSi]\t->\t[%s]: Loop Debounce Iterations = %s\n', parameter_code, parameter_value);
     case 'w' % Toggle squiggles mode
-        param.gui.squiggles.hpf_mode = logical(str2double(parameter_value));
+        param.gui.squiggles.hpf_mode = ~logical(str2double(parameter_value));
         if param.gui.squiggles.hpf_mode
             fprintf(1,'[TMSi]\t->\t[%s]: HPF Mode Squiggles\n', parameter_code);
         else

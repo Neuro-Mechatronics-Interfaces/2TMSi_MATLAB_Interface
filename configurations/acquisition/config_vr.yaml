@@ -80,6 +80,7 @@ Default:
  Extension_Factor: 30 # For online MUAP detection
  Enable_Raw_LSL_Outlet: false
  Enable_Envelope_LSL_Outlet: false
+ Enable_Force_LSL_Outlet: true
  Enable_LSL_Gesture_Decode: false
  Enable_Filters: true 
  Enable_Tablet_Figure: false
