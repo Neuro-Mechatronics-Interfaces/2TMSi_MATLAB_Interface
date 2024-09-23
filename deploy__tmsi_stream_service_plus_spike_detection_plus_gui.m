@@ -220,7 +220,7 @@ param.gui.squiggles.channels.B = config.GUI.Squiggles.B;
 param.use_channels.A = config.GUI.Squiggles.A;
 param.use_channels.B = config.GUI.Squiggles.B;
 [param.hpf.b, param.hpf.a] = butter(3, config.Default.HPF_Cutoff_Frequency/(param.sample_rate/2), 'high');
-[param.lpf.b, param.lpf.a] = butter(3, 0.5/(param.sample_rate/2), 'low');
+[param.lpf.b, param.lpf.a] = butter(3, config.Default.LPF_Cutoff_Frequency/(param.sample_rate/2), 'low');
 if numel(device) > 1
     nTotalChannels = param.n_total.A + param.n_total.B;
 else
@@ -240,9 +240,9 @@ i_mono = struct('A', config.SAGA.A.Channels.UNI, 'B', config.SAGA.B.Channels.UNI
 i_bip = struct('A', config.SAGA.A.Channels.BIP, 'B', config.SAGA.B.Channels.BIP);
 i_all = struct('A', [config.SAGA.A.Channels.UNI, config.SAGA.A.Channels.BIP], ...
                'B', [config.SAGA.B.Channels.UNI, config.SAGA.B.Channels.BIP]);
-zi = struct; % Filter states
-zi.squiggles = struct('A',zeros(3,numel(i_all.A)), 'B', zeros(3,numel(i_all.B)));
-zi.envelope = struct('A', zeros(3,param.n_total.A), 'B', zeros(3, param.n_total.B));
+param.zi = struct; % Filter states
+param.zi.hpf = struct('A',zeros(3,numel(i_all.A)), 'B', zeros(3,numel(i_all.B)));
+param.zi.env = struct('A', zeros(3,param.n_total.A), 'B', zeros(3, param.n_total.B));
 trig_out_state = [false, false];
 
 %% Load the LSL library
@@ -473,7 +473,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 % raw data outlet ( if enabled ), and apply filtering.
                 if ~isempty(samples{ii})
                     if param.enable_filters
-                        [hpf_data.(device(ii).tag), zi.squiggles.(device(ii).tag)] = filter(param.hpf.b,param.hpf.a,samples{ii}(i_all.(device(ii).tag),:)',zi.squiggles.(device(ii).tag),1);
+                        [hpf_data.(device(ii).tag), param.zi.hpf.(device(ii).tag)] = filter(param.hpf.b,param.hpf.a,samples{ii}(i_all.(device(ii).tag),:)',param.zi.hpf.(device(ii).tag),1);
                         if size(hpf_data.(device(ii).tag),2) >= 64
                             if param.gui.squiggles.whiten.(device(ii).tag) % Then do the Whitening chain
                                 cat_data = [param.prev_data.(device(ii).tag); hpf_data.(device(ii).tag)(:,1:64)];
@@ -514,7 +514,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                                 end
                             end
                         end
-                        [env_data.(device(ii).tag), zi.envelope.(device(ii).tag)] = filter(param.lpf.b, param.lpf.a, abs(hpf_data.(device(ii).tag)), zi.envelope.(device(ii).tag), 1);
+                        [env_data.(device(ii).tag), param.zi.env.(device(ii).tag)] = filter(param.lpf.b, param.lpf.a, abs(hpf_data.(device(ii).tag)), param.zi.env.(device(ii).tag), 1);
                     else
                         hpf_data.(device(ii).tag) = samples{ii}(i_all.(device(ii).tag),:)';
                         env_data.(device(ii).tag) = hpf_data.(device(ii).tag);

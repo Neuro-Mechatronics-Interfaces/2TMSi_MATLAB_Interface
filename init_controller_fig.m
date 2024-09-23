@@ -252,21 +252,26 @@ fig.UserData.RightTriggerThresholdEditField = uieditfield(L, 'text', ...
 fig.UserData.RightTriggerThresholdEditField.Layout.Row = 7;
 fig.UserData.RightTriggerThresholdEditField.Layout.Column = 5;
 
-lab = uilabel(L,"Text", "Gamma (μV)", 'FontName', 'Consolas', 'FontColor', 'w', ...
-    'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center', 'FontWeight','bold');
-lab.Layout.Row = 6;
-lab.Layout.Column = 6;
-fig.UserData.GammaEditField = uieditfield(L, 'numeric', ...
-    "Value", 50, ...
+fig.UserData.FilterCutoffLabel = uilabel(L,"Text", "HPF Cutoff (Hz)", 'FontName', 'Consolas', 'FontColor', 'w', ...
+        'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center', 'FontWeight','bold');
+    fig.UserData.FilterCutoffLabel.Layout.Row = 6;
+    fig.UserData.FilterCutoffLabel.Layout.Column = 6;
+fig.UserData.HPFFilterCutoffValue = config.Default.HPF_Cutoff_Frequency;
+fig.UserData.LPFFilterCutoffValue = config.Default.LPF_Cutoff_Frequency;
+fig.UserData.FilterCutoffEditField = uieditfield(L, 'numeric', ...
+    "Value", config.Default.HPF_Cutoff_Frequency, ...
     "FontName", 'Consolas', ...
-    'HorizontalAlignment', 'center');
-fig.UserData.GammaEditField.Layout.Row = 7;
-fig.UserData.GammaEditField.Layout.Column = 6;
+    'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @handleFilterCutoffChange);
+fig.UserData.FilterCutoffEditField.Layout.Row = 7;
+fig.UserData.FilterCutoffEditField.Layout.Column = 6;
 
 if config.GUI.Squiggles.HPF_Mode
-    fig.UserData.ToggleSquigglesModeButton = uibutton(L, "Text", "Envelope Mode", 'ButtonPushedFcn', @toggleSquigglesModeButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.7 0.7 0.3],'FontColor','k', 'FontWeight','bold', 'UserData', false);
+    fig.UserData.ToggleSquigglesModeButton = uibutton(L, "Text", "HPF Mode", 'ButtonPushedFcn', @toggleSquigglesModeButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.7 0.7 0.3],'FontColor','k', 'FontWeight','bold', 'UserData', false);
 else
-    fig.UserData.ToggleSquigglesModeButton = uibutton(L, "Text", "HPF Mode", 'ButtonPushedFcn', @toggleSquigglesModeButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.7 0.3 0.7],'FontColor','k', 'FontWeight','bold', 'UserData', false);
+    fig.UserData.ToggleSquigglesModeButton = uibutton(L, "Text", "Envelope Mode", 'ButtonPushedFcn', @toggleSquigglesModeButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.7 0.3 0.7],'FontColor','w', 'FontWeight','bold', 'UserData', true);
+    fig.UserData.FilterCutoffLabel = "LPF Cutoff (Hz)";
+    fig.UserData.FilterCutoffEditField.Value = config.Default.LPF_Cutoff_Frequency;
 end
 fig.UserData.ToggleSquigglesModeButton.Layout.Row = 8;
 fig.UserData.ToggleSquigglesModeButton.Layout.Column = 1;
@@ -336,6 +341,21 @@ fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort)
         fprintf(1,'[CONTROLLER]::Sent Controller Trigger-Mode/Thresholding Update: %s\n', cmd);
     end
 
+    function handleFilterCutoffChange(src,~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        if src.Parent.Parent.UserData.ToggleSquigglesModeButton.UserData % In envelope mode
+            src.Parent.Parent.UserData.LPFFilterCutoffValue = src.Value;
+            cmd = sprintf('j.%d',src.Value*1000);
+            filtType = 'RMS-Envelope';
+        else % In HPF mode
+            src.Parent.Parent.UserData.HPFFilterCutoffValue = src.Value;
+            cmd = sprintf('h.%d',src.Value);
+            filtType = 'HPF';
+        end
+        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+        fprintf(1,'[CONTROLLER]::Sent %s Update: %s\n', filtType, cmd);
+    end
+
     function trainModelButtonPushed(src, ~)
         input_folder = uigetdir(src.Parent.Parent.UserData.DefaultModelFolder,  "Select Experiment Folder");
         if input_folder == 0
@@ -354,7 +374,7 @@ fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort)
         input_root = strjoin(input_root(1:(end-1)),'/');
         [out,saga] = load_ab_saga_poly5_and_initialize_covariance( ...
             finfo{1}, str2double(finfo{2}), str2double(finfo{3}), str2double(finfo{4}), res, ...
-            'InputRoot', input_root, 'GammaPrior', src.Parent.Parent.UserData.GammaEditField.Value);
+            'InputRoot', input_root);
         set(src,'BackgroundColor', [0.65 0.65 0.65], 'FontColor', [0.25 0.25 0.25]);
         set(src.Parent.Parent.UserData.UploadModelButton, 'BackgroundColor', [0.1 0.0 0.4], 'FontColor', [1 1 1]);
         src.Parent.Parent.UserData.DefaultModelFolder = input_folder;
@@ -412,14 +432,20 @@ fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort)
     function toggleSquigglesModeButtonPushed(src,~)
         udpSender = src.Parent.Parent.UserData.UDP;
         if src.UserData
-            src.Text = "HPF Mode";
-            src.BackgroundColor = [0.7 0.3 0.7];
+            src.Text = "HPF Mode"; % Indicate we are now in HPF Mode
+            src.Parent.Parent.UserData.FilterCutoffLabel.Text = "HPF Cutoff (Hz)";
+            src.Parent.Parent.UserData.FilterCutoffEditField.Value = src.Parent.Parent.UserData.HPFFilterCutoffValue;
+            src.BackgroundColor = [0.7 0.7 0.3];
+            src.FontColor = 'k';
             src.UserData = false;
             writeline(udpSender,"w",src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
             fprintf(1,'[CONTROLLER]::Sent request to toggle squiggles GUI to ENVELOPE mode.\n');
         else
             src.Text = "Envelope Mode";
-            src.BackgroundColor = [0.7 0.7 0.3];
+            src.Parent.Parent.UserData.FilterCutoffLabel.Text = "LPF Cutoff (Hz)";
+            src.Parent.Parent.UserData.FilterCutoffEditField.Value = src.Parent.Parent.UserData.LPFFilterCutoffValue;
+            src.BackgroundColor = [0.7 0.3 0.7];
+            src.FontColor = 'w';
             src.UserData = true;
             writeline(udpSender,"w",src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
             fprintf(1,'[CONTROLLER]::Sent request to toggle squiggles GUI to HPF mode.\n');

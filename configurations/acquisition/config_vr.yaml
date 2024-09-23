@@ -25,7 +25,7 @@ SAGA:
    Unit: "SAGAA"
    Array: 
     Type: "Textiles"
-    Location: "A_PROX"
+    Location: "A_P2"
    Trigger:
     Channel: 69 # parser subtracts 1 from this value if detected ref mode is 'average'
     Bit: 1
@@ -44,7 +44,7 @@ SAGA:
    FileType: ".mat"
    Array: 
     Type: "Textiles"
-    Location: "B_DIST"
+    Location: "B_P1"
    Trigger:
     Channel: 69 # parser subtracts 1 from this value if detected ref mode is 'average'
     Bit: 1
@@ -64,11 +64,12 @@ Default:
  # Folder: "C:/Users/Daily/TempData"
  Enable_Teensy: false
  N_Host_Devices_Per_Controller: 2
- HPF_Cutoff_Frequency: 100 # Hz
+ HPF_Cutoff_Frequency: 100 # Hz | For initial filtering to remove DC bias, retain MUAP features.
+ LPF_Cutoff_Frequency: 0.5 # Hz | For RMS envelope (applied after HPF then rectification)
  Device_Reference_Mode: 'average' # must be 'average' (uses CAR from SAGA device) or 'common' (with separate CREF)
  Virtual_Reference_Mode: 0        # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2 (if Interpolate_Grid); 4: del2 for 2textile after interp2 (if Interpolate_Grid)
  Interpolate_Grid: false          # Only applies if CAR_Mode is set to 3 or 4
- Subject: "MCP06"
+ Subject: "MCP04"
  Sample_Rate: 4000 # Must be 4000 (base) or 4096 (base); set lower using dividers below
  Sync_Bit: 1
  File_Type: ".poly5"

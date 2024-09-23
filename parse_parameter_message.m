@@ -99,6 +99,7 @@ switch parameter_code
     case 'h' % HPF cutoff frequency
         fc = str2double(parameter_value);
         [param.hpf.b, param.hpf.a] = butter(2, fc/(param.sample_rate/2), "high");
+        param.zi.hpf = struct('A',size(param.zi.hpf.A), 'B', size(param.zi.hpf.B));
         fprintf(1,'[TMSi]\t->\t[%s]: HPF Fc = %s Hz\n', parameter_code, parameter_value);
     case 'i' % Interpolate grid
         param.interpolate_grid = ~strcmpi(parameter_value,'0');
@@ -107,15 +108,11 @@ switch parameter_code
         else
             fprintf(1,'[TMSi]\t->\t[%s]: Interpolate Grid = OFF\n', parameter_code);
         end
-    case 'j' % Envelope regressor
-        command_chunks = strsplit(parameter_value,'|');
-        parameter_value = sprintf('%s.mat',command_chunks{2});
-        if exist(parameter_value, 'file')==0
-            fprintf(1,'[TMSi]\t->\t[%s]: No such file: %s\n', parameter_code, parameter_value);
-            return;
-        end
-        param.envelope_regressor.(command_chunks{1}) = load(parameter_value);
-        fprintf(1,'[TMSi]\t->\t[%s]: Updated using file = %s\n', parameter_code, parameter_value);
+    case 'j' % ENVELOPE cutoff frequency
+        fc = str2double(parameter_value)/1000;
+        [param.env.b, param.env.a] = butter(2, fc/(param.sample_rate/2), "low");
+        param.zi.env = struct('A',size(param.zi.env.A), 'B', size(param.zi.env.B));
+        fprintf(1,'[TMSi]\t->\t[%s]: HPF Fc = %s Hz\n', parameter_code, parameter_value);
     case 'k' % Any "model" upload
         [p,f,~] = fileparts(parameter_value);
         fname = fullfile(p,sprintf('%s.mat', f));
