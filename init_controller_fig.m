@@ -13,18 +13,18 @@ end
 host_pc = getenv("COMPUTERNAME");
 switch host_pc
     case "MAX_LENOVO" % Max Workstation Laptop (Lenovo ThinkPad D16)
-        POSITION_PIX = [100 400  900 400];
+        POSITION_PIX = [100 400  900 450];
     case "NMLVR"
-        POSITION_PIX = [500 400 900 400];
+        POSITION_PIX = [500 400 900 450];
     otherwise
-        POSITION_PIX = [150 150  900 400];
+        POSITION_PIX = [150 150  900 450];
 end
 
 fig = uifigure('Color','w',...
     'MenuBar','none','ToolBar','none',...
     'Name','TMSi Recording Controller',...
     'Position',POSITION_PIX,'Icon',"redlogo.jpg");
-L = uigridlayout(fig, [8, 6],'BackgroundColor','k');
+L = uigridlayout(fig, [9, 6],'BackgroundColor','k');
 L.RowHeight = {'1x', '1x', '1x', '1x', '1x', '1x'};
 L.ColumnWidth = {'1x', '1x', '1x', '1x', '1x', '1x'};
 
@@ -288,6 +288,39 @@ fig.UserData.TrainModelButton = uibutton(L, "Text", "Train New Model", 'ButtonPu
 fig.UserData.TrainModelButton.Layout.Row = 8;
 fig.UserData.TrainModelButton.Layout.Column = 6;
 
+
+lab = uilabel(L,"Text", "LSL FORCE SAGA", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+lab.Layout.Row = 9;
+lab.Layout.Column = 1;
+
+fig.UserData.LslSagaDropDown = uidropdown(L, ...
+    "Items", ["A"; "B"], ...
+    "Value", config.Default.LSL_Force_Channel.SAGA, ...
+    "FontName", 'Consolas', ...
+    'ValueChangedFcn', @lslSagaForceParameterChanged);
+fig.UserData.LslSagaDropDown.Layout.Row = 9;
+fig.UserData.LslSagaDropDown.Layout.Column = 2;
+
+lab = uilabel(L,"Text", "LSL FORCE Channel", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
+lab.Layout.Row = 9;
+lab.Layout.Column = 3;
+
+fig.UserData.LslChannelEditField = uieditfield(L, 'numeric', ...
+    "Value", config.Default.LSL_Force_Channel.Channel, ...
+    "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    "RoundFractionalValues","on", ...
+    'ValueChangedFcn', @lslSagaForceParameterChanged);
+
+
+fig.UserData.LslForceSelectionUpdateButton = uibutton(L, "Text", "Update LSL FORCE Channel", ...
+    'ButtonPushedFcn', @sendUpdatedLslForceChannel, 'FontName','Tahoma',...
+    'BackgroundColor',[0.1 0.0 0.4],'FontColor','w', ...
+    'FontWeight','bold');
+fig.UserData.LslForceSelectionUpdateButton.Layout.Row = 9;
+fig.UserData.LslForceSelectionUpdateButton.Layout.Column = [5 6];
+
+
+
 fig.DeleteFcn = @handleFigureDeletion;
 
 if config.Default.Enable_Teensy
@@ -319,6 +352,18 @@ configureCallback(fig.UserData.UDP, "terminator", @handleUDPmessage);
 impButton.UserData = struct('run', runButton, 'idle', idleButton, 'quit', quitButton);
 fig.CloseRequestFcn = @handleFigureCloseRequest;
 fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort);
+
+    function sendUpdatedLslForceChannel(src, ~)
+        udpSender = src.Parent.Parent.UserData.UDP;
+        cmd = sprintf('s.%s.%d', src.Parent.Parent.UserData.LslSagaDropDown.Value, src.Parent.Parent.UserData.LslChannelEditField.Value);
+        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+        fprintf(1,'[CONTROLLER]::Sent updated SAGA and CHANNEL: %s\n', cmd);
+        set(src,'BackgroundColor',[0.1 0.0 0.4],'FontColor','w');
+    end
+
+    function lslSagaForceParameterChanged(src, ~)
+        set(src.Parent.Parent.UserData.LslForceSelectionUpdateButton,'BackgroundColor',[0.2 0.6 0.6],'FontColor','k');
+    end
 
     function handleTriggerDebounceChange(src,~)
         udpSender = src.Parent.Parent.UserData.UDP;

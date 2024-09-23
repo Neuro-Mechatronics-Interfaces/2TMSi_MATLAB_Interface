@@ -180,6 +180,7 @@ param = struct(...
     'interpolate_grid', config.Default.Interpolate_Grid, ...
     'hpf', struct('b', [], 'a', []), ... % Filter transfer function numerator (b) and denominator (a) coefficients
     'lpf', struct('b', [], 'a', []), ... % Filter transfer function numerator (b) and denominator (a) coefficients
+    'force', config.Default.LSL_Force_Channel, ...
     'gui', struct('squiggles', struct('enable', config.GUI.Squiggles.Enable, ...
                                       'fig', [], ...
                                       'h', [], ...
@@ -198,6 +199,7 @@ param = struct(...
     'enable_raw_lsl_outlet', config.Default.Enable_Raw_LSL_Outlet, ...
     'enable_envelope_lsl_outlet', config.Default.Enable_Envelope_LSL_Outlet, ...
     'enable_tablet_figure', config.Default.Enable_Tablet_Figure, ...
+    'enable_force_lsl_outlet', config.Default.Enable_Force_LSL_Outlet, ...
     'enable_lsl_gesture_decode', config.Default.Enable_LSL_Gesture_Decode, ...
     'enable_trigger_controller', config.Default.Enable_Trigger_Controller, ...
     'enable_filters', config.Default.Enable_Filters, ...
@@ -342,6 +344,24 @@ if param.enable_envelope_lsl_outlet
     lsl_info_decode.desc().append_child_value('manufacturer', 'NML');
     lsl_outlet_decode = lsl_outlet(lsl_info_decode);
 end
+if param.enable_force_lsl_outlet
+    lsl_info_force = lsl_streaminfo(lib_lsl, ...
+            'FORCE', ...     % Name
+            'EMG', ...                       % Type
+            1, ....           % ChannelCount
+            config.Default.Sample_Rate / 2^config.Default.Sample_Rate_Divider, ...      % NominalSrate
+            'cf_float32', ...                % ChannelFormat
+            sprintf('StreamService_FORCE_%06d',randi(999999,1)));
+    chns = lsl_info_force.desc().append_child('channels');
+    for iCh = 1:1
+        c = chns.append_child('channel');
+        c.append_child_value('name', 'Selected');
+        c.append_child_value('label', 'ONLINE');
+        c.append_child_value('unit', 'μV');
+        c.append_child_value('type', 'EMG');
+    end    
+    lsl_outlet_force = lsl_outlet(lsl_info_force);
+end
 
 %% If tablet pressure stream is enabled, then show this
 if param.enable_tablet_figure
@@ -386,6 +406,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
         past_state = zeros(2,param.n_total.(device.tag));
     end
     grid_ch_uni = struct;
+    saga_index = struct;
     for ii = 1:N_CLIENT % Determine number of channels definitively
         [samples{ii}, num_sets] = device(ii).sample();
         while (num_sets < 1)
@@ -393,6 +414,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             pause(0.5);
         end
         param.n_channels.(device(ii).tag) = size(samples{ii},1);
+        saga_index.(device(ii).tag) = ii;
         grid_ch_uni.(device(ii).tag) = param.use_channels.(device(ii).tag)(param.use_channels.(device(ii).tag) <= 64);
     end
     stop(device);
@@ -518,6 +540,17 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     else
                         hpf_data.(device(ii).tag) = samples{ii}(i_all.(device(ii).tag),:)';
                         env_data.(device(ii).tag) = hpf_data.(device(ii).tag);
+                    end
+                    if param.enable_force_lsl_outlet
+                        if param.force.Channel <= 64
+                            if param.gui.squiggles.hpf_mode
+                                lsl_outlet_force.push_chunk(hpf_data.(param.force.SAGA)(:,param.force.Channel)');
+                            else
+                                lsl_outlet_force.push_chunk(env_data.(param.force.SAGA)(:,param.force.Channel)');
+                            end
+                        else
+                            lsl_outlet_force.push_chunk(samples{saga_index.(param.force.SAGA)}(param.force.Channel,:));
+                        end
                     end
                     if param.enable_trigger_controller && strcmpi(device(ii).tag,'A') % Only use SAGA-A
                         if param.parse_from_bits
@@ -1041,7 +1074,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     if ~isempty(param.gamepad.client)
         delete(param.gamepad.client);
     end
-    clear lsl_info_obj lsl_outlet_obj lib_lsl lsl_outlet_env lsl_info_env lsl_outlet_decode lsl_info_decode
+    clear lsl_info_force lsl_outlet_force lsl_info_obj lsl_outlet_obj lib_lsl lsl_outlet_env lsl_info_env lsl_outlet_decode lsl_info_decode
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     close all force;
 catch me
@@ -1070,7 +1103,7 @@ catch me
         delete(lsl_outlet_decode);
         delete(lib_lsl);
     end
-    clear lsl_info_obj lsl_outlet_obj lib_lsl lsl_outlet_env lsl_info_env lsl_info_decode lsl_outlet_decode
+    clear lsl_info_force lsl_outlet_force lsl_info_obj lsl_outlet_obj lib_lsl lsl_outlet_env lsl_info_env lsl_info_decode lsl_outlet_decode
     close all force;
     fprintf(1, '\n\n-->\tTMSi stream stopped at %s\t<--\n\n', ...
         string(datetime('now')));

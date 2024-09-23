@@ -265,8 +265,15 @@ switch parameter_code
         end
         param.past_rates = struct('A', zeros(numel(param.rate_smoothing_alpha), 64), 'B', zeros(numel(param.rate_smoothing_alpha), 64));
         fprintf(1,['[TMSi]\t->\t[%s]: Rate Smoothing Alpha = ' strjoin(repmat({'%4.3f'}, 1, numel(param.rate_smoothing_alpha)),  ', ') '\n'], parameter_code, param.rate_smoothing_alpha);
-    case 's' % Assign covariance matrix
-        
+    case 's' % Sets the channel for LSL FORCE outlet selected SAGA and channel index
+        command_chunks = strsplit(parameter_value, ':');
+        if numel(command_chunks)~=2
+            fprintf(1,'[TMSi]\t->\t[%s]: Error setting LSL FORCE from received code (should be format of "<SAGA>:<1-indexed CHANNEL>"):  %s\n', parameter_code, parameter_value);
+            return;
+        end
+        param.force.SAGA = command_chunks{1};
+        param.force.Channel = str2double(command_chunks{2});
+        fprintf(1,'[TMSi]\t->\t[%s]: Updated LSL FORCE SAGA and Channel = %s\n', parameter_code, parameter_value);
     case 'v' % Loop debounce iterations
         param.trig_out_debounce_iterations = str2double(parameter_value);
         fprintf(1,'[TMSi]\t->\t[%s]: Loop Debounce Iterations = %s\n', parameter_code, parameter_value);

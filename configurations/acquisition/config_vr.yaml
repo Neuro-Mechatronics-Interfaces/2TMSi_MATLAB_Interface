@@ -78,6 +78,9 @@ Default:
  MVC_Sample_Iterations: 10
  N_Spike_Channels: 64
  Extension_Factor: 30 # For online MUAP detection
+ LSL_Force_Channel: 
+  SAGA: "A"
+  Channel: 1
  Enable_Raw_LSL_Outlet: false
  Enable_Envelope_LSL_Outlet: false
  Enable_Force_LSL_Outlet: true
