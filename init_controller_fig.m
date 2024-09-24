@@ -355,7 +355,7 @@ fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort)
 
     function sendUpdatedLslForceChannel(src, ~)
         udpSender = src.Parent.Parent.UserData.UDP;
-        cmd = sprintf('s.%s.%d', src.Parent.Parent.UserData.LslSagaDropDown.Value, src.Parent.Parent.UserData.LslChannelEditField.Value);
+        cmd = sprintf('s.%s:%d', src.Parent.Parent.UserData.LslSagaDropDown.Value, src.Parent.Parent.UserData.LslChannelEditField.Value);
         writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
         fprintf(1,'[CONTROLLER]::Sent updated SAGA and CHANNEL: %s\n', cmd);
         set(src,'BackgroundColor',[0.1 0.0 0.4],'FontColor','w');
