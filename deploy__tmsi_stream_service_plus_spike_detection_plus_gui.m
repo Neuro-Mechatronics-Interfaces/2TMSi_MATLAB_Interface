@@ -234,9 +234,6 @@ if ~iscell(ch)
 end
 
 param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
-hpf_data = struct('A', [], 'B', []);
-rms_data = struct('A',[],'B',[]);
-env_data = struct('A',[],'B',[]);
 param.n_mvc_acquired = 0;
 i_mono = struct('A', config.SAGA.A.Channels.UNI, 'B', config.SAGA.B.Channels.UNI);
 i_bip = struct('A', config.SAGA.A.Channels.BIP, 'B', config.SAGA.B.Channels.BIP);
@@ -245,6 +242,8 @@ i_all = struct('A', [config.SAGA.A.Channels.UNI, config.SAGA.A.Channels.BIP], ..
 param.zi = struct; % Filter states
 param.zi.hpf = struct('A',zeros(3,numel(i_all.A)), 'B', zeros(3,numel(i_all.B)));
 param.zi.env = struct('A', zeros(3,param.n_total.A), 'B', zeros(3, param.n_total.B));
+hpf_data = struct('A',zeros(3,numel(i_all.A)), 'B', zeros(3,numel(i_all.B)));
+env_data = struct('A',zeros(3,numel(param.n_total.A)), 'B', zeros(3,numel(param.n_total.B)));
 trig_out_state = [false, false];
 
 %% Load the LSL library
