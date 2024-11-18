@@ -175,7 +175,7 @@ param = struct(...
     'name_tag', struct('A', config.SAGA.A.Array.Location, 'B', config.SAGA.B.Array.Location), ...
     'n_total', struct('A', numel(config_channels.A.uni) + numel(config_channels.A.bip), ...
                       'B', numel(config_channels.B.uni) + numel(config_channels.B.bip)), ...
-    'sample_rate', config.Default.Sample_Rate, ...
+    'sample_rate', config.Default.Sample_Rate / 2^config.Default.Sample_Rate_Divider, ...
     'virtual_ref_mode', config.Default.Virtual_Reference_Mode, ...
     'interpolate_grid', config.Default.Interpolate_Grid, ...
     'hpf', struct('b', [], 'a', []), ... % Filter transfer function numerator (b) and denominator (a) coefficients
@@ -350,7 +350,7 @@ if param.enable_force_lsl_outlet
             1, ....           % ChannelCount
             config.Default.Sample_Rate / 2^config.Default.Sample_Rate_Divider, ...      % NominalSrate
             'cf_float32', ...                % ChannelFormat
-            sprintf('StreamService_FORCE_%06d',randi(999999,1)));
+            'FORCE');
     chns = lsl_info_force.desc().append_child('channels');
     for iCh = 1:1
         c = chns.append_child('channel');
@@ -543,12 +543,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if param.enable_force_lsl_outlet
                         if param.force.Channel <= 64
                             if param.gui.squiggles.hpf_mode
-                                lsl_outlet_force.push_chunk(hpf_data.(param.force.SAGA)(:,param.force.Channel)');
+                                % lsl_outlet_force.push_chunk(hpf_data.(param.force.SAGA)(:,param.force.Channel)');
                             else
-                                lsl_outlet_force.push_chunk(env_data.(param.force.SAGA)(:,param.force.Channel)');
+                                % lsl_outlet_force.push_chunk(env_data.(param.force.SAGA)(:,param.force.Channel)');
                             end
                         else
-                            lsl_outlet_force.push_chunk(samples{saga_index.(param.force.SAGA)}(param.force.Channel,:));
+                            % lsl_outlet_force.push_chunk(samples{saga_index.(param.force.SAGA)}(param.force.Channel,:));
                         end
                     end
                     if param.enable_trigger_controller && strcmpi(device(ii).tag,'A') % Only use SAGA-A
@@ -835,7 +835,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         fprintf(1, "[TMSi]::[RUN > REC]: Buffer created, recording in process...\n");
                         rec_file = struct;
                         for ii = 1:N_CLIENT
-                            rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",param.name_tag.(device(ii).tag)), device(ii).sample_rate, ch{ii}.toStruct(), 'w');
+                            rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",param.name_tag.(device(ii).tag)), param.sample_rate, ch{ii}.toStruct(), 'w');
                         end
                         if param.enable_tablet_figure
                             rec_file_tablet = fopen(fname_tablet, 'w');
@@ -961,7 +961,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     fprintf(1, "[TMSi]::[IDLE > REC]: Buffer created, recording in process...\n");
                     rec_file = struct;
                     for ii = 1:N_CLIENT
-                        rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",param.name_tag.(device(ii).tag)), device(ii).sample_rate, ch{ii}.toStruct(), 'w');
+                        rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",param.name_tag.(device(ii).tag)), param.sample_rate, ch{ii}.toStruct(), 'w');
                         
                     end
                 end

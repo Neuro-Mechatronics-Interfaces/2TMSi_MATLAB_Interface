@@ -69,7 +69,7 @@ Default:
  Device_Reference_Mode: 'average' # must be 'average' (uses CAR from SAGA device) or 'common' (with separate CREF)
  Virtual_Reference_Mode: 0        # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2 (if Interpolate_Grid); 4: del2 for 2textile after interp2 (if Interpolate_Grid)
  Interpolate_Grid: false          # Only applies if CAR_Mode is set to 3 or 4
- Subject: "MCP04"
+ Subject: "MCP05"
  Sample_Rate: 4000 # Must be 4000 (base) or 4096 (base); set lower using dividers below
  Sync_Bit: 1
  File_Type: ".poly5"
