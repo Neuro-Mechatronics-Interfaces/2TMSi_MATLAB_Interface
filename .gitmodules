@@ -46,3 +46,6 @@
 [submodule "+buf"]
 	path = +buf
 	url = https://github.com/Neuro-Mechatronics-Interfaces/matlab_package__circle_buffer
+[submodule "+cursor"]
+	path = +cursor
+	url = https://github.com/Neuro-Mechatronics-Interfaces/matlab_package__cursor
