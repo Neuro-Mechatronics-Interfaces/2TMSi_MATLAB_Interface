@@ -203,6 +203,7 @@ param = struct(...
     'enable_lsl_gesture_decode', config.Default.Enable_LSL_Gesture_Decode, ...
     'enable_trigger_controller', config.Default.Enable_Trigger_Controller, ...
     'enable_filters', config.Default.Enable_Filters, ...
+    'enable_joystick', config.Default.Enable_Joystick, ...
     'dsp_extension_factor', config.Default.Extension_Factor, ...
     'prev_data', struct('A', zeros(config.Default.Extension_Factor,64), 'B', zeros(config.Default.Extension_Factor,64)), ...
     'parse_from_bits', config.Triggers.Parse_From_Bits, ...
@@ -367,6 +368,11 @@ if param.enable_tablet_figure
     tablet_fig = init_pressure_tracking_fig();
 end
 
+%% If we want the joystick, then open it up
+if param.enable_joystick
+    cObj = cursor.Cursor();
+end
+
 %% Configuration complete, run main control loop.
 try % Final try loop because now if we stopped for example due to ctrl+c, it is not necessarily an error.
     samples = cell(N_CLIENT,1);
@@ -392,6 +398,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     end
     fname_tablet = strrep(fname,"%s","TABLET");
     fname_tablet = strrep(fname_tablet,'.poly5','.bin');
+    fname_joystick = strrep(fname,"%s","JOYSTICK");
+    fname_joystick = strrep(fname_joystick,'.poly5','.dat');
+
     start(device);
     pause(1.0);
     counter_offset = 0;
@@ -444,6 +453,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             end
             fname_tablet = strrep(fname,"%s","TABLET");
             fname_tablet = strrep(fname_tablet,'.poly5','.bin');
+            fname_joystick = strrep(fname,"%s","JOYSTICK");
+            fname_joystick = strrep(fname_joystick,'.poly5','.dat');
             fprintf(1, "File name updated: %s\n", fname);
         end
         
@@ -454,6 +465,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
         end
 
         while (~strcmpi(state, "idle")) && (~strcmpi(state, "quit")) && (~strcmpi(state, "imp"))
+            dt_tick = datetime();
             % Check for a filename update.
             while udp_name_receiver.NumBytesAvailable > 0
                 tmp = udp_name_receiver.readline();
@@ -473,6 +485,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 end
                 fname_tablet = strrep(fname,'%s','TABLET');
                 fname_tablet = strrep(fname_tablet,'.poly5','.bin');
+                fname_joystick = strrep(fname,"%s","JOYSTICK");
+                fname_joystick = strrep(fname_joystick,'.poly5','.dat');
                 fprintf(1, "File name updated: %s\n", fname);
             end
 
@@ -848,6 +862,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             fprintf(rec_file_tablet, headerLine2);
                             fprintf(rec_file_tablet, headerLine3);
                         end
+                        if param.enable_joystick
+                            cObj.setLogging(true, fname_joystick);
+                            start(cObj);
+                        end
                     end
                     recording = true;
                     running = true;
@@ -855,6 +873,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     running = strcmpi(state, "run");
                     if ~running
                         stop(device);
+                        if param.enable_joystick
+                            stop(cObj);
+                        end
                     end
                     if recording
                         fprintf(1, "[TMSi]::[REC > RUN]: Recording complete\n\t->\t(%s)\n", fname);
@@ -864,6 +885,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         end
                         if param.enable_tablet_figure
                             fclose(rec_file_tablet);
+                        end
+                        if param.enable_joystick
+                            setLogging(cObj,false);
                         end
                     end
                     recording = false;
@@ -880,6 +904,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 % If using tablet mex, log samples from tablet
                 if param.enable_tablet_figure
                     
+                end
+                if param.enable_joystick
+                    cObj.logData(dt_tick, samples{saga_index.A}(end,end));
                 end
             end
 
@@ -962,7 +989,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     rec_file = struct;
                     for ii = 1:N_CLIENT
                         rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",param.name_tag.(device(ii).tag)), param.sample_rate, ch{ii}.toStruct(), 'w');
-                        
+                    end
+                    if param.enable_joystick
+                        setLogging(cObj,true,fname_joystick);
+                        start(cObj);
                     end
                 end
                 recording = true;
@@ -971,6 +1001,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     needs_offset = true;
                     counter_offset = 0;
                     running = true;
+                    if param.enable_joystick
+                        start(cObj);
+                    end
                 end
             elseif strcmpi(state, "run")
                 if ~running
@@ -978,6 +1011,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     needs_offset = true;
                     counter_offset = 0;
                     running = true;
+                    if param.enable_joystick
+                        start(cObj);
+                    end
                 end
             end
             % If we are in impedance mode, change device config and show
@@ -1056,7 +1092,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     running = false;
     disconnect(device);
     clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
-    try %#ok<TRYNC>
+    try 
         for ii = 1:numel(device)
             delete(lsl_info_obj.(device(ii).tag));
             delete(lsl_outlet_obj.(device(ii).tag));
@@ -1072,6 +1108,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     end
     if ~isempty(param.gamepad.client)
         delete(param.gamepad.client);
+    end
+    if param.enable_joystick
+        try %#ok<*TRYNC>
+            delete(cObj);
+        end
+        clear cObj;
     end
     clear lsl_info_force lsl_outlet_force lsl_info_obj lsl_outlet_obj lib_lsl lsl_outlet_env lsl_info_env lsl_outlet_decode lsl_info_decode
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
@@ -1089,9 +1131,16 @@ catch me
     if ~isempty(param.gamepad.client)
         delete(param.gamepad.client);
     end
+    if param.enable_joystick
+        try
+            delete(cObj);
+        end
+        clear cObj;
+    end
+    
     clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
-    try %#ok<TRYNC>
+    try
         for ii = 1:numel(device)
             delete(lsl_info_obj.(device(ii).tag));
             delete(lsl_outlet_obj.(device(ii).tag));
