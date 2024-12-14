@@ -89,6 +89,7 @@ Default:
  Enable_Filters: true 
  Enable_Tablet_Figure: false
  Enable_Trigger_Controller: false
+ Enable_Joystick: true
 Triggers:
  Enable: true
  Emulate_Mouse: false
