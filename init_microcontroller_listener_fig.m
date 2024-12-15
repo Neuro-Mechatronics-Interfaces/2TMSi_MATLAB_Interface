@@ -1,4 +1,4 @@
-function fig = init_microcontroller_listener_fig(options)
+function [fig, teensy] = init_microcontroller_listener_fig(options)
 %INIT_MICROCONTROLLER_LISTENER_FIG Initialize the listener fig for controlling microcontroller write to synchronization output bits.
 %
 % Syntax:

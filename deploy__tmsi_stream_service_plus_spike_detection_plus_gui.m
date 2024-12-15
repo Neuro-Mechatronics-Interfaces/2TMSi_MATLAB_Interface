@@ -863,6 +863,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             fprintf(rec_file_tablet, headerLine3);
                         end
                         if param.enable_joystick
+                            stop(cObj);
                             cObj.setLogging(true, fname_joystick);
                             start(cObj);
                         end
@@ -887,6 +888,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             fclose(rec_file_tablet);
                         end
                         if param.enable_joystick
+                            stop(cObj);
                             setLogging(cObj,false);
                         end
                     end
