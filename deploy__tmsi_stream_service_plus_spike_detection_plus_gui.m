@@ -863,9 +863,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             fprintf(rec_file_tablet, headerLine3);
                         end
                         if param.enable_joystick
-                            stop(cObj);
-                            cObj.setLogging(true, fname_joystick);
-                            start(cObj);
+                            % stop(cObj);
+                            % cObj.setLogging(true, fname_joystick);
+                            % start(cObj);
                         end
                     end
                     recording = true;
@@ -875,7 +875,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if ~running
                         stop(device);
                         if param.enable_joystick
-                            stop(cObj);
+                            % stop(cObj);
                         end
                     end
                     if recording
@@ -888,8 +888,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             fclose(rec_file_tablet);
                         end
                         if param.enable_joystick
-                            stop(cObj);
-                            setLogging(cObj,false);
+                            % stop(cObj);
+                            % setLogging(cObj,false);
                         end
                     end
                     recording = false;
@@ -908,7 +908,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     
                 end
                 if param.enable_joystick
-                    cObj.logData(zeros(1,2,'single'), dt_tick, samples{saga_index.A}(end,end));
+                    % cObj.logData(zeros(1,2,'single'), dt_tick, samples{saga_index.A}(end,end));
                 end
             end
 
@@ -993,8 +993,8 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                         rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",param.name_tag.(device(ii).tag)), param.sample_rate, ch{ii}.toStruct(), 'w');
                     end
                     if param.enable_joystick
-                        setLogging(cObj,true,fname_joystick);
-                        start(cObj);
+                        % setLogging(cObj,true,fname_joystick);
+                        % start(cObj);
                     end
                 end
                 recording = true;
@@ -1004,7 +1004,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     counter_offset = 0;
                     running = true;
                     if param.enable_joystick
-                        start(cObj);
+                        % start(cObj);
                     end
                 end
             elseif strcmpi(state, "run")
@@ -1014,7 +1014,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     counter_offset = 0;
                     running = true;
                     if param.enable_joystick
-                        start(cObj);
+                        % start(cObj);
                     end
                 end
             end

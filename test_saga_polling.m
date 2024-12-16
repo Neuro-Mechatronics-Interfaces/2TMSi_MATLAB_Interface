@@ -21,8 +21,8 @@ device = lib.getDevices('usb', 'electrical', 2, 2);
 connect(device);
 
 %% Name output files
-SUBJ = "Test";
-BLOCK = 2;
+SUBJ = "MCP07";
+BLOCK = 16;
 MAX_TIME_SECONDS = 120; % Acquisition will not last longer than this (please only set to integer values)
 BATCH_SIZE_SECONDS = 0.010; % Each acquisition cycle grabs sample batches of this duration (sample count depends on sample rate).
 
