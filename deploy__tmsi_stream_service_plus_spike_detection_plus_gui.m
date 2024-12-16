@@ -908,7 +908,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     
                 end
                 if param.enable_joystick
-                    cObj.logData(dt_tick, samples{saga_index.A}(end,end));
+                    cObj.logData(zeros(1,2,'single'), dt_tick, samples{saga_index.A}(end,end));
                 end
             end
 
