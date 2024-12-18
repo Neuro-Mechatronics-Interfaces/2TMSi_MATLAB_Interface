@@ -21,6 +21,31 @@ switch parameter_code
         else
             param.enable_filters = true;
             param.virtual_ref_mode = virtual_ref_code;
+            switch virtual_ref_code
+                case {1,2} % CAR: no spatial ref
+                    param.ref_projection.A = eye(64);
+                    param.ref_projection.B = eye(64);
+                case 3 % Discrete Laplacian: Standard Grids
+                    param.ref_projection.A = generateLaplacianMatrix([8,8]);
+                    param.ref_projection.B = generateLaplacianMatrix([8,8]);
+                case 4 % Discrete Laplacian: Textiles
+                    param.ref_projection.A = generateLaplacianMatrix([8,4; 8,4]);
+                    param.ref_projection.B = generateLaplacianMatrix([8,4; 8,4]); 
+                case 5 % Single Differential Rows: Standard Grids
+                    param.ref_projection.A = generateSingleDifferentialRows([8,8]);
+                    param.ref_projection.B = generateSingleDifferentialRows([8,8]);
+                case 6 % Single Differential Rows: Textiles
+                    param.ref_projection.A = generateSingleDifferentialRows([8,4; 8,4]);
+                    param.ref_projection.B = generateSingleDifferentialRows([8,4; 8,4]); 
+                case 7 % Single Differential Cols: Standard Grids
+                    param.ref_projection.A = generateSingleDifferentialColumns([8,8]);
+                    param.ref_projection.B = generateSingleDifferentialColumns([8,8]);
+                case 8 % Single Differential Cols: Textiles
+                    param.ref_projection.A = generateSingleDifferentialColumns([8,4; 8,4]);
+                    param.ref_projection.B = generateSingleDifferentialColumns([8,4; 8,4]); 
+                otherwise
+                    fprintf(1,'[TMSi]\t->\t[%s]: Unhandled filter code. Actually filtering is OFF.\n', virtual_ref_code);
+            end
             fprintf(1,'[TMSi]\t->\t[%s]: Filtering ON. Virtual Reference Mode = %s\n', parameter_code, parameter_value);
         end
     case 'b' % Name Tag

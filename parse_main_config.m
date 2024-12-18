@@ -92,6 +92,7 @@ if N_CLIENT < 1
     error("No SAGA devices are enabled in config.yaml. Must enable at least 1 unit to continue.");
 end
 
+config.Default.UsingTextiles = false;
 def_tags = ["A", "B"];
 ch_type_opts = ["CREF", "UNI", "BIP", "AUX", "STAT", "COUNT"];
 for ii = 1:numel(def_tags)
@@ -106,6 +107,7 @@ for ii = 1:numel(def_tags)
                 config.SAGA.(tag).Channels.(chs) = config.SAGA.(tag).Channels.(chs) - 1;
             end
             if startsWith(upper(string(config.SAGA.(tag).Array.Type)),"TEXTILE") && strcmpi(chs,"UNI") && (numel(config.SAGA.(tag).Channels.(chs))==64)
+                config.Default.UsingTextiles = true;
                 config.SAGA.(tag).Channels.(chs) = config.SAGA.(tag).Channels.(chs)(textile_8x8_uni2grid_mapping());
             end
         end
