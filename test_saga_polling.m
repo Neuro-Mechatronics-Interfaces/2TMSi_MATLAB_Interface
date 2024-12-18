@@ -62,11 +62,11 @@ fs = device(1).sample_rate; % Should both be the same sample rate
 batch_samples = fs * BATCH_SIZE_SECONDS;
 ticks_per_second = round(1/BATCH_SIZE_SECONDS);
 max_clock_cycles = ticks_per_second * MAX_TIME_SECONDS;
-[b_hpf,a_hpf] = butter(3,100/(x.sample_rate/2),'high');
+[b_hpf,a_hpf] = butter(3,100/(fs/2),'high');
 z_hpf = zeros(3,128);
-[b_env,a_env] = butter(1,1.5/(x.sample_rate/2),'low');
+[b_env,a_env] = butter(1,1.5/(fs/2),'low');
 z_env = zeros(1,128);
-[b_p,a_p] = butter(1,6/(x.sample_rate/2),'low');
+[b_p,a_p] = butter(1,6/(fs/2),'low');
 z_p = zeros(1,128);
 channelOrder = textile_8x8_uni2grid_mapping();
 channelOrder = [channelOrder+70, channelOrder];
@@ -88,7 +88,7 @@ iCount = 1;
 
 cObj = cursor.Cursor('BufferSamples', batch_samples);
 cObj.setLogging(true, strrep(POLY5_OUTPUT_FILE, ".poly5", ".dat"));
-start(cObj);
+% start(cObj);
 
 startTick = datetime();
 averageTime = 0;
@@ -120,7 +120,7 @@ while isvalid(fig)
     iCount = iCount + 1;
     startTick = curTick;
 end
-stop(cObj);
+% stop(cObj);
 delete(cObj);
 delete(teensy);
 delete(fig);
