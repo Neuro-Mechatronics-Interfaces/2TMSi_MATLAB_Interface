@@ -21,10 +21,12 @@ device = lib.getDevices('usb', 'electrical', 2, 2);
 connect(device);
 
 %% Name output files
-SUBJ = "MCP07";
-BLOCK = 16;
+SUBJ = "MCP04";
+BLOCK = 0;
 MAX_TIME_SECONDS = 120; % Acquisition will not last longer than this (please only set to integer values)
 BATCH_SIZE_SECONDS = 0.010; % Each acquisition cycle grabs sample batches of this duration (sample count depends on sample rate).
+BETA = getfield(load('Default_PLS_Coefficients_RH.mat','beta'),'beta');
+GAIN = 1;
 
 dt = datetime();
 s = sprintf('%s_%04d_%02d_%02d',SUBJ,year(dt), month(dt), day(dt));
@@ -49,10 +51,25 @@ all_ch = add_channel_struct(all_ch, 'Target','-', "G", -1);
 all_ch = add_channel_struct(all_ch, 'Score', '-', "G", -1);
 all_ch = add_channel_struct(all_ch, 'Trial', '-', "G", -1);
 
+all_ch = add_channel_struct(all_ch, 'PredPx', '-', "X", -1);
+all_ch = add_channel_struct(all_ch, 'PredPy', '-', "X", -1);
+all_ch = add_channel_struct(all_ch, 'PredVx', '-', "X", -1);
+all_ch = add_channel_struct(all_ch, 'PredVy', '-', "X", -1);
+all_ch = add_channel_struct(all_ch, 'PredAx', '-', "X", -1);
+all_ch = add_channel_struct(all_ch, 'PredAy', '-', "X", -1);
+
 fs = device(1).sample_rate; % Should both be the same sample rate
 batch_samples = fs * BATCH_SIZE_SECONDS;
 ticks_per_second = round(1/BATCH_SIZE_SECONDS);
 max_clock_cycles = ticks_per_second * MAX_TIME_SECONDS;
+[b_hpf,a_hpf] = butter(3,100/(x.sample_rate/2),'high');
+z_hpf = zeros(3,128);
+[b_env,a_env] = butter(1,1.5/(x.sample_rate/2),'low');
+z_env = zeros(1,128);
+[b_p,a_p] = butter(1,6/(x.sample_rate/2),'low');
+z_p = zeros(1,128);
+channelOrder = textile_8x8_uni2grid_mapping();
+channelOrder = [channelOrder+70, channelOrder];
 
 %%
 POLY5_OUTPUT_FILE = string(sprintf("%s_Synchronized_%d.poly5", s, BLOCK));
@@ -78,22 +95,28 @@ averageTime = 0;
 
 while isvalid(fig)
     data = sample_sync(device, batch_samples); % Poll in batches of 10-ms (2kHz assumed)
-    combined_data = [data; repelem(cObj.StateBuffer(:,(end-3):end),1,5)];
+    [uni,z_hpf] = filter(b_hpf,a_hpf,data(channelOrder,:),z_hpf,2);
+    uni_s = reshape(del2(reshape(uni,8,16,[])),128,[]);
+    [uni_e,z_env] = filter(b_env,a_env,abs(uni_s),z_env,2);
+    state = [ones(batch_samples,1), uni_e'] * BETA * GAIN;
+    combined_data = [data; repelem(cObj.StateBuffer(:,(end-3):end),1,5); state'];
     p5.append(combined_data); % Dump samples to the file
     
     curTick = datetime();
-    averageTime = ((iCount-1)*averageTime + milliseconds(curTick - startTick))/iCount; 
+    delta_t = seconds(curTick - startTick);
+    averageTime = ((iCount-1)*averageTime + delta_t)/iCount; 
     if rem(iCount,ticks_per_second)==0 % Roughly once per second, print debug info
-        % cmd = sprintf('%d',randi(5,1)-1);
-        % try %#ok<TRYNC>
-        %     teensy.write(cmd,'char');
-        % end
-        fprintf(1,'Average loop: %.2f ms\n', round(averageTime,2));
+        cmd = sprintf('%d',randi(5,1)-1);
+        try %#ok<TRYNC>
+            teensy.write(cmd,'char');
+        end
+        fprintf(1,'Average loop: %0.3f s\n', round(averageTime,2));
         if iCount == max_clock_cycles
             fprintf(1,'Time-limit reached. Ending acquisition.\n');
             break;
         end
     end
+    cObj.update(mean(state(:,3),1), mean(state(:,4),1), delta_t);
     iCount = iCount + 1;
     startTick = curTick;
 end
