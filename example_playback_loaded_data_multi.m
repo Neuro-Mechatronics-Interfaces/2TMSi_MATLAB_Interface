@@ -4,7 +4,7 @@ clear;
 close all force;
 clc;
 
-LOAD_DATA_DIRECT = false;
+LOAD_DATA_DIRECT = true;
 LOAD_WEIGHTS = false;
 
 TAG = ["Distal Flexor"; "Distal Extensor"];
@@ -57,7 +57,7 @@ if isnan(iExc)
 end
 
 LINE_VERTICAL_OFFSET = 10; % microvolts
-HORIZONTAL_SCALE = 0.05; % seconds
+HORIZONTAL_SCALE = 2.00; % seconds
 SAMPLE_RATE_RECORDING = data.sample_rate;
 
 %% Setup graphics
@@ -113,6 +113,7 @@ for iH = 1:nUni
                     'LineWidth',0.5,...
                     'LineStyle','-');
 end
+h_model = line(ax, linspace(-10, 8.1*(h_scale+h_spacing)*nGrid+(nGrid-1)*grid_spacing, 20), ones(1,20).*8.25, 'Color', 'k', 'LineWidth', 1, 'LineStyle', ':');
 
 sync_ax = nexttile(L,5,[1 1]);
 maxSync = max(data.samples(iTrig(end),:));
@@ -122,7 +123,7 @@ set(sync_ax,'NextPlot','add','FontName','Tahoma','YLim',[minSync-0.05*deltaSync,
 title(sync_ax,'Sync','FontName','Tahoma','Color','k');
 h_sync = line(sync_ax,1:h_scale,nan(1,h_scale),'Color','k','LineStyle','-','LineWidth',1.5);
 
-%% Run loop while figure is open.
+% Run loop while figure is open.
 needs_initial_ts = true;
 ts0 = 0;
 nTotal = size(data.samples,2);
@@ -132,6 +133,7 @@ counter_data = data.samples(iCounter(end),:);
 counter_data = counter_data - counter_data(1) + 1;
 trigger_data = data.samples(iTrig(end),:);
 trigger_data(counter_data < sync{1}.rising(2)) = minSync;
+model_update_step = 1;
 channel_vec = (1:nUni)';
 while isvalid(fig)
     uni = data.samples(iUni, sample_vec);
@@ -148,7 +150,13 @@ while isvalid(fig)
         h(iH).YData(iVec) = uni(iH,:)+LINE_VERTICAL_OFFSET*rem(iH-1,8);
     end
     h_sync.YData(iVec) = trig;
-    drawnow();
+    r = rms(uni,2);
+    decode = randn(1,1) .* 15; % This is supposed to me model(r) or r * BETA;
+    h_model.YData(model_update_step) = decode;
+
+    drawnow limitrate;
+    pause(0.005);
+    model_update_step = rem(model_update_step, 20) + 1;
     sample_vec = rem(sample_vec + step_size - 1, nTotal) + 1;
 end
 

@@ -402,7 +402,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     fname_tablet = strrep(fname,"%s","TABLET");
     fname_tablet = strrep(fname_tablet,'.poly5','.bin');
     fname_joystick = strrep(fname,"%s","JOYSTICK");
-    fname_joystick = strrep(fname_joystick,'.poly5','.dat');
+    fname_joystick = strrep(fname_joystick,'.poly5','.cursordata');
 
     start(device);
     pause(1.0);
@@ -457,7 +457,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             fname_tablet = strrep(fname,"%s","TABLET");
             fname_tablet = strrep(fname_tablet,'.poly5','.bin');
             fname_joystick = strrep(fname,"%s","JOYSTICK");
-            fname_joystick = strrep(fname_joystick,'.poly5','.dat');
+            fname_joystick = strrep(fname_joystick,'.poly5','.cursordata');
             fprintf(1, "File name updated: %s\n", fname);
         end
         
@@ -489,7 +489,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 fname_tablet = strrep(fname,'%s','TABLET');
                 fname_tablet = strrep(fname_tablet,'.poly5','.bin');
                 fname_joystick = strrep(fname,"%s","JOYSTICK");
-                fname_joystick = strrep(fname_joystick,'.poly5','.dat');
+                fname_joystick = strrep(fname_joystick,'.poly5','.cursordata');
                 fprintf(1, "File name updated: %s\n", fname);
             end
 
