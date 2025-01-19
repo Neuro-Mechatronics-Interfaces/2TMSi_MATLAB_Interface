@@ -6,7 +6,7 @@ ch = [];
 offset = 0;
 for iCh = 1:numel(dev_ch)
     tmp = dev_ch{iCh}.toStruct(offset);
-    ch = [ch, tmp];
+    ch = [ch, tmp]; %#ok<AGROW>
     offset = numel(ch);
 end
 end
