@@ -16,7 +16,7 @@ else
     clear all;
 end
 %% Set global variables
-global SPIKE_HISTORY DEBOUNCE_HISTORY THRESHOLD_GAIN MUAP_THRESH SELECTED_CHANNEL RISING_THRESH FALLING_THRESH RMS_ALPHA RMS_BETA DEBOUNCE_LOOP_ITERATIONS %#ok<GVMIS>
+global BAD_CH SPIKE_HISTORY DEBOUNCE_HISTORY THRESHOLD_GAIN MUAP_THRESH SELECTED_CHANNEL RISING_THRESH FALLING_THRESH RMS_ALPHA RMS_BETA DEBOUNCE_LOOP_ITERATIONS %#ok<GVMIS>
 
 %% Initialize values of global variables
 SELECTED_CHANNEL = 101;
@@ -94,6 +94,7 @@ z_hpf = zeros(3,128);
 z_env = zeros(1,128);
 [b_p,a_p] = butter(1,6/(fs/2),'low');
 z_p = zeros(1,128);
+BAD_CH = [];
 
 %% Create tcpclient which will transmit the commands
 % conn = tcpclient("127.0.0.1", 6053);
@@ -103,8 +104,6 @@ vigem_gamepad(1);
 buttonState = false;
 inDebounce = false;
 debounceIterations = 0;
-bad_ch = [32,71,72,80,88,90];
-n_bad_ch = numel(bad_ch);
 
 if exist(SAVE_FOLDER,'dir')==0
     mkdir(SAVE_FOLDER);
@@ -167,7 +166,7 @@ while isvalid(fig) && isvalid(muap_fig)
     data = sample_sync(device, batch_samples); % Poll in batches of 10-ms (2kHz assumed)
     batch_toc = toc(mainTic);
     [uni,z_hpf] = filter(b_hpf,a_hpf,data(channelOrder,:),z_hpf,2);
-    uni(bad_ch,:) = randn(n_bad_ch,batch_samples);
+    uni(BAD_CH,:) = randn(numel(BAD_CH),batch_samples);
     uni_s = reshape(del2(reshape(uni,8,16,[])),128,[]);
     [uni_e,z_env] = filter(b_env,a_env,abs(uni_s),z_env,2);
     uni_rates_s = RMS_ALPHA * sum(uni_s > (MUAP_THRESH.*THRESHOLD_GAIN),2) + RMS_BETA * uni_rates_s;

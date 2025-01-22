@@ -11,7 +11,7 @@ arguments
     options.ParametersFileDefault {mustBeTextScalar} = 'configurations/decoding/MUAP_Reaction_Parameters.mat';
     options.ParametersFileSaveExpression {mustBeTextScalar} = 'configurations/decoding/%s_%s_MUAP_Reaction_Parameters_%d.mat';
 end
-global SPIKE_HISTORY DEBOUNCE_HISTORY THRESHOLD_GAIN SELECTED_CHANNEL RISING_THRESH FALLING_THRESH RMS_ALPHA RMS_BETA DEBOUNCE_LOOP_ITERATIONS %#ok<GVMIS>
+global SPIKE_HISTORY DEBOUNCE_HISTORY THRESHOLD_GAIN SELECTED_CHANNEL RISING_THRESH FALLING_THRESH RMS_ALPHA RMS_BETA DEBOUNCE_LOOP_ITERATIONS BAD_CH %#ok<GVMIS>
 
 nGrids = numel(options.Grids);
 hFigure = figure('Color', 'w', 'Name', 'MUAP Heatmap', ...
@@ -21,12 +21,13 @@ ax = axes(hFigure, 'NextPlot', 'add', 'YDir', 'normal', ...
     'XColor', 'none', 'YColor', 'none', ...
     'XLim', [0.5, nGrids * options.ColumnsPerGrid+0.5], ...
     'YLim', [0.5, options.RowsPerGrid + 0.5], 'Colormap', options.Colormap, ...
-    'CLim', options.CLim);
+    'CLim', options.CLim, 'ButtonDownFcn',@handleHeatmapClick, ...
+    'UserData', gobjects(1,0));
 cdata = zeros(options.RowsPerGrid, options.ColumnsPerGrid*nGrids);
 hImage = imagesc(ax, ...
     [1, options.ColumnsPerGrid * nGrids], ...
     [1, options.RowsPerGrid], ...
-    cdata);
+    cdata, 'HitTest','off');
 hColorBar = colorbar(ax, 'FontName','Tahoma','Ticks',sort([options.CLim(1), RISING_THRESH, FALLING_THRESH,   options.CLim(2)],'ascend'), ...
     'TickLabels', {sprintf('%d',round(options.CLim(1))), '\color{red}RISING', '\color{blue}FALLING',sprintf('%d',round(options.CLim(2)))});
 title(hColorBar, 'Count', 'FontName', 'Tahoma', 'Color', [0.65 0.65 0.65]);
@@ -35,10 +36,10 @@ for ii = 1:nGrids
     tx = 0.5 + (options.ColumnsPerGrid/2) + options.ColumnsPerGrid * (ii-1);
     text(ax, tx, ax.YLim(1)-0.1, options.Grids{ii}, ...
         'FontName', 'Consolas', 'Color', [0.5 0.5 0.5], 'FontSize', 8, ...
-        'HorizontalAlignment','center', 'VerticalAlignment','cap');
+        'HorizontalAlignment','center', 'VerticalAlignment','cap','HitTest','off');
     if ii < nGrids
         lx = 0.5 + options.ColumnsPerGrid * ii;
-        line(ax, ones(1,2).*lx, ax.YLim, 'Color', 'k', 'LineWidth', 2, 'LineStyle', '--');
+        line(ax, ones(1,2).*lx, ax.YLim, 'Color', 'k', 'LineWidth', 2, 'LineStyle', '--','HitTest','off');
     end
 end
 hChTxt = gobjects(numel(cdata), 1);
@@ -49,7 +50,7 @@ for iCh = 1:numel(cdata)
     ty = rem(iCh-1,options.RowsPerGrid)+1;
     hChTxt(iCh) = text(ax, tx, ty, ch_txt(iCh), 'Color', 'w', 'FontWeight', 'normal', ...
         'FontSize', 8, 'FontName', 'Consolas', 'HorizontalAlignment','center', ...
-        'VerticalAlignment','middle');
+        'VerticalAlignment','middle','HitTest','off');
 end
 
 set(hChTxt(SELECTED_CHANNEL),'Color','m','FontWeight','bold');
@@ -241,6 +242,10 @@ hFigure.UserData.LoadButton = uicontrol(hFigure, 'Style', 'pushbutton', ...
         DEBOUNCE_LOOP_ITERATIONS = in.DEBOUNCE_LOOP_ITERATIONS;
         f.UserData.DebounceIterationsControl.String = sprintf("%d", DEBOUNCE_LOOP_ITERATIONS);
 
+        if isfield(in,'BAD_CH')
+            BAD_CH = in.BAD_CH;
+        end
+
         drawnow();
         fprintf(1,'\t->\tParameters updated successfully.\n');
     end
@@ -248,10 +253,28 @@ hFigure.UserData.LoadButton = uicontrol(hFigure, 'Style', 'pushbutton', ...
         dt = datetime('now', 'Format', 'uuuu-MM-dd');
         s = sprintf("%s",strrep(string(dt),'-','_'));
         saved_file = sprintf(src.UserData.expression, src.UserData.subject, s, src.UserData.block);
-        save(saved_file, 'SPIKE_HISTORY', 'DEBOUNCE_HISTORY', 'DEBOUNCE_LOOP_ITERATIONS', 'RISING_THRESH', ...
+        save(saved_file, 'BAD_CH', 'SPIKE_HISTORY', 'DEBOUNCE_HISTORY', 'DEBOUNCE_LOOP_ITERATIONS', 'RISING_THRESH', ...
             'FALLING_THRESH', 'RMS_ALPHA', 'RMS_BETA', 'SELECTED_CHANNEL', ...
             'THRESHOLD_GAIN', '-v7.3');
         fprintf(1,'Saved parameters to file: %s\n', saved_file);
+    end
+    function handleHeatmapClick(src,~)
+        row = round(src.CurrentPoint(1,2));
+        col = round(src.CurrentPoint(1,1));
+        clicked_ch = sub2ind([8,16],row,col);
+        if ismember(clicked_ch,BAD_CH)
+            h_remove = findobj(src.UserData,'UserData',clicked_ch);
+            BAD_CH = setdiff(BAD_CH,clicked_ch);
+            src.UserData = setdiff(src.UserData,h_remove);
+            delete(h_remove);
+        else
+            BAD_CH = [BAD_CH, clicked_ch];
+            offset_x = [-0.5, -0.5, 0.5, 0.5];
+            offset_y = [-0.5, 0.5, 0.5, -0.5];
+            src.UserData = [src.UserData, ...
+                patch(src, col + offset_x, row + offset_y, 'k', ...
+                        'UserData', clicked_ch, 'HitTest', 'off')];
+        end
     end
 
 end
