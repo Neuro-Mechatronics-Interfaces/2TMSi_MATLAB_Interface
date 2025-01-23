@@ -1,0 +1,64 @@
+SAGA:
+ A: 
+   Enable: true
+   FileType: ".mat"
+   Unit: "SAGAA"
+   Array: 
+    Type: "Textiles"
+    Location: "A_PROX"
+   Trigger:
+    Channel: 69 # parser subtracts 1 from this value if detected ref mode is 'average'
+    Bit: 1
+   Channels:
+    CREF: 1
+    UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65] # parser subtracts 1 from this value if detected ref mode is 'average'
+    BIP: [] # parser subtracts 1 from this value if detected ref mode is 'average'
+    AUX: [66,67,68] # parser subtracts 1 from this value if detected ref mode is 'average'
+    DIG: [] # parser subtracts 1 from this value if detected ref mode is 'average'
+    ACC_EN: 0  # set to 1 to enable internal accelerometer channels
+    STAT: 70 # parser subtracts 1 from this value if detected ref mode is 'average'
+    COUNT: 71 # parser subtracts 1 from this value if detected ref mode is 'average'
+ B: 
+   Enable: true
+   Unit: "SAGAB"
+   FileType: ".mat"
+   Array: 
+    Type: "Textiles"
+    Location: "B_DIST"
+   Trigger:
+    Channel: 69 # parser subtracts 1 from this value if detected ref mode is 'average'
+    Bit: 1
+   Channels:
+    CREF: 1
+    UNI: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65] # parser subtracts 1 from this value if detected ref mode is 'average'
+    BIP: [] # parser subtracts 1 from this value if detected ref mode is 'average'
+    AUX: [66,67,68] # parser subtracts 1 from this value if detected ref mode is 'average'
+    DIG: [] # parser subtracts 1 from this value if detected ref mode is 'average'
+    ACC_EN: 0  # set to 1 to enable internal accelerometer channels
+    STAT: 70 # parser subtracts 1 from this value if detected ref mode is 'average'
+    COUNT: 71 # parser subtracts 1 from this value if detected ref mode is 'average'
+Gestures:
+ Peripherals:
+  MEGA2560:
+   Port: "COM7"
+   Baud: 250000
+  Teensy41:
+   Port: "COM6"
+   Baud: 115200
+ Animation:
+  Instruction_Duration: 3 # seconds, how much additional time on each gesture transition is given to read what the next gesture will be
+  Transition_Duration: 0.3 # seconds, for animating the gesture from REST --> ACTIVE or ACTIVE --> REST
+  Debounce_Duration: 0.05 # seconds, for debouncing additional keyboard input
+  Gesture_Duration: 2 # number of seconds to hold the gesture HIGH state
+  Rest_Duration: 1.0 # number of seconds to hold the gesture REST state
+  Repetitions: 5 # number of repetitions of each gesture
+  Frame_Rate: 60 # frames per second, for playback of gesture input
+Default:
+ Subject: "MCPXX"
+ Block: 0
+ Folder: "C:/Data/TMSi"
+ Interface: "electrical"
+ Device_Reference_Mode: 'average' # must be 'average' (uses CAR from SAGA device) or 'common' (with separate CREF) 
+ Sample_Rate: 4096 # Must be 4000 (base) or 4096 (base); set lower using dividers below
+ Sample_Rate_Divider: 1 # Can use 0 for 4000 base sample rate, 1 for 2000, 2 for 10000
+ Batch_Duration: 0.020 # Batch duration (seconds). Each synchronous chunk contains samples according to this duration

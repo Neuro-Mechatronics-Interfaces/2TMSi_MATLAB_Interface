@@ -11,7 +11,7 @@ arguments
     options.ParametersFileDefault {mustBeTextScalar} = 'configurations/decoding/RMS_Reaction_Parameters.mat';
     options.ParametersFileSaveExpression {mustBeTextScalar} = 'configurations/decoding/%s_%s_RMS_Reaction_Parameters_%d.mat';
 end
-global SELECTED_CHANNEL RISING_THRESH FALLING_THRESH RMS_ALPHA RMS_BETA DEBOUNCE_LOOP_ITERATIONS %#ok<GVMIS>
+global BAD_CH SELECTED_CHANNEL RISING_THRESH FALLING_THRESH RMS_ALPHA RMS_BETA DEBOUNCE_LOOP_ITERATIONS %#ok<GVMIS>
 
 nGrids = numel(options.Grids);
 hFigure = figure('Color', 'w', 'Name', 'RMS Heatmap', ...
@@ -20,14 +20,16 @@ hFigure = figure('Color', 'w', 'Name', 'RMS Heatmap', ...
 ax = axes(hFigure, 'NextPlot', 'add', 'YDir', 'normal', ...
     'XColor', 'none', 'YColor', 'none', ...
     'XLim', [0.5, nGrids * options.ColumnsPerGrid+0.5], ...
-    'YLim', [0.5, options.RowsPerGrid + 0.5], 'Colormap', options.Colormap, ...
-    ... 'Position',[375    47   434   342],...
-    'CLim', options.CLim);
+    'YLim', [0.5, options.RowsPerGrid + 0.5],...
+    'Colormap', options.Colormap, ...
+    'CLim', options.CLim, ...
+    'UserData', gobjects(1,0), ...
+    'ButtonDownFcn', @handleHeatmapClick);
 cdata = zeros(options.RowsPerGrid, options.ColumnsPerGrid*nGrids);
 hImage = imagesc(ax, ...
     [1, options.ColumnsPerGrid * nGrids], ...
     [1, options.RowsPerGrid], ...
-    cdata);
+    cdata, 'HitTest','off');
 hColorBar = colorbar(ax, 'FontName','Tahoma','Ticks',sort([options.CLim(1), RISING_THRESH, FALLING_THRESH,   options.CLim(2)],'ascend'), ...
     'TickLabels', {sprintf('%d\\muV',round(options.CLim(1))), '\color{red}RISING', '\color{blue}FALLING',sprintf('%d\\muV',round(options.CLim(2)))});
 title(hColorBar, 'RMS', 'FontName', 'Tahoma', 'Color', [0.65 0.65 0.65]);
@@ -36,10 +38,10 @@ for ii = 1:nGrids
     tx = 0.5 + (options.ColumnsPerGrid/2) + options.ColumnsPerGrid * (ii-1);
     text(ax, tx, ax.YLim(1)-0.1, options.Grids{ii}, ...
         'FontName', 'Consolas', 'Color', [0.5 0.5 0.5], 'FontSize', 8, ...
-        'HorizontalAlignment','center', 'VerticalAlignment','cap');
+        'HorizontalAlignment','center', 'VerticalAlignment','cap','HitTest','off');
     if ii < nGrids
         lx = 0.5 + options.ColumnsPerGrid * ii;
-        line(ax, ones(1,2).*lx, ax.YLim, 'Color', 'k', 'LineWidth', 2, 'LineStyle', '--');
+        line(ax, ones(1,2).*lx, ax.YLim, 'Color', 'k', 'LineWidth', 2, 'LineStyle', '--','HitTest','off');
     end
 end
 hChTxt = gobjects(numel(cdata), 1);
@@ -50,10 +52,22 @@ for iCh = 1:numel(cdata)
     ty = rem(iCh-1,options.RowsPerGrid)+1;
     hChTxt(iCh) = text(ax, tx, ty, ch_txt(iCh), 'Color', 'w', 'FontWeight', 'normal', ...
         'FontSize', 8, 'FontName', 'Consolas', 'HorizontalAlignment','center', ...
-        'VerticalAlignment','middle');
+        'VerticalAlignment','middle','HitTest','off');
 end
 
 set(hChTxt(SELECTED_CHANNEL),'Color','m','FontWeight','bold');
+if ~isempty(BAD_CH)
+    o_x = [-0.5, -0.5, 0.5, 0.5];
+    o_y = [-0.5, 0.5, 0.5, -0.5];
+    for ii = 1:numel(BAD_CH)
+        [r,c] = ind2sub([8 16], BAD_CH(ii));
+        ax.UserData = [ax.UserData, ...
+                        patch(ax, c + o_x, ...
+                                   r + o_y, 'k', ...
+                                   'UserData', BAD_CH(ii), ...
+                                   'HitTest', 'off')];
+    end
+end
 
 hFigure.UserData = struct;
 uicontrol(hFigure, 'Style', 'text', 'Tag', 'Channel Selection UIControl Label', ...
@@ -132,6 +146,8 @@ hFigure.UserData.LoadButton = uicontrol(hFigure, 'Style', 'pushbutton', ...
     'UserData', options.ParametersFileDefault, ...
     'Callback', @(src, ~)handleLoadingParameters(src));
 
+
+
     function handleChannelSelectionChange(src, hChTxt)
         set(hChTxt(SELECTED_CHANNEL),'String',sprintf("%03d", SELECTED_CHANNEL), ...
             'FontWeight', 'normal', 'Color', 'w');
@@ -202,6 +218,22 @@ hFigure.UserData.LoadButton = uicontrol(hFigure, 'Style', 'pushbutton', ...
         DEBOUNCE_LOOP_ITERATIONS = in.DEBOUNCE_LOOP_ITERATIONS;
         f.UserData.DebounceIterationsControl.String = sprintf("%d", DEBOUNCE_LOOP_ITERATIONS);
 
+        if isfield(in,'BAD_CH')
+            BAD_CH = in.BAD_CH;
+            hAx = findobj(src.Parent.Children,'type','axes');
+            delete(hAx.UserData);
+            offset_x = [-0.5, -0.5, 0.5, 0.5];
+            offset_y = [-0.5, 0.5, 0.5, -0.5];
+            for curPatch = 1:numel(BAD_CH)
+                [row,col] = ind2sub([8 16], BAD_CH(curPatch));
+                hAx.UserData = [hAx.UserData, ...
+                                patch(hAx, col + offset_x, ...
+                                           row + offset_y, 'k', ...
+                                           'UserData', BAD_CH(curPatch), ...
+                                           'HitTest', 'off')];
+            end
+        end
+
         drawnow();
         fprintf(1,'\t->\tParameters updated successfully.\n');
     end
@@ -209,9 +241,27 @@ hFigure.UserData.LoadButton = uicontrol(hFigure, 'Style', 'pushbutton', ...
         dt = datetime('now', 'Format', 'uuuu-MM-dd');
         s = sprintf("%s",strrep(string(dt),'-','_'));
         saved_file = sprintf(src.UserData.expression, src.UserData.subject, s, src.UserData.block);
-        save(saved_file, 'DEBOUNCE_LOOP_ITERATIONS', 'RISING_THRESH', ...
+        save(saved_file, 'BAD_CH', 'DEBOUNCE_LOOP_ITERATIONS', 'RISING_THRESH', ...
             'FALLING_THRESH', 'RMS_ALPHA', 'RMS_BETA', 'SELECTED_CHANNEL');
         fprintf(1,'Saved parameters to file: %s\n', saved_file);
+    end
+    function handleHeatmapClick(src,~)
+        row = round(src.CurrentPoint(1,2));
+        col = round(src.CurrentPoint(1,1));
+        clicked_ch = sub2ind([8,16],row,col);
+        if ismember(clicked_ch,BAD_CH)
+            h_remove = findobj(src.UserData,'UserData',clicked_ch);
+            BAD_CH = setdiff(BAD_CH,clicked_ch);
+            src.UserData = setdiff(src.UserData,h_remove);
+            delete(h_remove);
+        else
+            BAD_CH = [BAD_CH, clicked_ch];
+            offset_x = [-0.5, -0.5, 0.5, 0.5];
+            offset_y = [-0.5, 0.5, 0.5, -0.5];
+            src.UserData = [src.UserData, ...
+                patch(src, col + offset_x, row + offset_y, 'k', ...
+                        'UserData', clicked_ch, 'HitTest', 'off')];
+        end
     end
 
 end

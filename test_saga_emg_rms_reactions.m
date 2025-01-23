@@ -16,7 +16,7 @@ else
     clear all;
 end
 %% Set global variables
-global SELECTED_CHANNEL RISING_THRESH FALLING_THRESH RMS_ALPHA RMS_BETA DEBOUNCE_LOOP_ITERATIONS %#ok<GVMIS>
+global BAD_CH SELECTED_CHANNEL RISING_THRESH FALLING_THRESH RMS_ALPHA RMS_BETA DEBOUNCE_LOOP_ITERATIONS %#ok<GVMIS>
 
 %% Initialize values of global variables
 SELECTED_CHANNEL = 101;
@@ -25,6 +25,7 @@ FALLING_THRESH = 3.5;
 RMS_ALPHA = 0.25;
 RMS_BETA = 1 - RMS_ALPHA;
 DEBOUNCE_LOOP_ITERATIONS = 2;
+BAD_CH = [];
 
 %% Name output files
 SAVE_FOLDER = fullfile(pwd,'.local-tests');
@@ -45,7 +46,6 @@ if numel(device) < 2
     error("Only detected %d devices!", numel(device));
 end
 connect(device);
-fs = double(device(1).sample_rate); % Should both be the same sample rate
 
 %% Configure devices and channels
 config_file = parameters('config_stream_service_plus');
@@ -68,6 +68,7 @@ else
     channelOrder = [channelOrder, channelOrder+numel(device(1).getActiveChannels())];
     iTrigger = find(device(1).getActiveChannels().isTrigger,1,'first'); % Get TRIGGERS from "A"
 end
+fs = double(device(1).sample_rate); % Should both be the same sample rate
 ch = device.getActiveChannels();
 all_ch = active_channels_2_sync_channels(ch, 'CursorChannels', false);
 
@@ -91,8 +92,6 @@ vigem_gamepad(1);
 buttonState = false;
 inDebounce = false;
 debounceIterations = 0;
-bad_ch = [8,15,16,22,23,24,25,30,31,32,71,72,80,88,90,123];
-n_bad_ch = numel(bad_ch);
 
 if exist(SAVE_FOLDER,'dir')==0
     mkdir(SAVE_FOLDER);
@@ -120,7 +119,7 @@ switch getenv("COMPUTERNAME")
         disp("Not Max Laptop - unsure of monitor configurations.");
 end
 
-i_start = start_sync(device, 1, TEENSY_PORT, 115200, '1', '0', teensy); % This is blocking; click the opened microcontroller uifigure and press '1' (or corresponding trigger key)
+i_start = start_sync(device, teensy); % This is blocking; click the opened microcontroller uifigure and press '1' (or corresponding trigger key)
 fprintf(1,'device(1) starting COUNTER sample: %d\n', i_start(1));
 fprintf(1,'device(2) starting COUNTER sample: %d\n', i_start(2));
 % Now devices should be synchronized at least in terms of how many samples
@@ -148,7 +147,7 @@ while isvalid(fig) && isvalid(rms_fig)
     data = sample_sync(device, batch_samples); % Poll in batches of 10-ms (2kHz assumed)
     batch_toc = toc(mainTic);
     [uni,z_hpf] = filter(b_hpf,a_hpf,data(channelOrder,:),z_hpf,2);
-    uni(bad_ch,:) = randn(n_bad_ch,batch_samples);
+    uni(BAD_CH,:) = randn(numel(BAD_CH),batch_samples);
     uni_s = reshape(del2(reshape(uni,8,16,[])),128,[]);
     [uni_e,z_env] = filter(b_env,a_env,abs(uni_s),z_env,2);
     uni_e_s = RMS_ALPHA * rms(uni_e,2) + RMS_BETA * uni_e_s;

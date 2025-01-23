@@ -51,7 +51,6 @@ if numel(device) < 2
     error("Only detected %d devices!", numel(device));
 end
 connect(device);
-fs = double(device(1).sample_rate); % Should both be the same sample rate
 
 %% Configure devices and channels
 config_file = parameters('config_stream_service_plus');
@@ -75,6 +74,7 @@ else
     iTrigger = find(device(1).getActiveChannels().isTrigger,1,'first'); % Get TRIGGERS from "A"
 end
 ch = device.getActiveChannels();
+fs = double(device(1).sample_rate); % Should both be the same sample rate
 all_ch = active_channels_2_sync_channels(ch, ...
     'CursorChannels', false, ...
     'ContactileChannels', true, ...
@@ -136,7 +136,7 @@ SP_READBYTES_CONTACTILE = 195;
 n_replicates_contactile = batch_samples;
 batch_samples_contactile = 1;
 
-i_start = start_sync(device, 1, TEENSY_PORT, 115200, '1', '0', teensy); % This is blocking; click the opened microcontroller uifigure and press '1' (or corresponding trigger key)
+i_start = start_sync(device, teensy); % This is blocking; click the opened microcontroller uifigure and press '1' (or corresponding trigger key)
 fprintf(1,'device(1) starting COUNTER sample: %d\n', i_start(1));
 fprintf(1,'device(2) starting COUNTER sample: %d\n', i_start(2));
 % Now devices should be synchronized at least in terms of how many samples
@@ -155,7 +155,7 @@ teensy.write(char(teensy_state+48),'char');
 
 delayTic = tic();
 while (toc(delayTic) < 5) % Give a few seconds for the polling to catch up after synchronization step:
-    pause(0.005);
+    pause(0.001);
     sample_sync(device, batch_samples);
 end
 

@@ -54,6 +54,18 @@ for iCh = 1:numel(cdata)
 end
 
 set(hChTxt(SELECTED_CHANNEL),'Color','m','FontWeight','bold');
+if ~isempty(BAD_CH)
+    o_x = [-0.5, -0.5, 0.5, 0.5];
+    o_y = [-0.5, 0.5, 0.5, -0.5];
+    for ii = 1:numel(BAD_CH)
+        [r,c] = ind2sub([8 16], BAD_CH(ii));
+        ax.UserData = [ax.UserData, ...
+                        patch(ax, c + o_x, ...
+                                   r + o_y, 'k', ...
+                                   'UserData', BAD_CH(ii), ...
+                                   'HitTest', 'off')];
+    end
+end
 
 hFigure.UserData = struct;
 uicontrol(hFigure, 'Style', 'text', 'Tag', 'Channel Selection UIControl Label', ...
@@ -244,6 +256,18 @@ hFigure.UserData.LoadButton = uicontrol(hFigure, 'Style', 'pushbutton', ...
 
         if isfield(in,'BAD_CH')
             BAD_CH = in.BAD_CH;
+            hAx = findobj(src.Parent.Children,'type','axes');
+            delete(hAx.UserData);
+            offset_x = [-0.5, -0.5, 0.5, 0.5];
+            offset_y = [-0.5, 0.5, 0.5, -0.5];
+            for curPatch = 1:numel(BAD_CH)
+                [row,col] = ind2sub([8 16], BAD_CH(curPatch));
+                hAx.UserData = [hAx.UserData, ...
+                                patch(hAx, col + offset_x, ...
+                                           row + offset_y, 'k', ...
+                                           'UserData', BAD_CH(curPatch), ...
+                                           'HitTest', 'off')];
+            end
         end
 
         drawnow();

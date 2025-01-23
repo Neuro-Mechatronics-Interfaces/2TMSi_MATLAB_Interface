@@ -4,7 +4,7 @@ arguments
     options.Serial = [];
     options.LSLFolder {mustBeTextScalar} = "";
     options.UseLSL (1,1) logical = true;
-    options.PulseSecondary (1,1) logical = true;
+    options.PulseSecondary (1,1) logical = false;
     options.GesturesRoot {mustBeFolder} = fullfile(pwd,'configurations/gifs/pro/gray');
     options.InstructionList (1,:) string {mustBeMember(options.InstructionList,["Hand Closing", "Hand Opening", "Pinch", "Radial Deviation", "Supination", "Pronation", "Ulnar Deviation", "Wrist Extension", "Wrist Flexion", "Index Extension", "Index Flexion", "Middle Extension", "Middle Flexion", "Pinky Extension", "Pinky Flexion", "Ring Extension", "Ring Flexion", "Thumb Extension", "Thumb Flexion"])} = ["Hand Closing", "Hand Opening", "Pinch", "Radial Deviation", "Supination", "Pronation", "Ulnar Deviation", "Wrist Extension", "Wrist Flexion", "Index Extension", "Index Flexion", "Middle Extension", "Middle Flexion", "Pinky Extension", "Pinky Flexion", "Ring Extension", "Ring Flexion", "Thumb Extension", "Thumb Flexion"]; % ["Index Extension", "Middle Extension", "Ring Extension"];
     options.SkinColor {mustBeMember(options.SkinColor,["White","Tan","Brown","Black","Grey"])} = "Grey";
@@ -139,7 +139,7 @@ fig.UserData.Image = image(ax,[0 1],[1 0],fig.UserData.Gesture{1}(:,:,:,1));
 fig.UserData.Serial = s;
 fig.UserData.Config = load_spike_server_config();
 udpAssign = [];
-try
+try %#ok<TRYNC>
     u = udpportfind;
     for iUDP = 1:numel(u)
         if u(iUDP).LocalPort == fig.UserData.Config.UDP.Socket.GesturesGUI.Port
@@ -191,8 +191,25 @@ fig.WindowKeyReleaseFcn = @handleWindowKeyRelease;
     end
 
     function handleWindowKeyRelease(figH,evt)
-        if strcmpi(evt.Key, 'rightarrow') || strcmpi(evt.Key, 'space')
-            advanceGestureTrial(figH);
+        switch evt.Key
+            case {'rightarrow', 'leftarrow', 'd', 'a', 'space'}
+                if strcmpi(fig.UserData.InstructionList(fig.UserData.Index),"REST")
+                    if figH.UserData.Index == 1
+                        advanceGestureTrial(figH,figH.UserData.Index+1);
+                    else
+                        advanceGestureTrial(figH,figH.UserData.Index-1);
+                    end
+                else
+                    advanceGestureTrial(figH,figH.UserData.Index+1);
+                end
+            case {'uparrow', 'w'}
+                nextIndex = figH.UserData.Index + 1;
+                advanceGestureTrial(figH, nextIndex);
+            case {'downarrow', 's'}
+                nextIndex = max(figH.UserData.Index - 1,1);
+                advanceGestureTrial(figH, nextIndex);
+            case {'q', 'escape'}
+                advanceGestureTrial(figH, 255);        
         end
     end
 

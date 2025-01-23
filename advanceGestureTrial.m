@@ -18,11 +18,13 @@ else
     end
     if strcmpi(figH.UserData.InstructionList(index), "REST")
         if index ~= figH.UserData.LastActiveIndex
-            figH.UserData.LastActiveIndex = index;
-            figH.UserData.InTypeTransition = true;
+            figH.UserData.InTypeTransition = index < figH.UserData.LastActiveIndex; 
         else
             figH.UserData.InTypeTransition = false;
+            figH.UserData.LastActiveIndex = index;
         end
+    else
+        figH.UserData.LastActiveIndex = index;
     end
     figH.UserData.Index = index;
 end
@@ -57,7 +59,8 @@ if strcmpi(instruction,"REST")
     if index > 1
         if figH.UserData.InTypeTransition
             if index > 3
-                k = (index-1)/2 - 1;
+                k = (figH.UserData.LastActiveIndex)/2;
+                figH.UserData.LastActiveIndex = index;
             else
                 k = (index-1)/2;
             end

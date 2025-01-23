@@ -38,32 +38,19 @@ config_file = parameters('config_stream_service_plus');
 fprintf(1, "[TMSi]::Loading configuration file (%s, in main repo folder)...\n", config_file);
 [config, TAG, SN, N_CLIENT] = parse_main_config(config_file);
 setDeviceTag(device, SN, TAG);
-
 ch = device.getActiveChannels();
-all_ch = channels_cell_2_sync_channels(ch);
-all_ch = add_channel_struct(all_ch, 'BatchTS', 'sec', "T", -1);
+all_ch = channels_cell_2_sync_channels(ch, ...
+    'CursorChannels', true, ...
+    'JoystickChannels', true, ...
+    'CenterOutChannels', true, ...
+    'JoystickPredictionChannels', true, ...
+    'MegaChannel', false, ...
+    'TeensyChannel', true, ...
+    'ContactileChannels', false, ...
+    'GamepadButtonChannel', false, ...
+    'LoopTimestampChannel', true);
 
-if USE_JOYSTICK
-    all_ch = add_channel_struct(all_ch, 'JoyPx', '-', "X", -1); %#ok<*UNRCH>
-    all_ch = add_channel_struct(all_ch, 'JoyPy', '-', "X", -1);
-    all_ch = add_channel_struct(all_ch, 'JoyVx', '-', "X", -1);
-    all_ch = add_channel_struct(all_ch, 'JoyVy', '-', "X", -1);
-    all_ch = add_channel_struct(all_ch, 'JoyAx', '-', "X", -1);
-    all_ch = add_channel_struct(all_ch, 'JoyAy', '-', "X", -1);
-    all_ch = add_channel_struct(all_ch, 'JoyBtn','-', "X", -1);
-    
-    all_ch = add_channel_struct(all_ch, 'Target','-', "G", -1);
-    all_ch = add_channel_struct(all_ch, 'Score', '-', "G", -1);
-    all_ch = add_channel_struct(all_ch, 'Trial', '-', "G", -1);
-    
-    all_ch = add_channel_struct(all_ch, 'PredPx', '-', "X", -1);
-    all_ch = add_channel_struct(all_ch, 'PredPy', '-', "X", -1);
-    all_ch = add_channel_struct(all_ch, 'PredVx', '-', "X", -1);
-    all_ch = add_channel_struct(all_ch, 'PredVy', '-', "X", -1);
-    all_ch = add_channel_struct(all_ch, 'PredAx', '-', "X", -1);
-    all_ch = add_channel_struct(all_ch, 'PredAy', '-', "X", -1);
-end
-fs = double(device(1).sample_rate); % Should both be the same sample rate
+fs = double(device(1).sample_rate) / double(device(1).dividers(1)); % Should both be the same sample rate
 batch_samples = fs * BATCH_SIZE_SECONDS;
 ticks_per_second = round(1/BATCH_SIZE_SECONDS);
 max_clock_cycles = ticks_per_second * MAX_TIME_SECONDS;
@@ -85,7 +72,7 @@ p5 = TMSiSAGA.Poly5(POLY5_OUTPUT_FILE, fs, all_ch, 'w');
 drawnow();
 pause(0.005);
 
-i_start = start_sync(device, 1, TEENSY_PORT, 115200, '1', '0', teensy); % This is blocking; click the opened microcontroller uifigure and press '1' (or corresponding trigger key)
+i_start = start_sync(device, teensy); % This is blocking; click the opened microcontroller uifigure and press '1' (or corresponding trigger key)
 fprintf(1,'device(1) starting COUNTER sample: %d\n', i_start(1));
 fprintf(1,'device(2) starting COUNTER sample: %d\n', i_start(2));
 % Now devices should be synchronized at least in terms of how many samples
@@ -93,7 +80,7 @@ fprintf(1,'device(2) starting COUNTER sample: %d\n', i_start(2));
 iCount = 1;
 
 if USE_JOYSTICK
-    cObj = cursor.Cursor('BufferSamples', batch_samples, 'MainTick', mainTic);
+    cObj = cursor.Cursor('BufferSamples', batch_samples, 'MainTick', mainTic); %#ok<UNRCH>
     cObj.setLogging(true, strrep(POLY5_OUTPUT_FILE, ".poly5", ".dat"));
 end
 
@@ -108,7 +95,7 @@ while isvalid(fig)
     [uni_e,z_env] = filter(b_env,a_env,abs(uni_s),z_env,2);
     combined_data = [data; ones(1, batch_samples).*batch_toc];
     if USE_JOYSTICK
-        state = [ones(batch_samples,1), uni_e'] * BETA * GAIN;
+        state = [ones(batch_samples,1), uni_e'] * BETA * GAIN; %#ok<UNRCH>
         combined_data = [combined_data; repelem(cObj.StateBuffer(:,(end-3):end),1,5); state'];
     end
     p5.append(combined_data);
@@ -127,13 +114,13 @@ while isvalid(fig)
         end
     end
     if USE_JOYSTICK
-        cObj.update(mean(state(:,3),1), mean(state(:,4),1), delta_t);
+        cObj.update(mean(state(:,3),1), mean(state(:,4),1), delta_t); %#ok<UNRCH>
     end
     iCount = iCount + 1;
     startTick = curTick;
 end
 if USE_JOYSTICK
-    delete(cObj);
+    delete(cObj); %#ok<UNRCH>
 end
 delete(teensy);
 delete(fig);

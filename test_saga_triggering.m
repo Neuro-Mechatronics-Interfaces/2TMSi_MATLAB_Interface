@@ -40,7 +40,6 @@ if numel(device) < 2
     error("Only detected %d devices!", numel(device));
 end
 connect(device);
-fs = double(device(1).sample_rate); % Should both be the same sample rate
 
 %% Configure devices and channels
 config_file = parameters('config_stream_service_plus');
@@ -63,6 +62,7 @@ else
     channelOrder = [channelOrder, channelOrder+numel(device(1).getActiveChannels())];
     iTrigger = find(device(1).getActiveChannels().isTrigger,1,'first'); % Get TRIGGERS from "A"
 end
+fs = double(device(1).sample_rate); % Should both be the same sample rate
 ch = device.getActiveChannels();
 all_ch = active_channels_2_sync_channels(ch, 'CursorChannels', false);
 
@@ -98,7 +98,7 @@ disp("Click into the reaction-task browser window now and click start!");
 pause(2); vigem_gamepad(3, 0x1000); pause(0.5); vigem_gamepad(3, 0x0000); 
 disp("Button-pressing for controller detection complete!");
 
-i_start = start_sync(device, 1, TEENSY_PORT, 115200, '1', '0', teensy); % This is blocking; click the opened microcontroller uifigure and press '1' (or corresponding trigger key)
+i_start = start_sync(device, teensy); % This is blocking; click the opened microcontroller uifigure and press '1' (or corresponding trigger key)
 fprintf(1,'device(1) starting COUNTER sample: %d\n', i_start(1));
 fprintf(1,'device(2) starting COUNTER sample: %d\n', i_start(2));
 % Now devices should be synchronized at least in terms of how many samples

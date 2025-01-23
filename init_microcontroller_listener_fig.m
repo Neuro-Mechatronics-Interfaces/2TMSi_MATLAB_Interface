@@ -8,18 +8,11 @@ arguments
     options.BaudRate (1,1) {mustBePositive, mustBeInteger} = 115200;
 end
 
-if strlength(options.SerialDevice) < 1
-    sList = serialportlist();
-    if numel(sList) > 1
-        error("Multiple serial devices detected: ['%s']\n\t->\tSpecify correct device using SerialDevice option.", strjoin(sList,"'; '"));
-    elseif numel(sList) < 1
-        teensy = [];
-        warning("No serial devices detected! Sync signal will not be sent on Recording start/stop.");
-    else
-        teensy = serialport(sList, options.BaudRate);
-    end
-else
-    teensy = serialport(options.SerialDevice, options.BaudRate);
+teensy = connect_teensy('SerialDevice', options.SerialDevice, ...
+                        'BaudRate', options.BaudRate);
+if isempty(teensy)
+    error("Could not connect to Teensy device with PORT='%s' and BAUD=%d.", ...
+        options.SerialDevice, options.BaudRate);
 end
 
 fig = uifigure('Name','Microcontroller Listener','Color','k',...

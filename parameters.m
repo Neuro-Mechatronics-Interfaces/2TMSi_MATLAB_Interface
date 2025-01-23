@@ -32,6 +32,7 @@ pars.liblsl_folder = "C:/MyRepos/Libraries/liblsl-Matlab";
 % pars.liblsl_folder = "C:/Users/Daily/Desktop/Max/liblsl-Matlab";
 pars.config_stream_service_plus = "configurations/acquisition/config_vr.yaml";
 % pars.config_stream_service_plus = "configurations/acquisition/config_115L.yaml";
+pars.config_gestures_v2 = "configurations/acquisition/config_gestures.yaml";
 pars.saga_file = 'configurations/devices/SAGA.json';
 pars.instructions_folder = 'configurations/instructions';
 % pars.generated_data_folder =  strrep('C:\Users\NML\Box\N3_SharpFocus\Phase 3 experiments\generated_data', '\', '/'); % Setting this to human or primate, temporary hard code

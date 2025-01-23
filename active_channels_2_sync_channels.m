@@ -39,15 +39,19 @@ function all_ch = active_channels_2_sync_channels(ch, options)
 
 arguments
     ch
+    options.AssertionChannel (1,1) logical = false; % 
     options.CursorChannels (1,1) logical = true; % Shorthand, if set false, JoystickChannels, JoystickPredictionChannels, and CenterOutChannels are all overriden to false.
-    options.JoystickChannels (1,1) logical = true;
-    options.CenterOutChannels (1,1) logical = true;
-    options.JoystickPredictionChannels (1,1) logical = true;
+    options.JoystickChannels (1,1) logical = false;
+    options.CenterOutChannels (1,1) logical = false;
+    options.JoystickPredictionChannels (1,1) logical = false;
+    options.MegaChannel (1,1) logical = false; % Indicates commands sent to MEGA2560
+    options.MegaSerialNumber (1,1) {mustBeNumeric} = -1;
     options.TeensyChannel (1,1) logical = true; % Indicates commands sent to Teensy
     options.TeensySerialNumber (1,1) {mustBeNumeric} = -1;
     options.ContactileChannels (1,1) logical = false;
     options.NumContactileSensors (1,1) {mustBeInteger, mustBeInRange(options.NumContactileSensors, 1, 10)} = 6;
-    options.GamepadButtonChannel (1,1) logical = true;  % Indicates emulated gamepad kernel commands
+    options.GamepadButtonChannel (1,1) logical = false;  % Indicates emulated gamepad kernel commands
+    options.StateChannel (1,1) logical = false; % e.g. for adding in game state/task state etc
     options.LoopTimestampChannel (1,1) logical = true; % Indicates timestamp of current sample loop batch
 end
 
@@ -78,12 +82,24 @@ if options.JoystickPredictionChannels && options.CursorChannels
     all_ch = add_channel_struct(all_ch, 'PredAy', '-', "J", -1);
 end
 
-if options.TeensyChannel
-    all_ch = add_channel_struct(all_ch, 'Teensy', '-', "T", options.TeensySerialNumber);
+if options.MegaChannel % "U" for mu for microcontroller
+    all_ch = add_channel_struct(all_ch, 'MEGA', '-', "U", options.MegaSerialNumber);
+end
+
+if options.TeensyChannel % "U" for mu for microcontroller
+    all_ch = add_channel_struct(all_ch, 'Teensy', '-', "U", options.TeensySerialNumber);
 end
 
 if options.GamepadButtonChannel
     all_ch = add_channel_struct(all_ch, 'ViGEm', '-', "V", -1);
+end
+
+if options.AssertionChannel
+    all_ch = add_channel_struct(all_ch, 'Assertion', '-', "D", -1);
+end
+
+if options.StateChannel
+    all_ch = add_channel_struct(all_ch, 'State', '-', "S", -1);
 end
 
 if options.ContactileChannels
