@@ -10,14 +10,19 @@ arguments
     options.GestureImages cell = cell.empty;
     options.Mirror (1,1) logical = false;
     options.SkinColor {mustBeMember(options.SkinColor,["White","Tan","Brown","Black","Grey"])} = "Grey";
+    options.UseMicros (1,1) logical = true;
 end
 if numel(options.ChannelList) ~= numel(options.InstructionList)
     error("Must have one channel per instructed gesture.");
 end
-if isempty(options.MEGA2560)
-    mega = connect_mega2560('SerialDevice',options.DefaultSerialDevice);
+if options.UseMicros
+    if isempty(options.MEGA2560)
+        mega = connect_mega2560('SerialDevice',options.DefaultSerialDevice);
+    else
+        mega = options.MEGA2560;
+    end
 else
-    mega = options.MEGA2560;
+    mega = [];
 end
 cdata = getSkinColormap(options.SkinColor);
 fig = figure(...
@@ -70,6 +75,7 @@ fig.UserData.PreviousLabel = "REST";
 fig.UserData.Active = false;
 fig.UserData.Asserted = false;
 fig.UserData.Debounce = false;
+fig.UserData.UseMicros = options.UseMicros;
 fig.UserData.Paused = true; % Starts with game paused
 fig.UserData.AnimationRisingEdge = true;
 fig.UserData.LastAssertionChange = tic();

@@ -1,18 +1,6 @@
 function updateGestureState(fig, asserting, config, loopTic)
 %UPDATEGESTURESTATE Updates Gesture GUI (see: init_instruction_gui2)
-global SELECTED_CHANNEL
-% time_since_last_assertion_change = toc(fig.UserData.LastAssertionChange);
-% if time_since_last_assertion_change >= config.Debounce_Duration
-%     if fig.UserData.Asserted ~= asserting
-%         fig.UserData.LastAssertionChange = loopTic;
-%         fig.UserData.Asserted = asserting;
-%         fig.UserData.Debounce = true;
-%     else  % This is included so that other processes, such as keyboard callbacks, can use Debounce State of figure.
-%         fig.UserData.Debounce = false;
-%     end
-% else
-%     asserting = fig.UserData.Asserted;
-% end
+global SELECTED_CHANNEL %#ok<GVMIS>
 
 newSequence = false;
 nFramesAnimation = numel(fig.UserData.FrameSequence);
@@ -34,7 +22,9 @@ switch fig.UserData.State
         newSequence = true;
         fig.UserData.Label.State.String = "GO!";
         fig.UserData.Active = true;
-        fig.UserData.Serial.write(48+fig.UserData.CurrentGesture,'c');
+        if fig.UserData.UseMicros
+            fig.UserData.Serial.write(48+fig.UserData.CurrentGesture,'c');
+        end
         fig.UserData.State = fig.UserData.State + 1;
     case 1 % READY -> ACTIVE
         if (fig.UserData.InstructionFrame == nFramesAnimation)
@@ -45,7 +35,9 @@ switch fig.UserData.State
     case 2 % ACTIVE -> ACTIVE-HOLD        
         hold_time = toc(fig.UserData.LastStateChange);
         if hold_time >= config.Gesture_Duration
-            fig.UserData.Serial.write(48,'c'); % Want falling edge to happen as animation for falling edge begins.
+            if fig.UserData.UseMicros
+                fig.UserData.Serial.write(48,'c'); % Want falling edge to happen as animation for falling edge begins.
+            end
             fig.UserData.Label.State.String = "REST";
             fig.UserData.State = fig.UserData.State + 1;
         end

@@ -52,3 +52,6 @@
 [submodule "+typewriter"]
 	path = +typewriter
 	url = git@github.com:Neuro-Mechatronics-Interfaces/matlab_package__typewriter.git
+[submodule "+tdk"]
+	path = +tdk
+	url = git@github.com:Neuro-Mechatronics-Interfaces/matlab_package__tdk.git
