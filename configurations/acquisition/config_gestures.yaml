@@ -46,11 +46,11 @@ Gestures:
    Port: "COM6"
    Baud: 115200
  Animation:
-  Instruction_Duration: 3 # seconds, how much additional time on each gesture transition is given to read what the next gesture will be
-  Transition_Duration: 0.3 # seconds, for animating the gesture from REST --> ACTIVE or ACTIVE --> REST
+  Instruction_Duration: 3.0 # seconds, how much additional time on each gesture transition is given to read what the next gesture will be
+  Transition_Duration: 1.5 # seconds, for animating the gesture from REST --> ACTIVE or ACTIVE --> REST
   Debounce_Duration: 0.05 # seconds, for debouncing additional keyboard input
-  Gesture_Duration: 2 # number of seconds to hold the gesture HIGH state
-  Rest_Duration: 1.0 # number of seconds to hold the gesture REST state
+  Gesture_Duration: 3.0 # number of seconds to hold the gesture HIGH state
+  Rest_Duration: 3.0 # number of seconds to hold the gesture REST state
   Repetitions: 5 # number of repetitions of each gesture
   Frame_Rate: 60 # frames per second, for playback of gesture input
 Default:
