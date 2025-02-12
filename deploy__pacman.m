@@ -1,4 +1,4 @@
-%DEPLOY__GESTURES2_GUI  Deploys v2 Gesture GUI
+%DEPLOY__PACMAN  Deploys v2 Gesture GUI
 clc;
 if exist('device', 'var')~=0
     disconnect(device);
@@ -6,7 +6,7 @@ end
     
 if exist('lib', 'var')~=0
     lib.cleanUp();
-end
+end 
 
 if ~libisloaded(TMSiSAGA.DeviceLib.alias())
     clear all; %#ok<*CLALL>
@@ -35,7 +35,7 @@ RMS_BETA = 1 - RMS_ALPHA;
 DEBOUNCE_LOOP_ITERATIONS = 2;
 BAD_CH = [];
 % BETA = [];
-BETA = getfield(load('C:\Data\TMSi\MCP05\MCP05_2025_02_12\MCP05_2025_02_12_MODEL.mat','BETA'),'BETA');
+BETA = getfield(load('C:\Data\MetaWB\MCP05_2025_02_12\TMSi\MCP05_2025_02_12_MODEL.mat','BETA'),'BETA');
 
 %% Connect/setup TMSi Devices
 [lib, device, meta] = initializeTMSiDevices(config, ...
@@ -59,41 +59,21 @@ uni_e_s = zeros(128,1);
 mega = connect_mega2560(config.Gestures.Peripherals.MEGA2560);
 teensy = connect_teensy(config.Gestures.Peripherals.Teensy41);
 
-%% Pre-load the desired gesture set
-gestureList = ["Wrist Extension", "Wrist Flexion", "Radial Deviation", "Ulnar Deviation"];
-gestureImages = loadGestureImages("Gestures", gestureList, 'Mirror', false);
-
-% Example to also load gestures for opposite arm:
-% gestureImages = [gestureImages; loadGestureImages("Gestures", gestureList,"Mirror",true)];
-% gestureList = repmat(gestureList,1,2);
-
-% Example to shuffle around the gesture presentation order:
-% idx = randsample(1:numel(gestureList),numel(gestureList),false);
-% gestureList = gestureList(idx);
-% gestureImages = gestureImages(idx);
 
 %%
-channelList = [22, 52, 82, 107];
-
 close all force;
 if SAVE_DATA
     [p5, p5_name, p5_folder] = initializePoly5File(SUBJ, BLOCK, ...
         meta.channels, meta.fs, 'OutputRoot', SAVE_FOLDER);
 end
+vigem_gamepad(1);
 asserting = false;
-wasPaused = true;
-
-instruction_fig = init_instruction_gui2( ...
-    'MEGA2560',mega, ...
-    'GestureImages', gestureImages, ...
-    'InstructionList', gestureList, ...
-    'ChannelList', channelList, ...
-    'SkinColor', 'White');
-[rms_fig, rms_img, rms_cbar, ch_txt] = init_rms_heatmap( ...
-    'Subject', SUBJ, 'Block', BLOCK);
+% [rms_fig, rms_img, rms_cbar, ch_txt] = init_rms_heatmap( ...
+%     'Subject', SUBJ, 'Block', BLOCK);
 main_tic = tic();
 
 start_sync(device, teensy);
+mega.write(49,'c'); 
 while isvalid(instruction_fig)
     loopTic = tic();
     batch_toc = toc(main_tic);
@@ -104,32 +84,35 @@ while isvalid(instruction_fig)
         uni_s = reshape(del2(reshape(uni,8,16,[])),128,[]);
         [uni_e,z_env] = filter(b_env,a_env,abs(uni_s),z_env,2);
         uni_e_s = RMS_ALPHA * rms(uni_e,2) + RMS_BETA * uni_e_s;
-        % [~,~,btn] = WinJoystickMex(0);
-        % asserting = btn==1;
-        if isempty(BETA)
-            asserting = decode_rms_assertion(uni_e_s(SELECTED_CHANNEL), asserting, FALLING_THRESH, RISING_THRESH);
-        else
-            Y_pred = ([1;uni_e_s]')*BETA;
-            if Y_pred(1) < 0.5
-                [~,asserting] = max(Y_pred(2:end));
-            else
-                asserting = 0;
-            end
+
+        Y_pred = ([batch_chunk;uni_e]')*BETA;
+        asserting = mean(Y_pred(:,3),1) > 0.85;
+        btn_code = 0x0000;
+        if mean(Y_pred(:,2)) > 0.5 % Go UP
+            btn_code = btn_code + 0x0001;
+        elseif mean(Y_pred(:,2)) < -0.5 % Go DOWN
+            btn_code = btn_code + 0x0002;
         end
-        updateGestureState(instruction_fig, asserting, config.Gestures.Animation, loopTic);
-        rms_img.CData = reshape(uni_e_s, 8, 16);
-        if instruction_fig.UserData.Paused && ~wasPaused
-            wasPaused = true;
+
+        if mean(Y_pred(:,1)) > 0.5 % Go RIGHT
+            btn_code = btn_code + 0x0008;
+        elseif mean(Y_pred(:,1)) < -0.5 % Go LEFT
+            btn_code = btn_code + 0x0004;            
+        end
+        if asserting
+            btn_code = btn_code + 0x1000; % Press "A" button
             teensy.write('1','c');
-        elseif ~instruction_fig.UserData.Paused && wasPaused
-            wasPaused = false;
+        else
             teensy.write('0','c');
         end
+        vigem_gamepad(3,btn_code);
+        disp(btn_code);
+        % rms_img.CData = reshape(uni_e_s, 8, 16);
         
         if SAVE_DATA
             mega_data = (instruction_fig.UserData.Active*instruction_fig.UserData.CurrentGesture).*batch_chunk;
             assertion_data = asserting .* batch_chunk;
-            state_data = instruction_fig.UserData.State .* batch_chunk;
+            state_data = btn_code .* batch_chunk;
             tsData = batch_toc.*batch_chunk;
             combined_data = [data(meta.logging_order,:); mega_data; assertion_data; state_data; tsData];
             p5.append(combined_data);
@@ -144,3 +127,13 @@ while isvalid(instruction_fig)
 end
 mega.write(48,'c'); % Be sure to clear at the end.
 
+if SAVE_DATA
+    BLOCK = BLOCK + 1; % In case we run this section again.
+    p5.close();
+    delete(p5);
+    fprintf(1,"Loop complete. Data saved to %s.\n", p5_name);
+else
+    fprintf(1,"Loop complete. No data saved (SAVE_DATA==false).\n"); %#ok<*UNRCH>
+end
+stop(device);
+vigem_gamepad(0);

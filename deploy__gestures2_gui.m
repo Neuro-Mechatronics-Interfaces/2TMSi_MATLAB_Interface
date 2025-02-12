@@ -34,8 +34,7 @@ RMS_ALPHA = 0.25;
 RMS_BETA = 1 - RMS_ALPHA;
 DEBOUNCE_LOOP_ITERATIONS = 2;
 BAD_CH = [];
-% BETA = [];
-BETA = getfield(load('C:\Data\TMSi\MCP05\MCP05_2025_02_12\MCP05_2025_02_12_MODEL.mat','BETA'),'BETA');
+BETA = [];
 
 %% Connect/setup TMSi Devices
 [lib, device, meta] = initializeTMSiDevices(config, ...
