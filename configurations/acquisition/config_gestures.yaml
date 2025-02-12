@@ -54,7 +54,7 @@ Gestures:
   Repetitions: 5 # number of repetitions of each gesture
   Frame_Rate: 60 # frames per second, for playback of gesture input
 Default:
- Subject: "MCPXX"
+ Subject: "MCP05"
  Block: 0
  Folder: "C:/Data/TMSi"
  Interface: "electrical"

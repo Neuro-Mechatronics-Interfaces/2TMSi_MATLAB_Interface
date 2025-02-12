@@ -144,23 +144,3 @@ while isvalid(instruction_fig)
 end
 mega.write(48,'c'); % Be sure to clear at the end.
 
-if SAVE_DATA
-    BLOCK = BLOCK + 1; % In case we run this section again.
-    p5.close();
-    delete(p5);
-    fprintf(1,"Loop complete. Data saved to %s.\n", p5_name);
-else
-    fprintf(1,"Loop complete. No data saved (SAVE_DATA==false).\n"); %#ok<*UNRCH>
-end
-stop(device);
-% try %#ok<TRYNC>
-%     delete(instruction_fig);
-%     delete(rms_fig);
-% end
-
-%%
-% For decoder part, uncomment:
-
-x = TMSiSAGA.Poly5.read(fullfile(p5_folder, p5_name));
-[X,Y,BAD_CH] = process_synchronized_poly5_for_pls(x, BAD_CH);
-[XL,YL,XS,YS,BETA,PCTVAR,MSE,stats] = plsregress(X,Y,5);

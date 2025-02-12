@@ -40,7 +40,7 @@ input_root = sprintf('%s/%s/%s', options.DataRoot, SUBJ, TANK);
 X = [];
 Y = [];
 trigBitMask = 2^options.SyncBit;
-
+fprintf(1,'Please wait, training decoder...000%%\n');
 for iB = 1:numel(BLOCK)
     A = dir(fullfile(input_root,sprintf("*A*%d.poly5",BLOCK(iB))));
     if isempty(A)
@@ -78,6 +78,7 @@ for iB = 1:numel(BLOCK)
     [b_env,a_env] = butter(1,options.EnvelopeCutoffFrequency/(data.sample_rate/2),'low');
     X = [X; filtfilt(b_env,a_env,abs(uni'))]; %#ok<*AGROW>
     Y = [Y; trig * ENCODING(iB,:)];
+    fprintf(1,'\b\b\b\b\b%03d%%\n', round(100*iB/numel(BLOCK)));
 end
 [XL,YL,XS,YS,BETA,PCTVAR,MSE,stats] = plsregress(X,Y,options.RegressionComponents);
 
