@@ -18,4 +18,8 @@ ENCODING = [0 1 0; ... % Left-handed wrist ext
             0 0.25 0.5; ... % Left-handed thumb ext
             ];
 
-[XL,YL,XS,YS,BETA,PCTVAR,MSE,stats] = train_cosmo_decoder(SUBJ,YYYY,MM,DD,BLOCK,ENCODING);
+[X,Y,BETA] = train_cosmo_decoder(SUBJ,YYYY,MM,DD,BLOCK,ENCODING, ...
+    'DataRoot', 'C:/Data/MetaWB', ...
+    'DataSubfolder', 'TMSi');
+
+Y_hat = [ones(size(X,1),1),X] * BETA;

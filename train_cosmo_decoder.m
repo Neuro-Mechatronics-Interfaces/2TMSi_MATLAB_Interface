@@ -1,4 +1,4 @@
-function [XL,YL,XS,YS,BETA,PCTVAR,MSE,stats] = train_cosmo_decoder(SUBJ,YYYY,MM,DD,BLOCK,ENCODING,options)
+function [X,Y,BETA] = train_cosmo_decoder(SUBJ,YYYY,MM,DD,BLOCK,ENCODING,options)
 arguments
     SUBJ {mustBeTextScalar}
     YYYY (1,1) double {mustBeInteger, mustBePositive}
@@ -6,17 +6,21 @@ arguments
     DD (1,1) double {mustBeInteger, mustBePositive}
     BLOCK (:,1) double
     ENCODING (:,:) double
-    options.DataRoot {mustBeTextScalar} = "C:/Data/TMSi";
+    % options.DataRoot {mustBeTextScalar} = "C:/Data/MetaWB";
+    % options.DataSubfolder {mustBeTextScalar} = "TMSi";
+    options.DataRoot {mustBeTextScalar} = "C:/Data/TMSi"; % For acquisition machine
+    options.DataSubfolder {mustBeTextScalar} = ""; % For acquisition machine
     options.Debug (1,1) logical = false;
     options.UseFirstSampleIfNoSyncPulse (1,1) logical = true;
     options.AlignSync (1,1) logical = true;
     options.ApplyFilter (1,1) logical = true;
     options.ApplyCAR (1,1) logical = true;
-    options.ApplySpatialFilter (1,1) logical = false;
-    options.ChannelMap (1,256) double {mustBePositive, mustBeInteger, mustBeInRange(options.ChannelMap,1,256)} = 1:256;
+    options.ApplySpatialFilter (1,1) logical = true;
+    options.SpatialFilterMode {mustBeMember(options.SpatialFilterMode, {'SD Columns', 'SD Rows', 'Laplacian'})} = 'Laplacian';
+    options.ChannelMap (1,128) double {mustBePositive, mustBeInteger, mustBeInRange(options.ChannelMap,1,128)} = 1:128;
     options.EnvelopeCutoffFrequency (1,1) double = 1.5;
     options.HighpassFilterCutoff (1,1) double = 100;
-    options.ApplyRMSCutoff (1,1) logical = true;
+    options.ApplyRMSCutoff (1,1) logical = false;
     options.RMSCutoff (1,2) double = [1, 100];
     options.ZeroMissing (1,1) logical = true; % Sets "missing" samples as zeros
     options.ApplyGridInterpolation (1,1) logical = true;
@@ -36,7 +40,11 @@ if numel(BLOCK)~=size(ENCODING,1)
 end
 
 TANK = sprintf("%s_%04d_%02d_%02d", SUBJ, YYYY, MM, DD);
-input_root = sprintf('%s/%s/%s', options.DataRoot, SUBJ, TANK);
+if strlength(options.DataSubfolder)==0
+    input_root = sprintf('%s/%s/%s', options.DataRoot, SUBJ, TANK);
+else
+    input_root = sprintf('%s/%s/%s', options.DataRoot, TANK, options.DataSubfolder);
+end
 X = [];
 Y = [];
 trigBitMask = 2^options.SyncBit;
@@ -62,6 +70,7 @@ for iB = 1:numel(BLOCK)
         'ZeroMissing',options.ZeroMissing,...
         'ApplyGridInterpolation', options.ApplyGridInterpolation, ...
         'ApplySpatialFilter', options.ApplySpatialFilter, ...
+        'SpatialFilterMode', options.SpatialFilterMode, ...
         'InitialPulseOffset', options.InitialPulseOffset, ...
         'InvertLogic', options.InvertSyncLogic, ...
         'SampleRate', options.SampleRate, ...
@@ -71,15 +80,21 @@ for iB = 1:numel(BLOCK)
         'SwappedTextileCables', options.SwappedTextileCables, ...
         'UseFirstSampleIfNoSyncPulse', options.UseFirstSampleIfNoSyncPulse, ...
         'ExcludedPulseIndices', options.ExcludedPulseIndices);
-    [iUni,~,iTrig] = ckc.get_saga_channel_masks(ch_name,...
+    [iUni,~,iTrig] = get_saga_channel_masks(ch_name,...
         'ReturnNumericIndices',true);
     uni = data.samples(iUni,:);
-    trig = bitand(data.samples(iTrig(1),:)', trigBitMask)==trigBitMask;
+    trig = bitand(data.samples(iTrig(1),:)', trigBitMask)==0;
+    % i_start = strfind(trig',[1 0]);
+    % trig(1:i_start(1)) = false;
     [b_env,a_env] = butter(1,options.EnvelopeCutoffFrequency/(data.sample_rate/2),'low');
-    X = [X; filtfilt(b_env,a_env,abs(uni'))]; %#ok<*AGROW>
+    env = filtfilt(b_env,a_env,abs(uni'));
+    X = [X; env]; %#ok<*AGROW>
     Y = [Y; trig * ENCODING(iB,:)];
     fprintf(1,'\b\b\b\b\b%03d%%\n', round(100*iB/numel(BLOCK)));
 end
+r = rms(X,2);
+R = movmean(r,options.SampleRate);
+X(isoutlier(R),:) = 0;
 [XL,YL,XS,YS,BETA,PCTVAR,MSE,stats] = plsregress(X,Y,options.RegressionComponents);
 
 save(sprintf('%s/%s_MODEL.mat',input_root,TANK),'XL','YL','XS','YS','BETA','PCTVAR','MSE','stats','-v7.3');

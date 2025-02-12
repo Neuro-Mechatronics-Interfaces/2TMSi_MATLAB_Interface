@@ -26,10 +26,14 @@ arguments
     options.CounterChannelIndicator {mustBeTextScalar} = 'COUNTER';
     options.ReturnNumericIndices (1,1) logical = true;
 end
-if isfield(channels(1), 'alternative_name')
-    ch_name = {channels.alternative_name};
+if isstruct(channels)
+    if isfield(channels(1), 'alternative_name')
+        ch_name = {channels.alternative_name};
+    else
+        ch_name = {channels.name};
+    end
 else
-    ch_name = {channels.name};
+    ch_name = channels;
 end
 iUni = (contains(ch_name,'R') & contains(ch_name,'C') & ~contains(ch_name,'E')) | (contains(ch_name,'UNI'));
 iBip = contains(ch_name,'BIP');
