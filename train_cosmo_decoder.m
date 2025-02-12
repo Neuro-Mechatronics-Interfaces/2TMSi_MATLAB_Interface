@@ -39,18 +39,19 @@ TANK = sprintf("%s_%04d_%02d_%02d", SUBJ, YYYY, MM, DD);
 input_root = sprintf('%s/%s/%s', options.DataRoot, SUBJ, TANK);
 X = [];
 Y = [];
-triggerBitMask = 2^options.SyncBit;
+trigBitMask = 2^options.SyncBit;
 
 for iB = 1:numel(BLOCK)
-    A = dir(input_root,"*A*%d.poly5");
+    A = dir(fullfile(input_root,sprintf("*A*%d.poly5",BLOCK(iB))));
     if isempty(A)
-        error("Missing A file for BLOCK=%D", BLOCK(iB));
+        error("Missing A file for BLOCK=%d", BLOCK(iB));
     end
-    B = dir(input_root,"*B*%d.poly5");
+    B = dir(fullfile(input_root,sprintf("*B*%d.poly5",BLOCK(iB))));
     if isempty(B)
-        error("Missing B file for BLOCK=%D", BLOCK(iB));
+        error("Missing B file for BLOCK=%d", BLOCK(iB));
     end
-    
+    poly5_files = [string(fullfile(A(1).folder,A(1).name)); ...
+                   string(fullfile(B(1).folder,B(1).name))];
     [data,~,ch_name] = io.load_align_saga_data_many(poly5_files, ...
         'ApplyFilter', options.ApplyFilter, ...
         'ApplyCAR', options.ApplyCAR, ...
@@ -65,7 +66,7 @@ for iB = 1:numel(BLOCK)
         'InvertLogic', options.InvertSyncLogic, ...
         'SampleRate', options.SampleRate, ...
         'TriggerChannelIndicator', options.TriggerChannelIndicator, ...
-        'TriggerBitMask', triggerBitMask, ...
+        'TriggerBitMask', trigBitMask, ...
         'IsTextile64', options.IsTextile64, ...
         'SwappedTextileCables', options.SwappedTextileCables, ...
         'UseFirstSampleIfNoSyncPulse', options.UseFirstSampleIfNoSyncPulse, ...
@@ -73,7 +74,7 @@ for iB = 1:numel(BLOCK)
     [iUni,~,iTrig] = ckc.get_saga_channel_masks(ch_name,...
         'ReturnNumericIndices',true);
     uni = data.samples(iUni,:);
-    trig = bitand(data.samples(iTrig,:)', trigBitMask)==trigBitMask;
+    trig = bitand(data.samples(iTrig(1),:)', trigBitMask)==trigBitMask;
     [b_env,a_env] = butter(1,options.EnvelopeCutoffFrequency/(data.sample_rate/2),'low');
     X = [X; filtfilt(b_env,a_env,abs(uni'))]; %#ok<*AGROW>
     Y = [Y; trig * ENCODING(iB,:)];

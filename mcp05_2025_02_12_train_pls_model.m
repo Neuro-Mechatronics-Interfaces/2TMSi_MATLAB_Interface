@@ -1,3 +1,7 @@
+%MCP05_2025_02_12_TRAIN_PLS_MODEL
+
+clear;
+clc;
 
 SUBJ = "MCP05";
 YYYY = 2025;
