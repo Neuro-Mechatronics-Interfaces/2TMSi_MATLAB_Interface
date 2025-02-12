@@ -36,35 +36,35 @@ end
 %%
 % Path to the binary log file
 % filename = "C:/Data/TaskLogs/pacman/log_2025-01-27_18-46-19.bin";
-filename = "C:/Data/TaskLogs/pacman/log_2025-01-27_18-51-20.bin";
+filename = "C:/Data/TaskLogs/pacman/Max_2025-01-29_18-29-16.bin";
 
 % Read the log data
 logData = io.readPacmanLog(filename);
-chunks = vertcat(logData.Chunk);
-chunk_sigma = std(double(chunks),[],1);
 %% Playback logData
+close all force;
 fig = figure('Color','w','Name','Frame Playback');
-ax = axes(fig,'NextPlot','add'); % ,'YLim',[-128 128], 'XLim', [-128 128]);
-xlim(ax,[-128 128]);
-ylim(ax,[-128, 128]);
-% h = line(ax,1:numel(logData(1).Chunk),zeros(1,numel(logData(1).Chunk)),'Color','k','LineWidth',1.25);
-h = scatter(ax, 0, 0, 'y', 'filled');
-txt = title(ax,'0%');
-delta_t = mean(diff([logData.Timestamp]));
-for ii = 2:numel(logData)
-    % h.YData = min(logData(ii).Chunk,ones(numel(logData(ii).Chunk),1));
-    % h.YData = logData(ii).Chunk - logData(ii-1).Chunk;
-    % h.YData = logData(ii).Chunk;
-    % x = double(typecast(logData(ii).Chunk([77 78])','int16'))/1e3;
-    % y = double(typecast(logData(ii).Chunk([86 85])','int16'))/1e3;
-    % x = bitshift(logData(ii).Chunk(77),-4);
-    % y = bitshift(logData(ii).Chunk(85),-4);
-    x = logData(ii).Chunk(45);
-    y = logData(ii).Chunk(109);
-    % fprintf(1,'%s | %s\n', dec2bin(x,8), dec2bin(y,8));
-    set(h,'XData',x,'YData',y);
-    pause(delta_t); drawnow;
-    set(txt,'String',sprintf("%d%%",round(100*ii/numel(logData))));
+ax = axes(fig,'NextPlot','add','YDir','reverse'); 
+ylabel(ax,'Vertical Position (pixel)','FontName','Tahoma','Color','k');
+xlabel(ax,'Horizontal Position (pixel)', 'FontName','Tahoma','Color','k');
+xlim(ax,[0  1280]);
+ylim(ax,[0, 720]);
+h = scatter(ax, logData.X(1), logData.Y(1), 'MarkerFaceColor', 'y', 'MarkerEdgeColor','k','Marker','o','SizeData',16);
+h_ghost = scatter(ax, nan(1,logData.Properties.UserData.nGhosts), nan(1,logData.Properties.UserData.nGhosts), ...
+    'MarkerFaceColor', 'r', 'MarkerEdgeColor', 'r', 'Marker', 'o', 'SizeData', 24);
+txt = title(ax,sprintf('%05.2f s: Score = %d',0.0,logData.Score(1)), ...
+    'FontName','Tahoma','Color','k');
+subtxt = subtitle(ax, sprintf('Bombs = %d | Lives = %d', logData.Bombs(1), logData.Lives(1)), ...
+    'FontName','Tahoma','Color',[0.65 0.65 0.65]);
+delta_t = mean(diff(logData.Timestamp));
+for ii = 1:size(logData,1)
+    set(h,'XData',logData.X(ii),'YData',logData.Y(ii));
+    % mask = ones(1,logData.Properties.UserData.nGhosts);
+    % mask(logData.GhostVisible(ii,:)) = nan;
+    set(h_ghost,'XData',logData.GhostX(ii,:),'YData',logData.GhostY(ii,:));
+    pause(delta_t); 
+    set(txt,'String',sprintf('%05.2f s: Score = %d',logData.Timestamp(ii),logData.Score(ii)));
+    set(subtxt,'String',sprintf('Bombs = %d | Lives = %d', logData.Bombs(ii), logData.Lives(ii)));
+    drawnow();
 end
 
 %%
