@@ -18,10 +18,16 @@ end
 %% Load/configure parameters
 config = load_gestures_config();
 SAVE_DATA = true;
-SUBJ = config.Default.Subject;
+% SUBJ = config.Default.Subject;
+SUBJ = "MCP04";
+YYYY = 2025;
+MM = 2;
+DD = 14;
+TANK = sprintf('%s_%04d_%02d_%02d', SUBJ, YYYY, MM, DD);
 BLOCK = config.Default.Block;
 SAVE_FOLDER = config.Default.Folder;
 BATCH_SIZE_SECONDS = config.Default.Batch_Duration; % Each acquisition cycle grabs sample batches of this duration (sample count depends on sample rate).
+
 
 %% Set global variables
 global BAD_CH SELECTED_CHANNEL RISING_THRESH FALLING_THRESH RMS_ALPHA RMS_BETA DEBOUNCE_LOOP_ITERATIONS %#ok<GVMIS>
@@ -35,7 +41,7 @@ RMS_BETA = 1 - RMS_ALPHA;
 DEBOUNCE_LOOP_ITERATIONS = 2;
 BAD_CH = [];
 % BETA = [];
-BETA = getfield(load('C:\Data\MetaWB\MCP05_2025_02_12\TMSi\MCP05_2025_02_12_MODEL.mat','BETA'),'BETA');
+BETA = getfield(load(sprintf('C:/Data/MetaWB/%s/TMSi/%s_MODEL.mat',TANK,TANK),'BETA'),'BETA');
 
 %% Connect/setup TMSi Devices
 [lib, device, meta] = initializeTMSiDevices(config, ...

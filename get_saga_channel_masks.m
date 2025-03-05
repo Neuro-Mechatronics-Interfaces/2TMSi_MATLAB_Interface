@@ -2,8 +2,8 @@ function [iUni,iBip,iTrig,iCounter] = get_saga_channel_masks(channels, options)
 %GET_SAGA_CHANNEL_MASKS Return logical indexing vector for different channel types based on channel names.
 %
 % Syntax:
-%   [iUni, iBip, iTrig, iCounter] = ckc.get_saga_channel_masks(channels);
-%   [...] = ckc.get_saga_channel_masks(channels,'Name',value,...);
+%   [iUni, iBip, iTrig, iCounter] = get_saga_channel_masks(channels);
+%   [...] = get_saga_channel_masks(channels,'Name',value,...);
 %
 % Inputs:
 %   channels - Struct array with field `alternative_name` (or `name`). 

@@ -3,11 +3,12 @@ clear;
 close all force;
 clc;
 
-SUBJ = "MCP05";
+SUBJ = "MCP04";
 YYYY = 2025;
 MM = 2;
-DD = 12;
-BLOCK = 15;
+DD = 14;
+BLOCK = 6;
+
 TANK = sprintf('%s_%04d_%02d_%02d', SUBJ, YYYY, MM, DD);
 MY_TITLE = sprintf('%s: %04d-%02d-%02d PLS Decode', SUBJ, YYYY, MM, DD); 
 DATA_ROOT = parameters('raw_data_folder');
