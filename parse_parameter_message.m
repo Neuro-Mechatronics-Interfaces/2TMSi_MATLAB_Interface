@@ -119,7 +119,12 @@ switch parameter_code
         % param.gui.sch.n_samples = n_samples;
         param.gui.squiggles.n_samples = n_samples;
         % param.gui.sch = init_single_ch_gui(param.gui.sch, param.threshold.(param.gui.sch.saga).(param.calibration_state)(param.gui.sch.channel));
-        param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
+        param.gui.squiggles = init_squiggles_gui(param.gui.squiggles, ...
+                'Topoplot', param.topoplot, ...
+                'AuxTarget', param.aux_target, ...
+                'AuxSamples', param.aux_samples, ...
+                'AuxSAGA', param.aux_saga, ...
+                'AuxChannel', param.aux_channel);
         fprintf(1,'[TMSi]\t->\t[%s]: GUI Line Samples = %s\n', parameter_code, parameter_value);
     case 'h' % HPF cutoff frequency
         fc = str2double(parameter_value);
@@ -186,7 +191,12 @@ switch parameter_code
         end
         if has_new_squiggles
             fprintf(1,'[TMSi]\t->\t[%s]: Entered whitening-mode!\n',parameter_code);
-            param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
+            param.gui.squiggles = init_squiggles_gui(param.gui.squiggles, ...
+                'Topoplot', param.topoplot, ...
+                'AuxTarget', param.aux_target, ...
+                'AuxSamples', param.aux_samples, ...
+                'AuxSAGA', param.aux_saga, ...
+                'AuxChannel', param.aux_channel);
         elseif ~param.gui.squiggles.whiten.A && ~param.gui.squiggles.whiten.B
             fprintf(1,'[TMSi]\t->\t[%s]: Not using whitening-mode!\n', parameter_code);
         end
@@ -220,6 +230,17 @@ switch parameter_code
         else
             fprintf(1,'[TMSi]\t->\t[%s]: Invalid parameter value (should be numeric): %s\n', parameter_code, parameter_value);
         end
+    case 'n' % Split coefficients for both SAGAs
+        command_chunks = strsplit(parameter_value,':');
+        hpf_A = str2double(command_chunks{1});
+        lpf_A = str2double(command_chunks{2});
+        hpf_B = str2double(command_chunks{3});
+        lpf_B = str2double(command_chunks{4});
+        [param.lpf.A.b, param.lpf.B.a] = butter(3, hpf_A/(param.sample_rate/2), "high");
+        [param.hpf.A.b, param.hpf.A.a] = butter(3, lpf_A/(param.sample_rate/2), "high");
+        [param.lpf.B.b, param.lpf.B.a] = butter(3, hpf_B/(param.sample_rate/2), "high");
+        [param.hpf.B.b, param.hpf.B.a] = butter(3, lpf_B/(param.sample_rate/2), "high");
+        fprintf(1,'[TMSi]\t->\t[%s]: SAGA-A Fc: [%.2f - %.2f] Hz   |   SAGA-B Fc: [%.2f - %.2f] Hz\n', parameter_code, hpf_A, lpf_A, hpf_B, lpf_B);
     case 'o' % Squiggles offsets
         param.gui.squiggles.offset = str2double(parameter_value);
         param.gui.squiggles.enable = true;
@@ -227,7 +248,12 @@ switch parameter_code
             delete(param.gui.squiggles.fig);
             param.gui.squiggles.fig = [];
         end
-        param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
+        param.gui.squiggles = init_squiggles_gui(param.gui.squiggles, ...
+                'Topoplot', param.topoplot, ...
+                'AuxTarget', param.aux_target, ...
+                'AuxSamples', param.aux_samples, ...
+                'AuxSAGA', param.aux_saga, ...
+                'AuxChannel', param.aux_channel);
         fprintf(1,'[TMSi]\t->\t[%s]: Squiggles Line Offset = %s (uV)\n', parameter_code, parameter_value);
     case 'p' % Parse from bits?
         command_chunks = strsplit(parameter_value,':');
@@ -275,10 +301,20 @@ switch parameter_code
                 delete(param.gui.squiggles.fig);
                 param.gui.squiggles.fig = [];
             end
-            param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
+            param.gui.squiggles = init_squiggles_gui(param.gui.squiggles, ...
+                'Topoplot', param.topoplot, ...
+                'AuxTarget', param.aux_target, ...
+                'AuxSamples', param.aux_samples, ...
+                'AuxSAGA', param.aux_saga, ...
+                'AuxChannel', param.aux_channel);
         else
             param.gui.squiggles.enable = false;
-            param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
+            param.gui.squiggles = init_squiggles_gui(param.gui.squiggles, ...
+                'Topoplot', param.topoplot, ...
+                'AuxTarget', param.aux_target, ...
+                'AuxSamples', param.aux_samples, ...
+                'AuxSAGA', param.aux_saga, ...
+                'AuxChannel', param.aux_channel);
         end
         fprintf(1,'[TMSi]\t->\t[%s]: SQUIGGLES GUI Channels = %s\n', parameter_code, parameter_value);
     case 'r' % Set rate smoothing
@@ -299,15 +335,115 @@ switch parameter_code
         param.force.SAGA = command_chunks{1};
         param.force.Channel = str2double(command_chunks{2});
         fprintf(1,'[TMSi]\t->\t[%s]: Updated LSL FORCE SAGA and Channel = %s\n', parameter_code, parameter_value);
+    case 't' % JSON message
+        msg = strjoin(parameter_syntax(2:end),'.');
+        data = jsondecode(msg);
+        switch string(data.name)
+            case "debug"
+                fprintf(1,'[TMSi]\t->\t[%s]: Handled JSON DEBUG message = %s\n', parameter_code, data.value);
+            case "get"
+                switch string(data.value)
+                    case "get_aux_offset"
+                        if ~isfield(data,'address')
+                            fprintf(1,'[TMSi]\t->\t[%s]: Missing "address" field in "get" command for get_aux_offset! Request not updated. %s\n', parameter_code, msg);
+                            return;
+                        end
+                        if ~isfield(data,'port')
+                            fprintf(1,'[TMSi]\t->\t[%s]: Missing "port" field in "get" command for get_aux_offset! Request not updated. %s\n', parameter_code, msg);
+                            return;
+                        end
+                        param.send_aux_offset = true;
+                        param.aux_return_address = data.address;
+                        param.aux_return_port = data.port;
+                        fprintf(1,'[TMSi]\t->\t[%s]: Handled "get" command for get_aux_offset: %s\n', parameter_code, msg);
+                    case "get_aux_scale"
+                        if ~isfield(data,'address')
+                            fprintf(1,'[TMSi]\t->\t[%s]: Missing "address" field in "get" command for get_aux_scale! Request not updated. %s\n', parameter_code, msg);
+                            return;
+                        end
+                        if ~isfield(data,'port')
+                            fprintf(1,'[TMSi]\t->\t[%s]: Missing "port" field in "get" command for get_aux_scale! Request not updated. %s\n', parameter_code,msg);
+                            return;
+                        end
+                        param.send_aux_scale = true;
+                        param.aux_return_address = data.address;
+                        param.aux_return_port = data.port;
+                        fprintf(1,'[TMSi]\t->\t[%s]: Handled "get" command for get_aux_scale: %s\n', parameter_code, msg);
+                    otherwise
+                        fprintf(1,'[TMSi]\t->\t[%s]: UNHANDLED "get" command: %s\n', parameter_code, data.value);
+                end
+            otherwise
+                param.(data.name) = data.value;
+                if isfield(data,'extra')
+                    switch string(data.extra)
+                        case "convert"
+                            param.(data.name) = round(param.sample_rate * data.value);
+                            param.gui.squiggles = init_squiggles_gui(param.gui.squiggles, ...
+                                'Topoplot', param.topoplot, ...
+                                'AuxTarget', param.aux_target, ...
+                                'AuxSamples', param.aux_samples, ...
+                                'AuxSAGA', param.aux_saga, ...
+                                'AuxChannel', param.aux_channel);
+                            fprintf(1,'[TMSi]\t->\t[%s]: Handled "extra" command: %s\n', parameter_code, data.extra);
+                        case "refresh"
+                            param.gui.squiggles = init_squiggles_gui(param.gui.squiggles, ...
+                                'Topoplot', param.topoplot, ...
+                                'AuxTarget', param.aux_target, ...
+                                'AuxSamples', param.aux_samples, ...
+                                'AuxSAGA', param.aux_saga, ...
+                                'AuxChannel', param.aux_channel);
+                            fprintf(1,'[TMSi]\t->\t[%s]: Handled "extra" command: %s\n', parameter_code, data.extra);
+                        case "target"
+                            xt = round(param.aux_knots(1,:).*param.sample_rate);
+                            xt = max(xt,ones(size(xt)));
+                            yt = param.aux_knots(2,:);
+                            param.aux_target = zeros(1,xt(end));
+                            k = 0;
+                            ki = 1;
+                            yi = 0;
+                            while k < numel(xt)
+                                vec = ki:xt(k+1);
+                                param.aux_target(vec) = linspace(yi,yt(k+1),numel(vec));
+                                k = k + 1;
+                                ki = xt(k)+1;
+                                yi = yt(k);
+                            end
+                            param.gui.squiggles = init_squiggles_gui(param.gui.squiggles, ...
+                                'Topoplot', param.topoplot, ...
+                                'AuxTarget', param.aux_target, ...
+                                'AuxSamples', param.aux_samples, ...
+                                'AuxSAGA', param.aux_saga, ...
+                                'AuxChannel', param.aux_channel);
+                            fprintf(1,'[TMSi]\t->\t[%s]: Handled "extra" command: %s\n', parameter_code, data.extra);
+                        otherwise
+                            fprintf(1,'[TMSi]\t->\t[%s]: UNHANDLED "extra" command: %s\n', parameter_code, data.extra);
+                    end
+                end
+        end
+        fprintf(1,'[TMSi]\t->\t[%s]: Handled JSON message = %s\n', parameter_code, msg);
     case 'v' % Loop debounce iterations
         param.trig_out_debounce_iterations = str2double(parameter_value);
         fprintf(1,'[TMSi]\t->\t[%s]: Loop Debounce Iterations = %s\n', parameter_code, parameter_value);
     case 'w' % Toggle squiggles mode
-        param.gui.squiggles.hpf_mode = ~logical(str2double(parameter_value));
-        if param.gui.squiggles.hpf_mode
-            fprintf(1,'[TMSi]\t->\t[%s]: HPF Mode Squiggles\n', parameter_code);
+        command_chunks = strsplit(parameter_value,':');
+        if numel(command_chunks) > 1
+            saga = upper(command_chunks{1});
+            val = ~logical(str2double(parameter_value));
+            param.gui.squiggles.hpf_mode.(saga) = val;
+            if val
+                param.i_all.(saga) = param.i_all.(sprintf('%so',saga));
+                fprintf(1,'[TMSi]\t->\t[%s]: SAGA-%s->HPF Mode Squiggles\n', parameter_code, upper(command_chunks{1}));
+            else
+                param.i_all.(saga) = 1:64;
+                fprintf(1,'[TMSi]\t->\t[%s]: SAGA-%s->BPF Mode Squiggles\n', parameter_code, upper(command_chunks{1}));
+            end
         else
-            fprintf(1,'[TMSi]\t->\t[%s]: Envelope Mode Squiggles\n', parameter_code);
+            param.gui.squiggles.hpf_mode = ~logical(str2double(parameter_value));
+            if param.gui.squiggles.hpf_mode
+                fprintf(1,'[TMSi]\t->\t[%s]: Both SAGA->HPF Mode Squiggles\n', parameter_code);
+            else
+                fprintf(1,'[TMSi]\t->\t[%s]: Both SAGA->Envelope Mode Squiggles\n', parameter_code);
+            end
         end
     case 'x' % Set spike detection/threshold deviations
         param.threshold_deviations = str2double(parameter_value)/1000;

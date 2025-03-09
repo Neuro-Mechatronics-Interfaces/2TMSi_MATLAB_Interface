@@ -41,18 +41,17 @@ end
 config_file = parameters('config_stream_service_plus');
 fprintf(1, "[TMSi]::Loading configuration file (%s, in main repo folder)...\n", config_file);
 [config, TAG, SN, N_CLIENT] = parse_main_config(config_file);
-% addpath('FastICA_25');
 
 %% Setup device configurations.
 config_device_impedance = struct('ImpedanceMode', true, ...
     'ReferenceMethod', config.Default.Device_Reference_Mode, ...
     'Triggers', false, ...
-    'Dividers', {{'uni', config.Default.Sample_Rate_Divider; 'bip', -1; 'dig', -1; 'triggers', -1; 'aux', -1}});
+    'Dividers', {{'uni', 0; 'bip', -1}});
 config_channel_impedance = struct('uni',1:64, ...
     'bip', 0, ...
     'dig', 0, ...
     'acc', 0);
-config_device = struct('Dividers', {{'uni', config.Default.Sample_Rate_Divider; 'bip', config.Default.Sample_Rate_Divider; 'dig', config.Default.Sample_Rate_Divider; 'triggers', config.Default.Sample_Rate_Divider; 'aux', config.Default.Sample_Rate_Divider}}, ...
+config_device = struct('Dividers', {{'uni', config.Default.Sample_Rate_Divider; 'bip', config.Default.Sample_Rate_Divider}}, ...
     'Triggers', true, ...
     'BaseSampleRate', config.Default.Sample_Rate, ...
     'RepairLogging', false, ...
@@ -76,8 +75,7 @@ config_channels = struct(...
             'dig', ~isempty(1:numel(config.SAGA.B.Channels.DIG)), ...
             'acc', config.SAGA.B.Channels.ACC_EN, ...
             'aux', 1:numel(config.SAGA.B.Channels.AUX)));
-channels = struct(...
-    'A', config.SAGA.A.Channels, ...
+channels = struct('A', config.SAGA.A.Channels, ...
     'B', config.SAGA.B.Channels);
 
 
@@ -181,7 +179,6 @@ param = struct(...
     'interpolate_grid', config.Default.Interpolate_Grid, ...
     'textiles', config.Default.UsingTextiles, ...
     'apply_car', config.Default.Virtual_Reference_Mode > 0, ...
-    'rectify_hpf', struct('A', config.Default.Rectify_HPF_A, 'B', config.Default.Rectify_HPF_B), ...
     'hpf', struct('b', [], 'a', []), ... % Filter transfer function numerator (b) and denominator (a) coefficients
     'lpf', struct('b', [], 'a', []), ... % Filter transfer function numerator (b) and denominator (a) coefficients
     'force', config.Default.LSL_Force_Channel, ...
@@ -189,32 +186,14 @@ param = struct(...
                                       'fig', [], ...
                                       'h', [], ...
                                       'offset', config.GUI.Offset, ...
-                                      'hpf_mode', struct('A', config.GUI.Squiggles.HPF_Mode, 'B', config.GUI.Squiggles.HPF_Mode), ...
+                                      'hpf_mode', config.GUI.Squiggles.HPF_Mode, ...
                                       'whiten', struct('A', false, 'B', false), ...
                                       'channels', struct('A', [], 'B', []), ...
                                       'n_samples', config.GUI.N_Samples, ...
                                       'color', config.GUI.Color, ...
-                                      'aux_target_index', 0, ...
-                                      'aux_target_count', 0, ...
                                       'triggers', struct('enable', config.Triggers.Enable), ...
                                       'tag', struct('A', config.SAGA.A.Array.Location, 'B', config.SAGA.B.Array.Location))), ...
     'save_location', strrep(config.Default.Folder,'\','/'),  ...            % Save folder
-    'topoplot', struct('A', false, 'B', false), ...
-    'aux_channel', config.GUI.Aux_Channel, ...
-    'aux_saga', config.GUI.Aux_SAGA, ...
-    'aux_samples', config.GUI.Aux_Samples, ...
-    'aux_scale', config.GUI.Aux_Scale, ...
-    'aux_offset', config.GUI.Aux_Offset, ...
-    'aux_knots', [], ...
-    'aux_target', [], ...
-    'aux_alpha', 0.1, ...
-    'aux_val', 0, ...
-    'aux_val_scale', 0, ...
-    'aux_error_tol', 0.1, ...
-    'send_aux_scale', false, ...
-    'send_aux_offset', false, ...
-    'aux_return_address', "127.0.0.1", ... % Should be included in "get" udp
-    'aux_return_port', 0, ... % Should be included in "get" udp
     'pause_duration', config.Default.Sample_Loop_Pause_Duration, ...
     'use_channels', struct('A', [], 'B', []), ...
     'n_device', numel(device), ...
@@ -243,10 +222,13 @@ param = setup_or_teardown_triggers_socket_connection(param);
 param.ref_projection = struct('A', eye(64), 'B', eye(64));
 param.gui.squiggles.channels.A = config.GUI.Squiggles.A;
 param.gui.squiggles.channels.B = config.GUI.Squiggles.B;
+param.gui.squiggles.hpf_mode = struct('A', param.gui.squiggles.hpf_mode, 'B', param.gui.squiggles.hpf_mode);
 param.use_channels.A = config.GUI.Squiggles.A;
 param.use_channels.B = config.GUI.Squiggles.B;
-[param.hpf.b, param.hpf.a] = butter(3, config.Default.HPF_Cutoff_Frequency/(param.sample_rate/2), 'high');
-[param.lpf.b, param.lpf.a] = butter(3, config.Default.LPF_Cutoff_Frequency/(param.sample_rate/2), 'low');
+[param.hpf.A.b, param.hpf.A.a] = butter(3, 13/(param.sample_rate/2), 'high');
+[param.lpf.A.b, param.lpf.A.a] = butter(3, 30/(param.sample_rate/2), 'low');
+[param.hpf.B.b, param.hpf.B.a] = butter(3, 100/(param.sample_rate/2), 'high');
+[param.lpf.B.b, param.lpf.B.a] = butter(3, 500/(param.sample_rate/2), 'low');
 if numel(device) > 1
     nTotalChannels = param.n_total.A + param.n_total.B;
 else
@@ -257,50 +239,44 @@ if ~iscell(ch)
     ch = {ch};
 end
 
-param.gui.squiggles = init_squiggles_gui(param.gui.squiggles, ...
-    'Topoplot', param.topoplot, ...
-    'AuxTarget', param.aux_target, ...
-    'AuxSAGA', param.aux_saga, ...
-    'AuxSamples', param.aux_samples, ...
-    'AuxChannel', param.aux_channel);
+param.gui.squiggles = init_squiggles_gui(param.gui.squiggles);
 param.n_mvc_acquired = 0;
-i_mono = struct('A', config.SAGA.A.Channels.UNI, 'B', config.SAGA.B.Channels.UNI);
-i_bip = struct('A', config.SAGA.A.Channels.BIP, 'B', config.SAGA.B.Channels.BIP);
-param.i_all = struct('A', [config.SAGA.A.Channels.UNI, config.SAGA.A.Channels.BIP], ...
+param.i_all = struct('A', [1:64, config.SAGA.A.Channels.BIP], ...
                      'B', [config.SAGA.B.Channels.UNI, config.SAGA.B.Channels.BIP]);
 param.i_all.Ao = param.i_all.A;
 param.i_all.Bo = param.i_all.B;
 param.zi = struct; % Filter states
 param.zi.hpf = struct('A',zeros(3,numel(param.i_all.A)), 'B', zeros(3,numel(param.i_all.B)));
-param.zi.env = struct('A', zeros(3,param.n_total.A), 'B', zeros(3, param.n_total.B));
+param.zi.lpf = struct('A', zeros(3,param.n_total.A), 'B', zeros(3, param.n_total.B));
 hpf_data = struct('A',zeros(3,numel(param.i_all.A)), 'B', zeros(3,numel(param.i_all.B)));
-env_data = struct('A',zeros(3,numel(param.n_total.A)), 'B', zeros(3,numel(param.n_total.B)));
+bpf_data = struct('A',zeros(3,numel(param.n_total.A)), 'B', zeros(3,numel(param.n_total.B)));
 trig_out_state = [false, false];
 
 %% Load the LSL library
-lslMatlabFolder = fullfile(pwd, '..', 'liblsl-Matlab');
-if exist(lslMatlabFolder,'dir')==0
-    lslMatlabFolder = parameters('liblsl_folder');
-    if exist(lslMatlabFolder, 'dir')==0
-        lslMatlabFolder2 = 'C:/MyRepos/Libraries/liblsl-Matlab';
-        if exist(lslMatlabFolder2,'dir')==0
-            disp("No valid liblsl-Matlab repository detected on this device.");
-            fprintf(1,'\t->\tTried: "%s"\n', fullfile(pwd, '..', 'liblsl-Matlab'));
-            fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder);
-            fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder2);
-            disp("Please check parameters.m in the 2TMSi_MATLAB_Interface repository, and try again.");
-            pause(30);
-            error("[TMSi]::Missing liblsl-Matlab repository.");
-        else
-            lslMatlabFolder = lslMatlabFolder2;
+if param.enable_raw_lsl_outlet
+    lslMatlabFolder = fullfile(pwd, '..', 'liblsl-Matlab');
+    if exist(lslMatlabFolder,'dir')==0
+        lslMatlabFolder = parameters('liblsl_folder');
+        if exist(lslMatlabFolder, 'dir')==0
+            lslMatlabFolder2 = 'C:/MyRepos/Libraries/liblsl-Matlab';
+            if exist(lslMatlabFolder2,'dir')==0
+                disp("No valid liblsl-Matlab repository detected on this device.");
+                fprintf(1,'\t->\tTried: "%s"\n', fullfile(pwd, '..', 'liblsl-Matlab'));
+                fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder);
+                fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder2);
+                disp("Please check parameters.m in the 2TMSi_MATLAB_Interface repository, and try again.");
+                pause(30);
+                error("[TMSi]::Missing liblsl-Matlab repository.");
+            else
+                lslMatlabFolder = lslMatlabFolder2;
+            end
         end
     end
-end
-addpath(genpath(lslMatlabFolder)); % Adds liblsl-Matlab
-lib_lsl = lsl_loadlib();
+    addpath(genpath(lslMatlabFolder)); % Adds liblsl-Matlab
+    lib_lsl = lsl_loadlib();
 
-%% Initialize the LSL stream information and outlets
-if param.enable_raw_lsl_outlet
+    % Initialize the LSL stream information and outlets
+
     lsl_info_obj = struct;
     lsl_outlet_obj = struct;
     for iDev = 1:numel(device)
@@ -328,79 +304,6 @@ if param.enable_raw_lsl_outlet
         lsl_outlet_obj.(tag) = lsl_outlet(lsl_info_obj.(tag));
         fprintf(1,'complete\n');
     end
-end
-if param.enable_envelope_lsl_outlet
-    lsl_info_env = lsl_streaminfo(lib_lsl, ...
-            'SAGACombined_Envelope', ...     % Name
-            'EMG', ...                       % Type
-            64*numel(device), ....           % ChannelCount
-            1/param.pause_duration, ...      % NominalSrate
-            'cf_float32', ...                % ChannelFormat
-            sprintf('StreamService_Envelope_%06d',randi(999999,1)));
-    chns = lsl_info_env.desc().append_child('channels');
-    for ii = 1:(64*numel(device))
-        c = chns.append_child('channel');
-        c.append_child_value('name', sprintf('UNI-%03d',ii));
-        c.append_child_value('label', sprintf('UNI-%03d',ii));
-        c.append_child_value('unit', 'μV');
-        c.append_child_value('type','EMG');
-    end 
-    lsl_info_env.desc().append_child_value('manufacturer', 'NML');
-    lsl_outlet_env = lsl_outlet(lsl_info_env);
-    
-    lsl_info_decode = lsl_streaminfo(lib_lsl, ...
-            'SAGACombined_Envelope_Decode', ...       % Name
-            'Control', ...                    % Type
-            3, ....           % ChannelCount
-            1/param.pause_duration, ...                     % NominalSrate
-            'cf_float32', ...             % ChannelFormat
-            sprintf('StreamService_EnvDecode_%06d',randi(999999,1)));
-    chns = lsl_info_decode.desc().append_child('channels');
-    c = chns.append_child('channel');
-    c.append_child_value('name', 'X');
-    c.append_child_value('label', 'X');
-    c.append_child_value('unit', 'none');
-    c.append_child_value('type','Control');
-    c = chns.append_child('channel');
-    c.append_child_value('name', 'Y');
-    c.append_child_value('label', 'Y');
-    c.append_child_value('unit', 'none');
-    c.append_child_value('type','Control');
-    c = chns.append_child('channel');
-    c.append_child_value('name', 'Z');
-    c.append_child_value('label', 'Z');
-    c.append_child_value('unit', 'none');
-    c.append_child_value('type','Control');
-    lsl_info_decode.desc().append_child_value('manufacturer', 'NML');
-    lsl_outlet_decode = lsl_outlet(lsl_info_decode);
-end
-if param.enable_force_lsl_outlet
-    lsl_info_force = lsl_streaminfo(lib_lsl, ...
-            'FORCE', ...     % Name
-            'EMG', ...                       % Type
-            1, ....           % ChannelCount
-            config.Default.Sample_Rate / 2^config.Default.Sample_Rate_Divider, ...      % NominalSrate
-            'cf_float32', ...                % ChannelFormat
-            'FORCE');
-    chns = lsl_info_force.desc().append_child('channels');
-    for iCh = 1:1
-        c = chns.append_child('channel');
-        c.append_child_value('name', 'Selected');
-        c.append_child_value('label', 'ONLINE');
-        c.append_child_value('unit', 'μV');
-        c.append_child_value('type', 'EMG');
-    end    
-    lsl_outlet_force = lsl_outlet(lsl_info_force);
-end
-
-%% If tablet pressure stream is enabled, then show this
-if param.enable_tablet_figure
-    tablet_fig = init_pressure_tracking_fig();
-end
-
-%% If we want the joystick, then open it up
-if param.enable_joystick
-    cObj = cursor.Cursor();
 end
 
 %% Configuration complete, run main control loop.
@@ -430,9 +333,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     fname_tablet = strrep(fname_tablet,'.poly5','.bin');
     fname_joystick = strrep(fname,"%s","JOYSTICK");
     fname_joystick = strrep(fname_joystick,'.poly5','.cursordata');
-
-    fname_mindrove = strrep(fname,"%s","MINDROVE");
-    fname_mindrove = strrep(fname_mindrove, ".poly5", ".tsv");
 
     start(device);
     pause(1.0);
@@ -488,8 +388,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
             fname_tablet = strrep(fname_tablet,'.poly5','.bin');
             fname_joystick = strrep(fname,"%s","JOYSTICK");
             fname_joystick = strrep(fname_joystick,'.poly5','.cursordata');
-            fname_mindrove = strrep(fname,"%s","MINDROVE");
-            fname_mindrove = strrep(fname_mindrove,".poly5",".tsv");
             fprintf(1, "File name updated: %s\n", fname);
         end
         
@@ -522,8 +420,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 fname_tablet = strrep(fname_tablet,'.poly5','.bin');
                 fname_joystick = strrep(fname,"%s","JOYSTICK");
                 fname_joystick = strrep(fname_joystick,'.poly5','.cursordata');
-                fname_mindrove = strrep(fname,"%s","MINDROVE");
-                fname_mindrove = strrep(fname_mindrove,".poly5",".tsv");
                 fprintf(1, "File name updated: %s\n", fname);
             end
 
@@ -545,7 +441,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 % raw data outlet ( if enabled ), and apply filtering.
                 if ~isempty(samples{ii})
                     if param.enable_filters
-                        [hpf_data.(device(ii).tag), param.zi.hpf.(device(ii).tag)] = filter(param.hpf.b,param.hpf.a,samples{ii}(param.i_all.(device(ii).tag),:)',param.zi.hpf.(device(ii).tag),1);
+                        [hpf_data.(device(ii).tag), param.zi.hpf.(device(ii).tag)] = filter(param.hpf.(device(ii).tag).b,param.hpf.(device(ii).tag).a,samples{ii}(param.i_all.(device(ii).tag),:)',param.zi.hpf.(device(ii).tag),1);
                         if size(hpf_data.(device(ii).tag),2) >= 64
                             if param.gui.squiggles.whiten.(device(ii).tag) % Then do the Whitening chain
                                 cat_data = [param.prev_data.(device(ii).tag); hpf_data.(device(ii).tag)(:,1:64)];
@@ -588,234 +484,11 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                                 end
                             end
                         end
-                        if param.rectify_hpf.(device(ii).tag)
-                            [env_data.(device(ii).tag), param.zi.env.(device(ii).tag)] = filter(param.lpf.b, param.lpf.a, abs(hpf_data.(device(ii).tag)), param.zi.env.(device(ii).tag), 1);
-                        else
-                            [env_data.(device(ii).tag), param.zi.env.(device(ii).tag)] = filter(param.lpf.b, param.lpf.a, hpf_data.(device(ii).tag), param.zi.env.(device(ii).tag), 1);
-                        end
+                        [bpf_data.(device(ii).tag), param.zi.lpf.(device(ii).tag)] = filter(param.lpf.(device(ii).tag).b, param.lpf.(device(ii).tag).a, hpf_data.(device(ii).tag), param.zi.lpf.(device(ii).tag), 1);
+
                     else
                         hpf_data.(device(ii).tag) = samples{ii}(param.i_all.(device(ii).tag),:)';
-                        env_data.(device(ii).tag) = hpf_data.(device(ii).tag);
-                    end
-                    if param.send_aux_offset
-                        writeline(udp_state_receiver, ...
-                            jsonencode(struct('name', "aux_offset", 'value', param.aux_val)), ...
-                            param.aux_return_address, param.aux_return_port);
-                        param.send_aux_offset = false;
-                    end
-                    if param.send_aux_scale
-                        writeline(udp_state_receiver, ...
-                            jsonencode(struct('name', "aux_scale", 'value', param.aux_val_scale)), ...
-                            param.aux_return_address, param.aux_return_port);
-                        param.send_aux_scale = false;
-                    end
-                    if param.enable_force_lsl_outlet
-                        if param.force.Channel <= 64
-                            if param.gui.squiggles.hpf_mode.(device(ii).tag)
-                                % lsl_outlet_force.push_chunk(hpf_data.(param.force.SAGA)(:,param.force.Channel)');
-                            else
-                                % lsl_outlet_force.push_chunk(env_data.(param.force.SAGA)(:,param.force.Channel)');
-                            end
-                        else
-                            % lsl_outlet_force.push_chunk(samples{saga_index.(param.force.SAGA)}(param.force.Channel,:));
-                        end
-                    end
-                    if param.enable_trigger_controller && strcmpi(device(ii).tag,'A') % Only use SAGA-A
-                        if param.parse_from_bits
-                            trigSamples = samples{ii}(config.SAGA.A.Trigger.Channel,:);
-                            disp(size(trigSamples,2));
-                            if param.emulate_mouse
-                                if param.trig_out_en(1)
-                                    if trig_out_state(1)   % If we have been holding the mouse down:
-                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(1))==0)
-                                            writeline(param.mouse.client, 'off,left'); % Release the left D-pad ('ArrowLeft' keypress)
-                                            trig_out_state(1) = false;
-                                        end
-                                    else % Otherwise, check if we should go to mouse-down state
-                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(1))==param.trig_out_mask(1))
-                                            writeline(param.mouse.client, 'on,left'); % Begin the click left D-pad ('ArrowLeft' keypress)
-                                            trig_out_state(1) = true;
-                                        end
-                                    end
-                                end
-    
-                                if param.trig_out_en(2)
-                                    if trig_out_state(2) 
-                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(2))==0)
-                                            writeline(param.mouse.client, 'off,right'); % Release the rightD-pad ('ArrowRight' keypress)
-                                            trig_out_state(2) = false;
-                                        end
-                                    else
-                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(2))==param.trig_out_mask(2))
-                                            writeline(param.mouse.client, 'on,right'); % Begin the click right D-pad ('ArrowRight' keypress)
-                                            trig_out_state(2) = true;
-                                        end
-                                    end
-                                end
-                            else
-                                if param.trig_out_en(1)
-                                    if trig_out_state(1)  % If we have been holding the mouse down:
-                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(1))==0)
-                                            writeline(param.gamepad.client, '41'); % Release the left D-pad ('ArrowLeft' keypress)
-                                            trig_out_state(1) = false;
-                                        end
-                                    else % Otherwise, check if we should go to mouse-down state
-                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(1))==param.trig_out_mask(1))
-                                            writeline(param.gamepad.client, '40'); % Begin the click left D-pad ('ArrowLeft' keypress)
-                                            trig_out_state(1) = true;
-                                        end
-                                    end
-                                end
-        
-                                if param.trig_out_en(2)
-                                    if trig_out_state(2) 
-                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(2))==0)
-                                            writeline(param.gamepad.client, '61'); % Release the rightD-pad ('ArrowRight' keypress)
-                                            trig_out_state(2) = false;
-                                        end
-                                    else
-                                        if any(bitand(trigSamples(1,:), param.trig_out_mask(2))==param.trig_out_mask(2))
-                                            writeline(param.gamepad.client, '60'); % Begin the click right D-pad ('ArrowRight' keypress)
-                                            trig_out_state(2) = true;
-                                        end
-                                    end
-                                end
-                            end
-                        else
-                            if param.enable_filters
-                                if param.gui.squiggles.hpf_mode.(device(ii).tag)
-                                    trigSamples = hpf_data.A(:,param.trig_out_chan)';
-                                else
-                                    trigSamples = env_data.A(:,param.trig_out_chan)';
-                                end
-                            else
-                                trigSamples = samples{ii}(param.trig_out_chan,:);
-                            end
-                            
-                            nTrigs = size(trigSamples,2);
-                            % disp(nTrigs);
-                            if param.emulate_mouse
-                                if param.trig_out_en(1)
-                                    if trig_out_state(1)  % If we have been holding the mouse down:
-                                        [makeTransition, statePrev(1,1)] = detectFallingStateTransition(trigSamples(1,:), param.trig_out_sliding_threshold(1,1), param.trig_out_threshold(1,1), nTrigs, statePrev(1,1), nTrigsPrev);
-                                        if (stateDebounceIterations(1) > param.trig_out_debounce_iterations)
-                                            
-                                            if makeTransition
-                                                disp('Left FALLING');
-                                                writeline(param.mouse.client, 'off,left'); % Release the left D-pad ('ArrowLeft' keypress)
-                                                trig_out_state(1) = false;
-                                                stateDebounceIterations(1) = 0;
-                                            end
-                                        else
-                                            stateDebounceIterations(1) = stateDebounceIterations(1) + 1;
-                                        end
-                                    else % Otherwise, check if we should go to mouse-down state
-                                        [makeTransition, statePrev(1,1)] = detectRisingStateTransition(trigSamples(1,:), param.trig_out_sliding_threshold(1,1), param.trig_out_threshold(1,2), nTrigs, statePrev(1,1), nTrigsPrev);
-                                        if (stateDebounceIterations(1) > param.trig_out_debounce_iterations)
-                                            
-                                            if makeTransition
-                                                disp('Left RISING');
-                                                writeline(param.mouse.client, 'on,left'); % Begin the click left D-pad ('ArrowLeft' keypress)
-                                                trig_out_state(1) = true;
-                                                stateDebounceIterations(1) = 0;
-                                            end
-                                        else
-                                            stateDebounceIterations(1) = stateDebounceIterations(1) + 1;
-                                        end
-                                    end
-                                end
-    
-                                if param.trig_out_en(2)
-                                    if trig_out_state(2) 
-                                        [makeTransition, statePrev(1,2)] = detectFallingStateTransition(trigSamples(2,:), param.trig_out_sliding_threshold(1,2), param.trig_out_threshold(2,1), nTrigs, statePrev(1,2), nTrigsPrev);
-                                        if (stateDebounceIterations(2) > param.trig_out_debounce_iterations)
-                                            
-                                            if makeTransition
-                                                disp('Right FALLING');
-                                                writeline(param.mouse.client, 'off,right'); % Release the rightD-pad ('ArrowRight' keypress)
-                                                trig_out_state(2) = false;
-                                                stateDebounceIterations(2) = 0;
-                                            end
-                                        else
-                                            stateDebounceIterations(2) = stateDebounceIterations(2) + 1;
-                                        end
-                                    else
-                                        [makeTransition, statePrev(1,2)] = detectRisingStateTransition(trigSamples(2,:), param.trig_out_sliding_threshold(1,2), param.trig_out_threshold(2,2), nTrigs, statePrev(1,2), nTrigsPrev);
-                                        if (stateDebounceIterations(2) > param.trig_out_debounce_iterations)
-                                            
-                                            if makeTransition
-                                                disp('Right RISING');
-                                                writeline(param.mouse.client, 'on,right'); % Begin the click right D-pad ('ArrowRight' keypress)
-                                                trig_out_state(2) = true;
-                                                stateDebounceIterations(2) = 0;
-                                            end
-                                        else
-                                            stateDebounceIterations(2) = stateDebounceIterations(2) + 1;
-                                        end
-                                    end
-                                end
-                            else
-                                if param.trig_out_en(1)
-                                    if trig_out_state(1)  % If we have been holding the mouse down:
-                                        [makeTransition, statePrev(1,1)] = detectFallingStateTransition(trigSamples(1,:), param.trig_out_sliding_threshold(1,1), param.trig_out_threshold(1,1), nTrigs, statePrev(1,1), nTrigsPrev);
-                                        if (stateDebounceIterations(1) > param.trig_out_debounce_iterations)
-                                            
-                                            if makeTransition
-                                                disp('Left FALLING');
-                                                writeline(param.gamepad.client, '41'); % Release the left D-pad ('ArrowLeft' keypress)
-                                                trig_out_state(1) = false;
-                                                stateDebounceIterations(1) = 0;
-                                            end
-                                        else
-                                            stateDebounceIterations(1) = stateDebounceIterations(1) + 1;
-                                        end
-                                    else % Otherwise, check if we should go to mouse-down state
-                                        [makeTransition, statePrev(1,1)] = detectRisingStateTransition(trigSamples(1,:), param.trig_out_sliding_threshold(1,1), param.trig_out_threshold(1,2), nTrigs, statePrev(1,1), nTrigsPrev);
-                                        if (stateDebounceIterations(1) > param.trig_out_debounce_iterations)
-                                           
-                                            if makeTransition
-                                                disp('Left RISING');
-                                                writeline(param.gamepad.client, '40'); % Begin the click left D-pad ('ArrowLeft' keypress)
-                                                trig_out_state(1) = true;
-                                                stateDebounceIterations(1) = 0;
-                                            end
-                                        else
-                                            stateDebounceIterations(1) = stateDebounceIterations(1) + 1;
-                                        end
-                                    end
-                                end
-        
-                                if param.trig_out_en(2)
-                                    if trig_out_state(2) 
-                                        [makeTransition, statePrev(1,2)] = detectFallingStateTransition(trigSamples(2,:), param.trig_out_sliding_threshold(1,2), param.trig_out_threshold(2,1), nTrigs, statePrev(1,2), nTrigsPrev);
-                                        if stateDebounceIterations(2) > param.trig_out_debounce_iterations
-                                            if makeTransition
-                                                disp('Right FALLING');
-                                                writeline(param.gamepad.client, '61'); % Release the rightD-pad ('ArrowRight' keypress)
-                                                trig_out_state(2) = false;
-                                                stateDebounceIterations(2) = 0;
-                                            end
-                                        else
-                                            stateDebounceIterations(2) = stateDebounceIterations(2) + 1;
-                                        end
-                                    else
-                                        [makeTransition, statePrev(1,2)] = detectRisingStateTransition(trigSamples(2,:), param.trig_out_sliding_threshold(1,2), param.trig_out_threshold(2,2), nTrigs, statePrev(1,2), nTrigsPrev);
-                                        if stateDebounceIterations(2) > param.trig_out_debounce_iterations
-                                            if makeTransition
-                                                disp('Right RISING');
-                                                writeline(param.gamepad.client, '60'); % Begin the click right D-pad ('ArrowRight' keypress)
-                                                trig_out_state(2) = true;
-                                                stateDebounceIterations(2) = 0;
-                                            end
-                                        else
-                                            stateDebounceIterations(2) = stateDebounceIterations(2) + 1;
-                                        end
-                                    end
-                                end
-                            end
-                            nTrigsPrev = nTrigs;
-                        end
-                    
+                        bpf_data.(device(ii).tag) = hpf_data.(device(ii).tag);
                     end
                     if param.enable_raw_lsl_outlet
                         lsl_outlet_obj.(device(ii).tag).push_chunk(samples{ii});
@@ -828,68 +501,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 end
             end
 
-            % Dump envelope samples to LSL outlet (if required)
-            if param.enable_envelope_lsl_outlet 
-                for ii = 1:N_CLIENT
-                    if ~isempty(env_data.(device(ii).tag))
-                        i_assign_max = find(strcmpi(TAG,device(ii).tag));
-                        envelope_bin_sample((1:64)+(i_assign_max-1)*64,1) = max(env_data.(device(ii).tag)(:,grid_ch_uni.(device(ii).tag)),[],1)';
-                    end
-                end
-                lsl_outlet_env.push_sample(max(envelope_bin_sample,1e-3));
-            end
-
-            % Handle using TABLET figure (if required)
-            if param.enable_tablet_figure
-                pkt = WinTabMex(5);
-                if ~isempty(pkt)
-                    tmp = WinTabMex(5);
-                    while ~isempty(tmp) % Always grab the last event in queue.
-                        pkt = tmp;
-                        tmp = WinTabMex(5);
-                    end
-                    tablet_fig.UserData.PressureLine.h.YData(tablet_fig.UserData.PressureLine.idx) = pkt(9);
-                    tablet_fig.UserData.PressureLine.idx = rem(tablet_fig.UserData.PressureLine.idx,1000)+1;
-                    tablet_fig.UserData.PressureLine.h.YData(tablet_fig.UserData.PressureLine.idx) = nan;
-                    
-                    if pkt(9) > 0
-                        tablet_fig.UserData.PressureSpots.h.XData(tablet_fig.UserData.PressureSpots.idx) = pkt(1);
-                        tablet_fig.UserData.PressureSpots.h.YData(tablet_fig.UserData.PressureSpots.idx) = pkt(2);
-                        tablet_fig.UserData.PressureSpots.h.CData = circshift(tablet_fig.UserData.PressureSpots.h.CData,-1);
-                        tablet_fig.UserData.PressureSpots.h.SizeData(tablet_fig.UserData.PressureSpots.idx) = pkt(9)/10;
-                        tablet_fig.UserData.PressureSpots.idx = rem(tablet_fig.UserData.PressureSpots.idx,1000)+1;
-                    end
-                    if recording
-                        fwrite(rec_file_tablet, uint32([samples{1}(end,end),pkt(1),pkt(2),pkt(9)]), 'uint32');
-                    end
-                end
-            end
-
             % Check for a "control state" update.
             if udp_state_receiver.NumBytesAvailable > 0
                 tmpState = lower(string(readline(udp_state_receiver)));
                 if ismember(tmpState, ["rec", "idle", "quit", "imp", "run"])
-                    switch tmpState
-                        case "rec"
-                            message = jsonencode(struct('name','start','value',fname_mindrove)); 
-                            write(udp_state_receiver, uint8(message), ...
-                                config.UDP.Socket.MindRove.Address, ...
-                                config.UDP.Socket.MindRove.Port);
-                        case "quit"
-                            if state == "rec"
-                                message = jsonencode(struct('name','stop','value','0')); 
-                                write(udp_state_receiver, uint8(message), ...
-                                    config.UDP.Socket.MindRove.Address, ...
-                                    config.UDP.Socket.MindRove.Port);
-                            end
-                        case "run"
-                            if state == "rec"
-                                message = jsonencode(struct('name','stop','value','0')); 
-                                write(udp_state_receiver, uint8(message), ...
-                                    config.UDP.Socket.MindRove.Address, ...
-                                    config.UDP.Socket.MindRove.Port);
-                            end
-                    end
                     state = tmpState;
                 elseif startsWith(tmpState, "ping")
                     msgParts = strsplit(tmpState, ":");
@@ -938,11 +553,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             fprintf(rec_file_tablet, headerLine2);
                             fprintf(rec_file_tablet, headerLine3);
                         end
-                        if param.enable_joystick
-                            % stop(cObj);
-                            % cObj.setLogging(true, fname_joystick);
-                            % start(cObj);
-                        end
                     end
                     recording = true;
                     running = true;
@@ -950,22 +560,12 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     running = strcmpi(state, "run");
                     if ~running
                         stop(device);
-                        if param.enable_joystick
-                            % stop(cObj);
-                        end
                     end
                     if recording
                         fprintf(1, "[TMSi]::[REC > RUN]: Recording complete\n\t->\t(%s)\n", fname);
                         for ii = 1:N_CLIENT
                             % delete(rec_file.(device(ii).tag));
                             rec_file.(device(ii).tag).close();
-                        end
-                        if param.enable_tablet_figure
-                            fclose(rec_file_tablet);
-                        end
-                        if param.enable_joystick
-                            % stop(cObj);
-                            % setLogging(cObj,false);
                         end
                     end
                     recording = false;
@@ -977,22 +577,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 for ii = 1:N_CLIENT
                     if ~isempty(samples{ii})
                         rec_file.(device(ii).tag).append(samples{ii});
-                        if strcmpi(device(ii).tag,"A")
-                            message = jsonencode(struct(...
-                                'name','state', ...
-                                'value',samples{ii}(end,end))); 
-                            write(udp_state_receiver, uint8(message), ...
-                                config.UDP.Socket.MindRove.Address, ...
-                                config.UDP.Socket.MindRove.Port);
-                        end
                     end
-                end
-                % If using tablet mex, log samples from tablet
-                if param.enable_tablet_figure
-                    
-                end
-                if param.enable_joystick
-                    % cObj.logData(zeros(1,2,'single'), dt_tick, samples{saga_index.A}(end,end));
                 end
             end
 
@@ -1011,37 +596,9 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                                 if param.gui.squiggles.hpf_mode.(device(ii).tag)
                                     cur_data = hpf_data.(device(ii).tag)(:,cur_ch)';
                                 else
-                                    cur_data = env_data.(device(ii).tag)(:,cur_ch)';
+                                    cur_data = bpf_data.(device(ii).tag)(:,cur_ch)';
                                 end
-                                if param.topoplot.(device(ii).tag)
-                                    param.gui.squiggles.h.(device(ii).tag)(iCh).CData = mean(cur_data(:,iCh)); % Keep them in order from 1-64 -- topoplot layout has indexing baked-in.
-                                else
-                                    param.gui.squiggles.h.(device(ii).tag)(iCh).YData(i_assign.(device(ii).tag)) = [cur_data + (8-rem((cur_ch-1),8))*param.gui.squiggles.offset, nan];
-                                end
-                            end
-                            if strcmpi(param.aux_saga,device(ii).tag) && (param.aux_channel > 0)
-                                param.gui.squiggles.aux_target_index = (param.gui.squiggles.aux_target_index(end) + 1) : (param.gui.squiggles.aux_target_index(end) + numel(sample_counts.(device(ii).tag))) ;
-                                i_aux = mod([param.gui.squiggles.aux_target_index-param.sample_rate, ((param.gui.squiggles.aux_target_index(end)-param.sample_rate+1):param.gui.squiggles.aux_target_index(end))], param.aux_samples)+1;
-                                cur_aux_samples = samples{ii}(param.aux_channel,:);
-                                param.aux_val = param.aux_alpha * mean(cur_aux_samples) + (1 - param.aux_alpha) * param.aux_val;
-                                param.aux_val_scale = param.aux_alpha * (mean(cur_aux_samples) - param.aux_offset) + (1 - param.aux_alpha) * param.aux_val_scale;
-                                param.gui.squiggles.h.Aux.YData(i_aux) = [param.gui.squiggles.offset*(cur_aux_samples-param.aux_offset)./param.aux_scale + 8*param.gui.squiggles.offset, nan(1,param.sample_rate)];
-                                if ~isempty(param.gui.squiggles.h.AuxTarget)
-                                    i_target = mod(param.gui.squiggles.aux_target_index+param.sample_rate-1, param.gui.squiggles.aux_target_count)+1;
-                                    i_aux_plot = mod(i_target-1, param.aux_samples) + 1;
-                                    cur_vals = (param.gui.squiggles.h.Aux.YData(i_aux(1:(end-param.sample_rate)))-8*param.gui.squiggles.offset)./param.gui.squiggles.offset;
-                                    cur_tgts = (param.gui.squiggles.h.AuxTarget.YData(i_aux(1:(end-param.sample_rate)))-8*param.gui.squiggles.offset)./param.gui.squiggles.offset;
-                                    err = mean(abs(cur_tgts-cur_vals));
-                                    % disp(err);
-                                    if err < param.aux_error_tol
-                                        param.gui.squiggles.h.AuxTarget.Color = 'b';
-                                    else
-                                        param.gui.squiggles.h.AuxTarget.Color = 'r';
-                                    end
-                                    param.gui.squiggles.h.AuxTarget.YData(i_aux_plot) = param.aux_target(i_target).*param.gui.squiggles.offset+ 8*param.gui.squiggles.offset;
-                                    
-                                end
-                                
+                                param.gui.squiggles.h.(device(ii).tag)(iCh).YData(i_assign.(device(ii).tag)) = [cur_data + (8-rem((cur_ch-1),8))*param.gui.squiggles.offset, nan];
                             end
                         else
                             sample_counts.(device(ii).tag) = [];
@@ -1067,27 +624,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
         while udp_state_receiver.NumBytesAvailable > 0
             tmpState = lower(string(readline(udp_state_receiver)));
             if ismember(tmpState, ["rec", "idle", "quit", "imp", "run"])
-                switch tmpState
-                    case "rec"
-                        message = jsonencode(struct('name','start','value',fname_mindrove)); 
-                        write(udp_state_receiver, uint8(message), ...
-                            config.UDP.Socket.MindRove.Address, ...
-                            config.UDP.Socket.MindRove.Port);
-                    case "quit"
-                        if state == "rec"
-                            message = jsonencode(struct('name','stop','value','0')); 
-                            write(udp_state_receiver, uint8(message), ...
-                                config.UDP.Socket.MindRove.Address, ...
-                                config.UDP.Socket.MindRove.Port);
-                        end
-                    case "run"
-                        if state == "rec"
-                            message = jsonencode(struct('name','stop','value','0')); 
-                            write(udp_state_receiver, uint8(message), ...
-                                config.UDP.Socket.MindRove.Address, ...
-                                config.UDP.Socket.MindRove.Port);
-                        end
-                end
                 state = tmpState;
             elseif startsWith(tmpState, "ping")
                 msgParts = strsplit(tmpState, ":");
@@ -1125,10 +661,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     for ii = 1:N_CLIENT
                         rec_file.(device(ii).tag) = TMSiSAGA.Poly5(strrep(fname,"%s",param.name_tag.(device(ii).tag)), param.sample_rate, ch{ii}.toStruct(), 'w');
                     end
-                    if param.enable_joystick
-                        % setLogging(cObj,true,fname_joystick);
-                        % start(cObj);
-                    end
                 end
                 recording = true;
                 if ~running
@@ -1136,9 +668,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     needs_offset = true;
                     counter_offset = 0;
                     running = true;
-                    if param.enable_joystick
-                        % start(cObj);
-                    end
                 end
             elseif strcmpi(state, "run")
                 if ~running
@@ -1146,9 +675,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     needs_offset = true;
                     counter_offset = 0;
                     running = true;
-                    if param.enable_joystick
-                        % start(cObj);
-                    end
                 end
             end
             % If we are in impedance mode, change device config and show
@@ -1174,27 +700,6 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                     if udp_state_receiver.NumBytesAvailable > 0
                         tmpState = lower(string(readline(udp_state_receiver)));
                         if ismember(tmpState, ["rec", "idle", "quit", "imp", "run"])
-                            switch tmpState
-                                case "rec"
-                                    message = jsonencode(struct('name','start','value',fname_mindrove)); 
-                                    write(udp_state_receiver, uint8(message), ...
-                                        config.UDP.Socket.MindRove.Address, ...
-                                        config.UDP.Socket.MindRove.Port);
-                                case "quit"
-                                    if state == "rec"
-                                        message = jsonencode(struct('name','stop','value','0')); 
-                                        write(udp_state_receiver, uint8(message), ...
-                                            config.UDP.Socket.MindRove.Address, ...
-                                            config.UDP.Socket.MindRove.Port);
-                                    end
-                                case "run"
-                                    if state == "rec"
-                                        message = jsonencode(struct('name','stop','value','0')); 
-                                        write(udp_state_receiver, uint8(message), ...
-                                            config.UDP.Socket.MindRove.Address, ...
-                                            config.UDP.Socket.MindRove.Port);
-                                    end
-                            end
                             state = tmpState;
                         elseif startsWith(tmpState, "ping")
                             msgParts = strsplit(tmpState, ":");
@@ -1248,16 +753,14 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     running = false;
     disconnect(device);
     clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
-    try 
+    try %#ok<*TRYNC>
         for ii = 1:numel(device)
             delete(lsl_info_obj.(device(ii).tag));
             delete(lsl_outlet_obj.(device(ii).tag));
         end
-        delete(lsl_info_env);
-        delete(lsl_outlet_env);
-        delete(lsl_info_decode);
-        delete(lsl_outlet_decode);
-        delete(lib_lsl);
+        if exist(lib_lsl,'var')~=0
+            delete(lib_lsl);
+        end
     end
     if ~isempty(param.mouse.client)
         delete(param.mouse.client);
@@ -1265,13 +768,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     if ~isempty(param.gamepad.client)
         delete(param.gamepad.client);
     end
-    if param.enable_joystick
-        try %#ok<*TRYNC>
-            delete(cObj);
-        end
-        clear cObj;
-    end
-    clear lsl_info_force lsl_outlet_force lsl_info_obj lsl_outlet_obj lib_lsl lsl_outlet_env lsl_info_env lsl_outlet_decode lsl_info_decode
+    clear lsl_info_obj lsl_outlet_obj lib_lsl
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
     close all force;
 catch me
@@ -1287,12 +784,6 @@ catch me
     if ~isempty(param.gamepad.client)
         delete(param.gamepad.client);
     end
-    if param.enable_joystick
-        try
-            delete(cObj);
-        end
-        clear cObj;
-    end
     
     clear client udp_state_receiver udp_name_receiver udp_param_receiver udp_extra_receiver
     lib.cleanUp();  % % % Make sure to run this when you are done! % % %
@@ -1301,13 +792,11 @@ catch me
             delete(lsl_info_obj.(device(ii).tag));
             delete(lsl_outlet_obj.(device(ii).tag));
         end
-        delete(lsl_info_env);
-        delete(lsl_outlet_env);
-        delete(lsl_info_decode);
-        delete(lsl_outlet_decode);
-        delete(lib_lsl);
+        if exist(lib_lsl,'var')~=0
+            delete(lib_lsl);
+        end
     end
-    clear lsl_info_force lsl_outlet_force lsl_info_obj lsl_outlet_obj lib_lsl lsl_outlet_env lsl_info_env lsl_info_decode lsl_outlet_decode
+    clear lsl_info_obj lsl_outlet_obj lib_lsl
     close all force;
     fprintf(1, '\n\n-->\tTMSi stream stopped at %s\t<--\n\n', ...
         string(datetime('now')));
