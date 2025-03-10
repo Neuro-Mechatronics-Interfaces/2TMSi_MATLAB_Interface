@@ -409,7 +409,7 @@ fig.UserData.UDP.configureCallback("terminator",@udpResponseHandler);
         udpSender = src.Parent.Parent.UserData.UDP;
         val = struct('A',src.Parent.Parent.UserData.TopoplotA.Value,'B',src.Parent.Parent.UserData.TopoplotB.Value);
         jsonMessage = jsonencode(val);
-        cmd = sprintf("t.%s", jsonMessage);
+        cmd = sprintf('t.{"name":"topoplot","value":%s}', jsonMessage);
         writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
         fprintf(1,'[AUX-CONTROLLER]::Sent topoplot change: %s\n', cmd);
     end
