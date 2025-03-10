@@ -278,26 +278,28 @@ env_data = struct('A',zeros(3,numel(param.n_total.A)), 'B', zeros(3,numel(param.
 trig_out_state = [false, false];
 
 %% Load the LSL library
-lslMatlabFolder = fullfile(pwd, '..', 'liblsl-Matlab');
-if exist(lslMatlabFolder,'dir')==0
-    lslMatlabFolder = parameters('liblsl_folder');
-    if exist(lslMatlabFolder, 'dir')==0
-        lslMatlabFolder2 = 'C:/MyRepos/Libraries/liblsl-Matlab';
-        if exist(lslMatlabFolder2,'dir')==0
-            disp("No valid liblsl-Matlab repository detected on this device.");
-            fprintf(1,'\t->\tTried: "%s"\n', fullfile(pwd, '..', 'liblsl-Matlab'));
-            fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder);
-            fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder2);
-            disp("Please check parameters.m in the 2TMSi_MATLAB_Interface repository, and try again.");
-            pause(30);
-            error("[TMSi]::Missing liblsl-Matlab repository.");
-        else
-            lslMatlabFolder = lslMatlabFolder2;
+if param.enable_raw_lsl_outlet || param.enable_envelope_lsl_outlet || param.enable_force_lsl_outlet
+    lslMatlabFolder = fullfile(pwd, '..', 'liblsl-Matlab');
+    if exist(lslMatlabFolder,'dir')==0
+        lslMatlabFolder = parameters('liblsl_folder');
+        if exist(lslMatlabFolder, 'dir')==0
+            lslMatlabFolder2 = 'C:/MyRepos/Libraries/liblsl-Matlab';
+            if exist(lslMatlabFolder2,'dir')==0
+                disp("No valid liblsl-Matlab repository detected on this device.");
+                fprintf(1,'\t->\tTried: "%s"\n', fullfile(pwd, '..', 'liblsl-Matlab'));
+                fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder);
+                fprintf(1,'\t->\tTried: "%s"\n', lslMatlabFolder2);
+                disp("Please check parameters.m in the 2TMSi_MATLAB_Interface repository, and try again.");
+                pause(30);
+                error("[TMSi]::Missing liblsl-Matlab repository.");
+            else
+                lslMatlabFolder = lslMatlabFolder2;
+            end
         end
     end
+    addpath(genpath(lslMatlabFolder)); % Adds liblsl-Matlab
+    lib_lsl = lsl_loadlib();
 end
-addpath(genpath(lslMatlabFolder)); % Adds liblsl-Matlab
-lib_lsl = lsl_loadlib();
 
 %% Initialize the LSL stream information and outlets
 if param.enable_raw_lsl_outlet
