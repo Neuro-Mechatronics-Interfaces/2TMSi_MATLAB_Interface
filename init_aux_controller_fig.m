@@ -334,7 +334,7 @@ fig.UserData.UDP.configureCallback("terminator",@udpResponseHandler);
         if src.Value
             handleAuxTargetChange(src);
         else
-            parsedData = struct('name', "aux_target", 'value', [], 'extra', "refresh");
+            parsedData = struct('name', "aux_target", 'value', [],"extra","refresh");
             udpSender = src.Parent.Parent.UserData.UDP;
             jsonMessage = jsonencode(parsedData);
             cmd = sprintf('t.%s', jsonMessage);
@@ -409,7 +409,7 @@ fig.UserData.UDP.configureCallback("terminator",@udpResponseHandler);
         udpSender = src.Parent.Parent.UserData.UDP;
         val = struct('A',src.Parent.Parent.UserData.TopoplotA.Value,'B',src.Parent.Parent.UserData.TopoplotB.Value);
         jsonMessage = jsonencode(val);
-        cmd = sprintf('t.{"name":"topoplot","value":%s}', jsonMessage);
+        cmd = sprintf('t.{"name":"topoplot","value":%s, "extra": "refresh"}', jsonMessage);
         writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
         fprintf(1,'[AUX-CONTROLLER]::Sent topoplot change: %s\n', cmd);
     end

@@ -1016,7 +1016,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                                     cur_data = env_data.(device(ii).tag)(:,cur_ch)';
                                 end
                                 if param.topoplot.(device(ii).tag)
-                                    param.gui.squiggles.h.(device(ii).tag)(iCh).CData = mean(cur_data(:,iCh)); % Keep them in order from 1-64 -- topoplot layout has indexing baked-in.
+                                    param.gui.squiggles.h.(device(ii).tag).CData(iCh) = mean(cur_data); % Keep them in order from 1-64 -- topoplot layout has indexing baked-in.
                                 else
                                     param.gui.squiggles.h.(device(ii).tag)(iCh).YData(i_assign.(device(ii).tag)) = [cur_data + (8-rem((cur_ch-1),8))*param.gui.squiggles.offset, nan];
                                 end
