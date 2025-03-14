@@ -30,9 +30,9 @@ BAD_CH = [];
 %% Name output files
 SAVE_FOLDER = fullfile(pwd,'.local-tests');
 SAVE_DATA = true;
-SUBJ = "Max";
+SUBJ = "MCPXX";
 BLOCK = 0;
-MAX_TIME_SECONDS = 600; % Acquisition will not last longer than this (please only set to integer values)
+MAX_TIME_SECONDS = 900; % Acquisition will not last longer than this (please only set to integer values)
 BATCH_SIZE_SECONDS = 0.010; % Each acquisition cycle grabs sample batches of this duration (sample count depends on sample rate).
 TEENSY_PORT = "COM6"; % REQUIRED to have Teensy plugged in on USB COM port!
 dt = datetime();
@@ -70,7 +70,9 @@ else
 end
 fs = double(device(1).sample_rate); % Should both be the same sample rate
 ch = device.getActiveChannels();
-all_ch = active_channels_2_sync_channels(ch, 'CursorChannels', false);
+all_ch = active_channels_2_sync_channels(ch, ...
+    'GamepadButtonChannel', true, ...
+    'CursorChannels', false);
 
 %% Initialize filter and state buffers
 batch_samples = fs * BATCH_SIZE_SECONDS;
@@ -203,7 +205,7 @@ while isvalid(fig) && isvalid(rms_fig)
     %    Teensy (OUT); (teensyDataData)
     %    ViGEm Gamepad Commands (OUT); (buttonData)
     %    acquisition batch timestamps (tsData)];
-    combined_data = [data; buttonData; teensyData; tsData];
+    combined_data = [data; teensyData; buttonData; tsData];
     if SAVE_DATA
         p5.append(combined_data);
     end

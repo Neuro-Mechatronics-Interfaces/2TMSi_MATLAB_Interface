@@ -20,7 +20,7 @@ if any(isnan(options.FigurePosition))
             pos = [  50,  100,  720,  800];
     end
 else
-    
+    pos = [  50,  100,  720,  800];
 end
 
 if ~isempty(squiggles.fig)
