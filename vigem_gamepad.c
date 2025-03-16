@@ -197,6 +197,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
 
     if (nrhs == 0) {
         printHelp();
+        return;
     }
 
     // Get the command as an integer
