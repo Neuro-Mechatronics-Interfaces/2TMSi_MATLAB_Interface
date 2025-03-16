@@ -11,7 +11,8 @@
 
 // # Compiling #
 // This gamepad depends on the excellent ViGEmBus/ViGEmClient libraries. You will need to first install the ViGEmBus / client libraries and link against them to compile this mex file successfully.  
-//
+
+// 0. Download the pre-compiled installer for ViGEmBus (https://github.com/nefarius/ViGEmBus/releases/download/v1.22.0/ViGEmBus_1.22.0_x64_x86_arm64.exe) and follow the instructions.
 // 1. Clone ViGEmClient from https://github.com/nefarius/ViGEmClient
 // 2. Use CMake with VS2022 generator:
 //    ```batch
@@ -19,9 +20,13 @@
 //    cd ViGEmClient
 //    mkdir build
 //    cd build
-//    cmake .. -G "Microsoft 17 Visual Studio 2022" -A x64 -DBUILD_SHARED_LIBS=ON
+//    cmake .. -G "Visual Studio 17 2022" -A x64 -DBUILD_SHARED_LIBS=ON
 //    ```
 // 3. Open the VS2022 solution that was generated inside of ~/build, using Visual Studio. Switch to `release` mode. Right click "ALL_BUILD" and click "Build". Now, in ~/build/Release, you should see ViGEmClient.lib (static library) and ViGEmClient.dll (dynamic link library).  
+//      + _Alternatively, from the same VS2022 Developer Command Prompt in Step 2, run the following:_
+//      ```batch
+//      msbuild ViGEmClient.sln /p:Configuration=Release /p:Platform=x64
+//      ```
 // 4. From a MATLAB terminal, using the same generator you used when compiling the ViGEmClient.lib and ViGEmClient.dll libraries:  
 // ```
 //    mex -v -I"C:\MyRepos\Libraries\ViGEmClient\include" ...
