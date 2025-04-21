@@ -10,16 +10,17 @@ MY_FILE = fullfile('C:\Data\TMSi\Max\Max_2024_06_21',sprintf('%s.poly5',EXPERIME
 MY_CALIBRATION = fullfile('C:\Data\TMSi\Max\Max_2024_06_21', sprintf('%s_Calibrations_%d.mat', TANK, BLOCK));
 TRIGS_CH = 73;
 LINE_VERTICAL_OFFSET = 35; % microvolts
-HORIZONTAL_SCALE = 0.15; % seconds
+HORIZONTAL_SCALE = 0.050; % seconds
 SAMPLE_RATE_RECORDING = 4000;
 N_LOOP_MAX = 2000;
+REMAP = textile_8x8_uni2grid_mapping();
 
 %% Open file and estimate scaling/offsets
 % Open Poly5 file for reading:
 poly5 = TMSiSAGA.Poly5(MY_FILE, SAMPLE_RATE_RECORDING, [], 'r');
-load(MY_CALIBRATION, 'P', 'gamma', 'extFact', 'windowingVector');
-% extFact = 18;
-% windowingVector = flattopwin(extFact);
+% load(MY_CALIBRATION, 'P', 'gamma', 'extFact', 'windowingVector');
+extFact = 18;
+windowingVector = flattopwin(extFact);
 I = eye(64*extFact);
 W = zeros(64,extFact*64);
 for iCh = 1:64
@@ -130,7 +131,7 @@ while isvalid(fig) && loopIteration < N_LOOP_MAX
     %         disp("Gamma converged to final scheduled value.");
     %     end
     % end
-    samples = read_next_n_blocks(poly5, 3);
+    samples = read_next_n_blocks(poly5, 2);
     n_samples = size(samples,2);
     if needs_initial_ts
         ts0 = samples(end,1)/SAMPLE_RATE_RECORDING;
@@ -142,14 +143,15 @@ while isvalid(fig) && loopIteration < N_LOOP_MAX
         iVec(iVec == 0) = max(iVec);
     end
 
-    [data,zi] = filter(hpf.b,hpf.a,samples(1:64,:)',zi,1);
+    [data,zi] = filter(hpf.b,hpf.a,samples(REMAP,:)',zi,1);
+    % data = apply_del2_textiles(data')';
     % data(:,[40 52]) = randn(n_samples,2).*15;
     cat_data = [prev_data; data];
 
     loopTic = tic;
 
     % This way takes ~ 13.9 +/- 1.4 milliseconds on Max LENOVO Laptop:
-    edata = fast_extend(cat_data', extFact, r, c);
+    edata = fast_extend(cat_data', extFact);
     % % % Commented part: for case of iterative covariance estimate % % %
     % n_ext_samples = extFact + n_samples+extFact-1;
     % S = eye(n_ext_samples)*gamma^6 + edata' * (P + I*gamma^2) * edata;
@@ -157,7 +159,10 @@ while isvalid(fig) && loopIteration < N_LOOP_MAX
     % C = chol(S);  % Cholesky factorization of S
     % intermediate = C \ (edata' * P);  % Solve C * intermediate = edata' * P
     % P = P - P * (intermediate' * intermediate);  % Update P without pinv
-    zdata =  W * P * edata(:,(extFact+1):(end-extFact+1));
+
+    zdata = fast_proj_eig_dr(edata, extFact, 5, 8, 1);
+
+    % zdata =  W * P * edata(:,(extFact+1):(end-extFact+1));
 
     timingData(loopIteration) = toc(loopTic);
     prev_data = cat_data((end-extFact+1):end,:);
@@ -165,7 +170,7 @@ while isvalid(fig) && loopIteration < N_LOOP_MAX
     % dataBuffer(:,iVec) = zdata;
     % set(h_rms,'CData',0.25*interp2(X0,Y0,reshape(rms(zdata,2),8,8),Xg,Yg)+0.75*h_rms.CData);
     for iMuap = 1:64
-        h_muaps(iMuap).YData(iVec) = zdata(iMuap,:)+LINE_VERTICAL_OFFSET*rem((iMuap-1),8);
+        h_muaps(iMuap).YData(iVec) = zdata((iMuap-1)*extFact + 1,:)+LINE_VERTICAL_OFFSET*rem((iMuap-1),8);
     end
     for iH = 1:64
         h_orig(iH).YData(iVec) = data(:,iH)+LINE_VERTICAL_OFFSET*rem(iH-1,8);
