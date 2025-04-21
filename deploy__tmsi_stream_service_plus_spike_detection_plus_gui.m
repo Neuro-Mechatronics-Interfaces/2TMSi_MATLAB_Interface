@@ -282,7 +282,10 @@ hpf_data = struct('A',zeros(3,numel(param.i_all.A)), 'B', zeros(3,numel(param.i_
 env_data = struct('A',zeros(3,numel(param.n_total.A)), 'B', zeros(3,numel(param.n_total.B)));
 zca_buf = struct('A', WhiteningBuffer(64,config.Default.ZCA_Buffer_Samples), ...
                  'B', WhiteningBuffer(64,config.Default.ZCA_Buffer_Samples));
-
+zca_buf.A.update(randn(64,config.Default.ZCA_Buffer_Samples).*3.5);
+zca_buf.B.update(randn(64,config.Default.ZCA_Buffer_Samples).*3.5);
+spike_buf = struct('A',WhiteningBuffer(64*param.extensionFactor,2048), ...
+                   'B',WhiteningBuffer(64*param.extensionFactor,2048));
 trig_out_state = [false, false];
 
 %% Load the LSL library
@@ -605,11 +608,11 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                                         [refresh,K] = zca_buf.(device(ii).tag).update(hpf_data.(device(ii).tag)(:,1:64)');
                                         edata = fast_extend(zca_buf.(device(ii).tag).getWindow(param.extensionFactor,K),param.extensionFactor);
                                         if refresh
-                                            [zdata,param.Pw.(device(ii).tag)] = fast_proj_eig_dr(edata, param.Pw.(device(ii).tag), param.extensionFactor, param.zca.(device(ii).tag).alpha, param.zca.(device(ii).tag).alpha, param.zca.(device(ii).tag).keep, param.zca.(device(ii).tag).drop);
+                                            [zdata,param.Pw.(device(ii).tag)] = fast_proj_eig_dr(edata, param.Pw.(device(ii).tag), param.extensionFactor, param.zca.(device(ii).tag).alpha, param.zca.(device(ii).tag).noise, param.zca.(device(ii).tag).keep, param.zca.(device(ii).tag).drop);
                                         else
                                             zdata = param.Pw.(device(ii).tag) * edata(:, (param.extensionFactor+1):(end-param.extensionFactor+1)); 
                                         end
-                                        hpf_data.(device(ii).tag)(:,1:64) = zdata';
+                                        hpf_data.(device(ii).tag)(:,1:64) = zdata(1:param.extensionFactor:(63*param.extensionFactor+1),:)';
                                     case {6,7,8}
                                         hpf_data.(device(ii).tag) = handle_spatial_ref(hpf_data.(device(ii).tag),param.ref_projection.(device(ii).tag),param.apply_car,param.textiles,param.interpolate_grid);
                                 end
