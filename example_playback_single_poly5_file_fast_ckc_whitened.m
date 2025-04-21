@@ -13,6 +13,8 @@ LINE_VERTICAL_OFFSET = 35; % microvolts
 HORIZONTAL_SCALE = 0.050; % seconds
 SAMPLE_RATE_RECORDING = 4000;
 N_LOOP_MAX = 2000;
+% BUFFER_SAMPLES = 16384; % Just under 5 seconds at 4kHz
+BUFFER_SAMPLES = 4096;
 REMAP = textile_8x8_uni2grid_mapping();
 
 %% Open file and estimate scaling/offsets
@@ -20,6 +22,10 @@ REMAP = textile_8x8_uni2grid_mapping();
 poly5 = TMSiSAGA.Poly5(MY_FILE, SAMPLE_RATE_RECORDING, [], 'r');
 % load(MY_CALIBRATION, 'P', 'gamma', 'extFact', 'windowingVector');
 extFact = 18;
+projAlpha = 0.1;
+noiseLevel = 25;
+nDrop = 2;
+nKeep = 6; 
 windowingVector = flattopwin(extFact);
 I = eye(64*extFact);
 W = zeros(64,extFact*64);
@@ -113,8 +119,10 @@ title(trigs_ax,'Triggers','FontName','Tahoma','Color','k');
 needs_initial_ts = true;
 ts0 = 0;
 hpf = struct;
-[hpf.b,hpf.a] = butter(3,100/(SAMPLE_RATE_RECORDING/2),'high');
-zi = zeros(3,64);
+[hpf.b,hpf.a] = butter(1,100/(SAMPLE_RATE_RECORDING/2),'high');
+zi = zeros(1,64);
+buf = WhiteningBuffer(64, BUFFER_SAMPLES);
+Pw = eye(64*extFact);
 
 warning('off','signal:findpeaks:largeMinPeakHeight');
 
@@ -143,32 +151,26 @@ while isvalid(fig) && loopIteration < N_LOOP_MAX
         iVec(iVec == 0) = max(iVec);
     end
 
+    loopTic = tic;
     [data,zi] = filter(hpf.b,hpf.a,samples(REMAP,:)',zi,1);
     % data = apply_del2_textiles(data')';
-    % data(:,[40 52]) = randn(n_samples,2).*15;
-    cat_data = [prev_data; data];
-
-    loopTic = tic;
-
-    % This way takes ~ 13.9 +/- 1.4 milliseconds on Max LENOVO Laptop:
-    edata = fast_extend(cat_data', extFact);
-    % % % Commented part: for case of iterative covariance estimate % % %
-    % n_ext_samples = extFact + n_samples+extFact-1;
-    % S = eye(n_ext_samples)*gamma^6 + edata' * (P + I*gamma^2) * edata;
-    % Cholesky decomposition of S
-    % C = chol(S);  % Cholesky factorization of S
-    % intermediate = C \ (edata' * P);  % Solve C * intermediate = edata' * P
-    % P = P - P * (intermediate' * intermediate);  % Update P without pinv
-
-    zdata = fast_proj_eig_dr(edata, extFact, 5, 8, 1);
-
+    % BAD_CH = 25;
+    % data(:,BAD_CH) = randn(n_samples,numel(BAD_CH)).*3.5;
+    % data(:,setdiff(1:64,BAD_CH)) = data(:,setdiff(1:64,BAD_CH)) - mean(data(:,setdiff(1:64,BAD_CH)),2);
+    % cat_data = [prev_data; data];
+    % edata = fast_extend(cat_data', extFact);
     % zdata =  W * P * edata(:,(extFact+1):(end-extFact+1));
+    % prev_data = cat_data((end-extFact+1):end,:);
+
+    [refresh,K] = buf.update(data');
+    edata = fast_extend(buf.getWindow(extFact,K),extFact);
+    if refresh
+        [zdata,Pw] = fast_proj_eig_dr(edata, Pw, extFact, projAlpha, noiseLevel, nKeep, nDrop);
+    else
+        zdata = Pw * edata(:, (extFact+1):(end-extFact+1)); 
+    end
 
     timingData(loopIteration) = toc(loopTic);
-    prev_data = cat_data((end-extFact+1):end,:);
-    % prev_data = cat_data(:,(end-extFact+1):end);
-    % dataBuffer(:,iVec) = zdata;
-    % set(h_rms,'CData',0.25*interp2(X0,Y0,reshape(rms(zdata,2),8,8),Xg,Yg)+0.75*h_rms.CData);
     for iMuap = 1:64
         h_muaps(iMuap).YData(iVec) = zdata((iMuap-1)*extFact + 1,:)+LINE_VERTICAL_OFFSET*rem((iMuap-1),8);
     end

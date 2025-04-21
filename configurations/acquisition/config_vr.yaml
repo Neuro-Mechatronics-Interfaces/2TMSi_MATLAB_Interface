@@ -73,7 +73,7 @@ Default:
  Rectify_HPF_A: true # Set as `false` to apply LPF to HPF directly (i.e. bandpass); set `true` to apply LPF to rectified HPF (i.e. envelope)
  Rectify_HPF_B: true
  Device_Reference_Mode: 'average' # must be 'average' (uses CAR from SAGA device) or 'common' (with separate CREF)
- Virtual_Reference_Mode: 0        # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2 (if Interpolate_Grid); 4: del2 for 2textile after interp2 (if Interpolate_Grid)
+ Virtual_Reference_Mode: 0        # 0: none; 1: 8x8 grid; 2: 2x textile 4x8 grids; 3: del2 after interp2 (if Interpolate_Grid); 4: del2 for 2textile after interp2 (if Interpolate_Grid); 5: ZCA whitening
  Interpolate_Grid: false          # Only applies if CAR_Mode is set to 3 or 4
  Subject: "MCPXX"
  Sample_Rate: 4000 # Must be 4000 (base) or 4096 (base); set lower using dividers below
@@ -95,6 +95,12 @@ Default:
  Enable_Tablet_Figure: false
  Enable_Trigger_Controller: false
  Enable_Joystick: false
+ NoiseLevel: 25 # microvolts
+ DroppedComponents: 2
+ ReconstructedComponents: 6
+ ExtensionFactor: 18
+ ZCA_Buffer_Samples: 4096
+ ZCA_Alpha: 0.1
 Triggers:
  Enable: true
  Emulate_Mouse: false

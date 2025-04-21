@@ -185,6 +185,11 @@ param = struct(...
     'hpf', struct('b', [], 'a', []), ... % Filter transfer function numerator (b) and denominator (a) coefficients
     'lpf', struct('b', [], 'a', []), ... % Filter transfer function numerator (b) and denominator (a) coefficients
     'force', config.Default.LSL_Force_Channel, ...
+    'zca', struct('A', struct('noise', config.Default.NoiseLevel, 'drop', config.Default.DroppedComponents, 'keep', config.Default.ReconstructedComponents, 'alpha', config.Default.ZCA_Alpha), ...
+                  'B', struct('noise', config.Default.NoiseLevel, 'drop', config.Default.DroppedComponents, 'keep', config.Default.ReconstructedComponents, 'alpha', config.Default.ZCA_Alpha)), ...
+    'zca_buffer_samples', struct('A', config.Default.ZCA_Buffer_Samples, 'B', config.Default.ZCA_Buffer_Samples), ...
+    'extensionFactor', config.Default.ExtensionFactor, ...
+    'Pw', struct('A', eye(64*config.Default.ExtensionFactor), 'B', eye(64*config.Default.ExtensionFactor)),  ...
     'gui', struct('squiggles', struct('enable', config.GUI.Squiggles.Enable, ...
                                       'fig', [], ...
                                       'h', [], ...
@@ -275,6 +280,9 @@ param.zi.hpf = struct('A',zeros(3,numel(param.i_all.A)), 'B', zeros(3,numel(para
 param.zi.env = struct('A', zeros(3,param.n_total.A), 'B', zeros(3, param.n_total.B));
 hpf_data = struct('A',zeros(3,numel(param.i_all.A)), 'B', zeros(3,numel(param.i_all.B)));
 env_data = struct('A',zeros(3,numel(param.n_total.A)), 'B', zeros(3,numel(param.n_total.B)));
+zca_buf = struct('A', WhiteningBuffer(64,config.Default.ZCA_Buffer_Samples), ...
+                 'B', WhiteningBuffer(64,config.Default.ZCA_Buffer_Samples));
+
 trig_out_state = [false, false];
 
 %% Load the LSL library
@@ -585,7 +593,16 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                                         % hpf_data.(device(ii).tag)(:,1:32) = reshape(del2(tmp),32,num_sets(ii))';
                                         % hpf_data.(device(ii).tag)(:,33:64) = reshape(del2(tmp2),32,num_sets(ii))';
                                         hpf_data.(device(ii).tag)(:,1:64) = handle_2textile_del2_interp(hpf_data.(device(ii).tag)(:,1:64),param.interpolate_grid);
-                                    case {5,6,7,8}
+                                    case 5 % ZCA case - NO diff or del2
+                                        [refresh,K] = zca_buf.(device(ii).tag).update(hpf_data.(device(ii).tag)(:,1:64)');
+                                        edata = fast_extend(zca_buf.(device(ii).tag).getWindow(param.extensionFactor,K),param.extensionFactor);
+                                        if refresh
+                                            [zdata,param.Pw.(device(ii).tag)] = fast_proj_eig_dr(edata, param.Pw.(device(ii).tag), param.extensionFactor, param.zca.(device(ii).tag).alpha, param.zca.(device(ii).tag).alpha, param.zca.(device(ii).tag).keep, param.zca.(device(ii).tag).drop);
+                                        else
+                                            zdata = param.Pw.(device(ii).tag) * edata(:, (param.extensionFactor+1):(end-param.extensionFactor+1)); 
+                                        end
+                                        hpf_data.(device(ii).tag)(:,1:64) = zdata';
+                                    case {6,7,8}
                                         hpf_data.(device(ii).tag) = handle_spatial_ref(hpf_data.(device(ii).tag),param.ref_projection.(device(ii).tag),param.apply_car,param.textiles,param.interpolate_grid);
                                 end
                             end

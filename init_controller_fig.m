@@ -13,18 +13,18 @@ end
 host_pc = getenv("COMPUTERNAME");
 switch host_pc
     case "MAX_LENOVO" % Max Workstation Laptop (Lenovo ThinkPad D16)
-        POSITION_PIX = [100 400  900 450];
+        POSITION_PIX = [100 400  900 500];
     case "NMLVR"
-        POSITION_PIX = [500 400 900 450];
+        POSITION_PIX = [500 400 900 500];
     otherwise
-        POSITION_PIX = [150 150  900 450];
+        POSITION_PIX = [150 150  900 500];
 end
 
 fig = uifigure('Color','w',...
     'MenuBar','none','ToolBar','none',...
     'Name','TMSi Recording Controller',...
     'Position',POSITION_PIX,'Icon',"redlogo.jpg");
-L = uigridlayout(fig, [9, 6],'BackgroundColor','k');
+L = uigridlayout(fig, [10, 6],'BackgroundColor','k');
 L.RowHeight = {'1x', '1x', '1x', '1x', '1x', '1x'};
 L.ColumnWidth = {'1x', '1x', '1x', '1x', '1x', '1x'};
 
@@ -110,8 +110,9 @@ fig.UserData.RefModeDropDown = uidropdown(L, ...
               "HPF + CAR", ...
               "HPF + CAR: Textiles", ...
               "HPF + CAR + DEL2", ...
-              "HPF + CAR + DEL2: Textiles"], ...
-    "ItemsData", -1:4, ...
+              "HPF + CAR + DEL2: Textiles", ...
+              "ZCA Whitening"], ...
+    "ItemsData", -1:5, ...
     "Value", refVal, ...
     "FontName", 'Consolas', ...
     'ValueChangedFcn', @refModeChanged);
@@ -154,13 +155,47 @@ quitButton.Layout.Row = 3;
 quitButton.Layout.Column = 6;
 quitButton.UserData = struct('idle', idleButton, 'run', runButton, 'rec', recButton, 'stop', stopButton, 'imp', impButton);
 
+showZcaParameters = config.Default.Virtual_Reference_Mode == 5;
+fig.UserData.NoiseAlphaEditFieldLabel = uilabel(L,"Text", "← Noise (μV) |      α →", ...
+    'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','center','Visible',showZcaParameters);
+fig.UserData.NoiseAlphaEditFieldLabel.Layout.Row = 5;
+fig.UserData.NoiseAlphaEditFieldLabel.Layout.Column = 2;
+fig.UserData.NoiseLevelEditField = uieditfield(L, 'numeric', ...
+    "Value", config.Default.NoiseLevel, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @handleNoiseModelChange, 'RoundFractionalValues','on','Visible',showZcaParameters);
+fig.UserData.NoiseLevelEditField.Layout.Row = 5;
+fig.UserData.NoiseLevelEditField.Layout.Column = 1;
+
+fig.UserData.ZcaAlphaEditField = uieditfield(L, 'numeric', ...
+    "Value", config.Default.ZCA_Alpha, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ... 
+    'Tooltip', "Exponential-alpha for smoothing ZCA projection matrix estimates", ...
+    'ValueChangedFcn', @handleNoiseModelChange, 'RoundFractionalValues','off','Visible',showZcaParameters);
+fig.UserData.ZcaAlphaEditField.Layout.Row = 5;
+fig.UserData.ZcaAlphaEditField.Layout.Column = 3;
+
+fig.UserData.NumDroppedComponentsEditField = uieditfield(L, 'numeric', ...
+    "Value", config.Default.DroppedComponents, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @handleNoiseModelChange, 'RoundFractionalValues','on','Visible',showZcaParameters);
+fig.UserData.NumDroppedComponentsEditField.Layout.Row = 5;
+fig.UserData.NumDroppedComponentsEditField.Layout.Column = 4;
+
+fig.UserData.NumComponentsEditFieldLabel = uilabel(L,"Text", "← Drop | Keep →", ...
+    'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','center','Visible',showZcaParameters);
+fig.UserData.NumComponentsEditFieldLabel.Layout.Row = 5;
+fig.UserData.NumComponentsEditFieldLabel.Layout.Column = 5;
+fig.UserData.NumReconstructedComponentsEditField = uieditfield(L, 'numeric', ...
+    "Value", config.Default.ReconstructedComponents, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
+    'ValueChangedFcn', @handleNoiseModelChange, 'RoundFractionalValues','on','Visible',showZcaParameters);
+fig.UserData.NumReconstructedComponentsEditField.Layout.Row = 5;
+fig.UserData.NumReconstructedComponentsEditField.Layout.Column = 6;
+
 fig.UserData.EnableTriggerControllerCheckBox = uicheckbox(L, ...
     "Text", "Trigger Controller", ...
     "Value", config.Triggers.Enable, ...
     "FontColor", 'w', ...
     "FontName", 'Consolas', ...
     "ValueChangedFcn", @handleTriggerControllerEnableChange);
-fig.UserData.EnableTriggerControllerCheckBox.Layout.Row = 5;
+fig.UserData.EnableTriggerControllerCheckBox.Layout.Row = 6;
 fig.UserData.EnableTriggerControllerCheckBox.Layout.Column = 1;
 fig.UserData.EmulateMouseCheckBox = uicheckbox(L, ...
     "Text", "Emulate Mouse", ...
@@ -168,11 +203,11 @@ fig.UserData.EmulateMouseCheckBox = uicheckbox(L, ...
     "FontColor", 'w', ...
     "FontName", 'Consolas', ...
     "ValueChangedFcn", @handleTriggerControllerEnableChange);
-fig.UserData.EmulateMouseCheckBox.Layout.Row = 5;
+fig.UserData.EmulateMouseCheckBox.Layout.Row = 6;
 fig.UserData.EmulateMouseCheckBox.Layout.Column = 2;
 
 lab = uilabel(L,"Text", "Mouse Bits", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
-lab.Layout.Row = 5;
+lab.Layout.Row = 6;
 lab.Layout.Column = 3;
 if config.Triggers.Left.Enable
     configTrigBit = config.Triggers.Left.Bit;
@@ -182,7 +217,7 @@ end
 fig.UserData.MouseLeftClickTriggerEditField = uieditfield(L, 'numeric', ...
     "Value", configTrigBit, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
     'ValueChangedFcn', @handleMouseClickTriggerBitChange, 'RoundFractionalValues','on');
-fig.UserData.MouseLeftClickTriggerEditField.Layout.Row = 5;
+fig.UserData.MouseLeftClickTriggerEditField.Layout.Row = 6;
 fig.UserData.MouseLeftClickTriggerEditField.Layout.Column = 4;
 
 if config.Triggers.Right.Enable
@@ -193,11 +228,11 @@ end
 fig.UserData.MouseRightClickTriggerEditField = uieditfield(L, 'numeric', ...
     "Value", configTrigBit, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
     'ValueChangedFcn', @handleMouseClickTriggerBitChange, 'RoundFractionalValues','on');
-fig.UserData.MouseRightClickTriggerEditField.Layout.Row = 5;
+fig.UserData.MouseRightClickTriggerEditField.Layout.Row = 6;
 fig.UserData.MouseRightClickTriggerEditField.Layout.Column = 5;
 
 fig.UserData.ToggleSquigglesButton = uibutton(L, "Text", "Turn Squiggles OFF", 'ButtonPushedFcn', @toggleSquigglesButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.2 0.3 0.7],'UserData',config.GUI.Squiggles.Enable,'FontColor','w');
-fig.UserData.ToggleSquigglesButton.Layout.Row = 5;
+fig.UserData.ToggleSquigglesButton.Layout.Row = 6;
 fig.UserData.ToggleSquigglesButton.Layout.Column = 6;
 
 fig.UserData.TriggerFromBitsCheckBox = uicheckbox(L, ...
@@ -206,55 +241,55 @@ fig.UserData.TriggerFromBitsCheckBox = uicheckbox(L, ...
     "FontColor", 'w', ...
     "FontName", 'Consolas', ...
     "ValueChangedFcn", @handleTriggerThresholdModeChange);
-fig.UserData.TriggerFromBitsCheckBox.Layout.Row = 6;
+fig.UserData.TriggerFromBitsCheckBox.Layout.Row = 7;
 fig.UserData.TriggerFromBitsCheckBox.Layout.Column = 2;
 
 lab = uilabel(L,"Text", "Trigger Channels", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
-lab.Layout.Row = 6;
+lab.Layout.Row = 7;
 lab.Layout.Column = 3;
 fig.UserData.LeftTriggerChannelEditField = uieditfield(L, 'numeric', ...
     "Value", config.Triggers.Left.Channel, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
     'ValueChangedFcn', @handleTriggerChannelChange, 'RoundFractionalValues','on', 'UserData', "L");
-fig.UserData.LeftTriggerChannelEditField.Layout.Row = 6;
+fig.UserData.LeftTriggerChannelEditField.Layout.Row = 7;
 fig.UserData.LeftTriggerChannelEditField.Layout.Column = 4;
 
 fig.UserData.RightTriggerChannelEditField = uieditfield(L, 'numeric', ...
     "Value", config.Triggers.Right.Channel, "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
     'ValueChangedFcn', @handleTriggerChannelChange, 'RoundFractionalValues','on', 'UserData', "R");
-fig.UserData.RightTriggerChannelEditField.Layout.Row = 6;
+fig.UserData.RightTriggerChannelEditField.Layout.Row = 7;
 fig.UserData.RightTriggerChannelEditField.Layout.Column = 5;
 
 lab = uilabel(L,"Text", "Debounce Iterations", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
-lab.Layout.Row = 7;
+lab.Layout.Row = 8;
 lab.Layout.Column = 1;
 fig.UserData.LoopDebounceEditField = uieditfield(L, 'numeric', ...
     "Value", config.Triggers.Debounce_Loop_Iterations, ...
     "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
     "RoundFractionalValues","on", ...
     'ValueChangedFcn', @handleTriggerDebounceChange);
-fig.UserData.LoopDebounceEditField.Layout.Row = 7;
+fig.UserData.LoopDebounceEditField.Layout.Row = 8;
 fig.UserData.LoopDebounceEditField.Layout.Column = 2;
 
 lab = uilabel(L,"Text", "Trigger Thresholds", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
-lab.Layout.Row = 7;
+lab.Layout.Row = 8;
 lab.Layout.Column = 3;
 fig.UserData.LeftTriggerThresholdEditField = uieditfield(L, 'text', ...
     "Value", sprintf('%d:%d:%d',config.Triggers.Left.SlidingThreshold*100,config.Triggers.Left.FallingThreshold*100, config.Triggers.Left.RisingThreshold*100), ...
     "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
     'ValueChangedFcn', @handleTriggerThresholdModeChange, 'UserData', "L");
-fig.UserData.LeftTriggerThresholdEditField.Layout.Row = 7;
+fig.UserData.LeftTriggerThresholdEditField.Layout.Row = 8;
 fig.UserData.LeftTriggerThresholdEditField.Layout.Column = 4;
 
 fig.UserData.RightTriggerThresholdEditField = uieditfield(L, 'text', ...
     "Value", sprintf('%d:%d:%d', config.Triggers.Right.SlidingThreshold*100,config.Triggers.Right.FallingThreshold*100, config.Triggers.Right.RisingThreshold*100), ...
     "FontName", 'Consolas', 'HorizontalAlignment', 'center', ...
     'ValueChangedFcn', @handleTriggerThresholdModeChange, 'UserData', "R");
-fig.UserData.RightTriggerThresholdEditField.Layout.Row = 7;
+fig.UserData.RightTriggerThresholdEditField.Layout.Row = 8;
 fig.UserData.RightTriggerThresholdEditField.Layout.Column = 5;
 
 fig.UserData.FilterCutoffLabel = uilabel(L,"Text", "HPF Cutoff (Hz)", 'FontName', 'Consolas', 'FontColor', 'w', ...
         'VerticalAlignment', 'bottom', 'HorizontalAlignment', 'center', 'FontWeight','bold');
-    fig.UserData.FilterCutoffLabel.Layout.Row = 6;
+    fig.UserData.FilterCutoffLabel.Layout.Row = 7;
     fig.UserData.FilterCutoffLabel.Layout.Column = 6;
 fig.UserData.HPFFilterCutoffValue = config.Default.HPF_Cutoff_Frequency;
 fig.UserData.LPFFilterCutoffValue = config.Default.LPF_Cutoff_Frequency;
@@ -263,7 +298,7 @@ fig.UserData.FilterCutoffEditField = uieditfield(L, 'numeric', ...
     "FontName", 'Consolas', ...
     'HorizontalAlignment', 'center', ...
     'ValueChangedFcn', @handleFilterCutoffChange);
-fig.UserData.FilterCutoffEditField.Layout.Row = 7;
+fig.UserData.FilterCutoffEditField.Layout.Row = 8;
 fig.UserData.FilterCutoffEditField.Layout.Column = 6;
 
 if config.GUI.Squiggles.HPF_Mode
@@ -273,24 +308,24 @@ else
     fig.UserData.FilterCutoffLabel = "LPF Cutoff (Hz)";
     fig.UserData.FilterCutoffEditField.Value = config.Default.LPF_Cutoff_Frequency;
 end
-fig.UserData.ToggleSquigglesModeButton.Layout.Row = 8;
+fig.UserData.ToggleSquigglesModeButton.Layout.Row = 9;
 fig.UserData.ToggleSquigglesModeButton.Layout.Column = 1;
 
 fig.UserData.UploadModelButton = uibutton(L, "Text", "Upload Model", 'ButtonPushedFcn', @uploadModelButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.65 0.65 0.65],'FontColor',[0.25 0.25 0.25], 'FontWeight','bold', 'UserData', false);
-fig.UserData.UploadModelButton.Layout.Row = 8;
+fig.UserData.UploadModelButton.Layout.Row = 9;
 fig.UserData.UploadModelButton.Layout.Column = 2;
 
 fig.UserData.ModelTextLabel = uilabel(L, "Text", "No Model Sent", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','left');
-fig.UserData.ModelTextLabel.Layout.Row = 8;
+fig.UserData.ModelTextLabel.Layout.Row = 9;
 fig.UserData.ModelTextLabel.Layout.Column = [3 4];
 
 fig.UserData.TrainModelButton = uibutton(L, "Text", "Train New Model", 'ButtonPushedFcn', @trainModelButtonPushed, 'FontName','Tahoma','BackgroundColor',[0.1 0.0 0.4],'FontColor','w', 'FontWeight','bold', 'UserData', false);
-fig.UserData.TrainModelButton.Layout.Row = 8;
+fig.UserData.TrainModelButton.Layout.Row = 9;
 fig.UserData.TrainModelButton.Layout.Column = 6;
 
 
 lab = uilabel(L,"Text", "LSL FORCE SAGA", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
-lab.Layout.Row = 9;
+lab.Layout.Row = 10;
 lab.Layout.Column = 1;
 
 fig.UserData.LslSagaDropDown = uidropdown(L, ...
@@ -298,11 +333,11 @@ fig.UserData.LslSagaDropDown = uidropdown(L, ...
     "Value", config.Default.LSL_Force_Channel.SAGA, ...
     "FontName", 'Consolas', ...
     'ValueChangedFcn', @lslSagaForceParameterChanged);
-fig.UserData.LslSagaDropDown.Layout.Row = 9;
+fig.UserData.LslSagaDropDown.Layout.Row = 10;
 fig.UserData.LslSagaDropDown.Layout.Column = 2;
 
 lab = uilabel(L,"Text", "LSL FORCE Channel", 'FontName', 'Tahoma','FontColor', 'w','HorizontalAlignment','right');
-lab.Layout.Row = 9;
+lab.Layout.Row = 10;
 lab.Layout.Column = 3;
 
 fig.UserData.LslChannelEditField = uieditfield(L, 'numeric', ...
@@ -316,7 +351,7 @@ fig.UserData.LslForceSelectionUpdateButton = uibutton(L, "Text", "Update LSL FOR
     'ButtonPushedFcn', @sendUpdatedLslForceChannel, 'FontName','Tahoma',...
     'BackgroundColor',[0.1 0.0 0.4],'FontColor','w', ...
     'FontWeight','bold');
-fig.UserData.LslForceSelectionUpdateButton.Layout.Row = 9;
+fig.UserData.LslForceSelectionUpdateButton.Layout.Row = 10;
 fig.UserData.LslForceSelectionUpdateButton.Layout.Column = [5 6];
 
 
@@ -554,6 +589,16 @@ fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort)
         writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
         fprintf(1,'[CONTROLLER]::Sent samples: %s\n', cmd);
     end
+    
+    function showZCAParameters(h,tf)
+        onOff = matlab.lang.OnOffSwitchState(tf);
+        h.UserData.NoiseAlphaEditFieldLabel.Visible = onOff;
+        h.UserData.NoiseLevelEditField.Visible = onOff;
+        h.UserData.NumDroppedComponentsEditField.Visible = onOff;
+        h.UserData.NumComponentsEditFieldLabel.Visible = onOff;
+        h.UserData.NumReconstructedComponentsEditField.Visible = onOff;
+        h.UserData.ZcaAlphaEditField.Visible = onOff;
+    end
 
     function refModeChanged(src,evt)
         % REMINDER: `evt` has following fields:
@@ -561,10 +606,15 @@ fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort)
         %   -> 'PreviousValue' (value before this edit)
         %   -> 'Source' (same as `src`)
         %   -> 'EventName' :: 'ValueChanged'
-        if (evt.Value < -1) || (evt.Value > 4)
-            warning("Value must be integer between -1 and 4.");
+        if (evt.Value < -1) || (evt.Value > 5)
+            warning("Value must be integer between -1 and 5.");
             src.Value = evt.PreviousValue;
             return;
+        end
+        if evt.Value == 5 % Show the ZCA parameter boxes
+            showZCAParameters(src.Parent.Parent,true);
+        elseif evt.PreviousValue == 5 % Hide the ZCA parameter boxes
+            showZCAParameters(src.Parent.Parent,false);
         end
         udpSender = src.Parent.Parent.UserData.UDP;
         cmd = sprintf("a.%d", src.Value);
@@ -877,6 +927,25 @@ fig.UserData.UDP.writeline("ping", fig.UserData.Address, fig.UserData.StatePort)
         udpSender.UserData.expect_quit = true;
         writeline(udpSender, 'quit', src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.StatePort);
 
+    end
+
+    function handleNoiseModelChange(src,~)
+        %TODO: Parses
+        % 1. NoiseLevelEditField
+        % 2. NumDroppedComponentsEditField
+        % 3. NumReconstructedComponentsEditField
+        h = src.Parent.Parent;
+        noiseLevel = h.UserData.NoiseLevelEditField.Value;
+        nDrop = h.UserData.NumDroppedComponentsEditField.Value;
+        nKeep = h.UserData.NumReconstructedComponentsEditField.Value;
+        alphaVal = h.UserData.ZcaAlphaEditField.Value;
+        udpSender = h.UserData.UDP;
+        data = struct('A', struct('noise', noiseLevel, 'drop', nDrop, 'keep', nKeep, 'alpha', alphaVal), ...
+                      'B', struct('noise', noiseLevel, 'drop', nDrop, 'keep', nKeep, 'alpha', alphaVal));
+        msg = jsonencode(struct("name",'zca',"value",data));
+        cmd = sprintf("t.%s", msg);
+        writeline(udpSender, cmd, src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
+        fprintf(1,'[CONTROLLER]::Sent ZCA Change Request %s\n', cmd);
     end
 
 end
