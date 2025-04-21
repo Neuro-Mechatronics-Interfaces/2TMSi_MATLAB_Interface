@@ -285,17 +285,17 @@ fig.UserData.UDP.configureCallback("terminator",@udpResponseHandler);
             src.BackgroundColor = [0.7 0.7 0.3];
             src.FontColor = 'k';
             src.UserData.Mode = "HPF";
-            cmd = sprintf("w.%s.0",src.UserData.SAGA);
+            cmd = sprintf("w.%s:1",src.UserData.SAGA);
             writeline(udpSender,cmd,src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
-            fprintf(1,'[AUX-CONTROLLER]::Sent request to toggle squiggles GUI to BPF mode.\n');
+            fprintf(1,'[AUX-CONTROLLER]::Sent request to toggle squiggles GUI to HPF mode.\n');
         else
             src.Text = "BPF Mode";
             src.BackgroundColor = [0.7 0.3 0.7];
             src.FontColor = 'w';
             src.UserData.Mode = "BPF";
-            cmd = sprintf("w.%s.1",src.UserData.SAGA);
+            cmd = sprintf("w.%s:0",src.UserData.SAGA);
             writeline(udpSender,cmd,src.Parent.Parent.UserData.Address, src.Parent.Parent.UserData.ParameterPort);
-            fprintf(1,'[AUX-CONTROLLER]::Sent request to toggle squiggles GUI to HPF mode.\n');
+            fprintf(1,'[AUX-CONTROLLER]::Sent request to toggle squiggles GUI to BPF mode.\n');
         end
     end
 

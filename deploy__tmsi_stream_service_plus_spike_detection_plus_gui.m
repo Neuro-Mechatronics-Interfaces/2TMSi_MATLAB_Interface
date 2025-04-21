@@ -458,6 +458,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
     end
     grid_ch_uni = struct;
     saga_index = struct;
+    
+    param.zi = struct; % Filter states
+    hpf_data = struct;
+    env_data = struct;
     for ii = 1:N_CLIENT % Determine number of channels definitively
         [samples{ii}, num_sets] = device(ii).sample();
         while (num_sets < 1)
@@ -467,6 +471,10 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
         param.n_channels.(device(ii).tag) = size(samples{ii},1);
         saga_index.(device(ii).tag) = ii;
         grid_ch_uni.(device(ii).tag) = param.use_channels.(device(ii).tag)(param.use_channels.(device(ii).tag) <= 64);
+        param.zi.hpf.(device(ii).tag) = zeros(3,param.n_channels.(device(ii).tag));
+        param.zi.env.(device(ii).tag) = zeros(3,param.n_channels.(device(ii).tag));
+        hpf_data.(device(ii).tag) = zeros(3,param.n_channels.(device(ii).tag));
+        env_data.(device(ii).tag) = zeros(3,param.n_channels.(device(ii).tag));
     end
     stop(device);
     
@@ -555,7 +563,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                 % raw data outlet ( if enabled ), and apply filtering.
                 if ~isempty(samples{ii})
                     if param.enable_filters
-                        [hpf_data.(device(ii).tag), param.zi.hpf.(device(ii).tag)] = filter(param.hpf.b,param.hpf.a,samples{ii}(param.i_all.(device(ii).tag),:)',param.zi.hpf.(device(ii).tag),1);
+                        [hpf_data.(device(ii).tag), param.zi.hpf.(device(ii).tag)] = filter(param.hpf.b,param.hpf.a,samples{ii}',param.zi.hpf.(device(ii).tag),1);
                         if size(hpf_data.(device(ii).tag),2) >= 64
                             if param.gui.squiggles.whiten.(device(ii).tag) % Then do the Whitening chain
                                 cat_data = [param.prev_data.(device(ii).tag); hpf_data.(device(ii).tag)(:,1:64)];
@@ -613,7 +621,7 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             [env_data.(device(ii).tag), param.zi.env.(device(ii).tag)] = filter(param.lpf.b, param.lpf.a, hpf_data.(device(ii).tag), param.zi.env.(device(ii).tag), 1);
                         end
                     else
-                        hpf_data.(device(ii).tag) = samples{ii}(param.i_all.(device(ii).tag),:)';
+                        hpf_data.(device(ii).tag) = samples{ii}';
                         env_data.(device(ii).tag) = hpf_data.(device(ii).tag);
                     end
                     if param.send_aux_offset
@@ -1041,7 +1049,15 @@ try % Final try loop because now if we stopped for example due to ctrl+c, it is 
                             if strcmpi(param.aux_saga,device(ii).tag) && (param.aux_channel > 0)
                                 param.gui.squiggles.aux_target_index = (param.gui.squiggles.aux_target_index(end) + 1) : (param.gui.squiggles.aux_target_index(end) + numel(sample_counts.(device(ii).tag))) ;
                                 i_aux = mod([param.gui.squiggles.aux_target_index-param.sample_rate, ((param.gui.squiggles.aux_target_index(end)-param.sample_rate+1):param.gui.squiggles.aux_target_index(end))], param.aux_samples)+1;
-                                cur_aux_samples = samples{ii}(param.aux_channel,:);
+                                if param.aux_channel > param.i_all.(device(ii).tag)(end)
+                                    cur_aux_samples = samples{ii}(param.aux_channel,:);
+                                else
+                                    if param.gui.squiggles.hpf_mode.(device(ii).tag)
+                                        cur_aux_samples = hpf_data.(device(ii).tag)(:,param.aux_channel)';
+                                    else
+                                        cur_aux_samples = env_data.(device(ii).tag)(:,param.aux_channel)';
+                                    end
+                                end
                                 param.aux_val = param.aux_alpha * mean(cur_aux_samples) + (1 - param.aux_alpha) * param.aux_val;
                                 param.aux_val_scale = param.aux_alpha * (mean(cur_aux_samples) - param.aux_offset) + (1 - param.aux_alpha) * param.aux_val_scale;
                                 param.gui.squiggles.h.Aux.YData(i_aux) = [param.gui.squiggles.offset*(cur_aux_samples-param.aux_offset)./param.aux_scale + 8*param.gui.squiggles.offset, nan(1,param.sample_rate)];

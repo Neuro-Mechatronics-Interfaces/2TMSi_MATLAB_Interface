@@ -1,4 +1,4 @@
-%TEST_SAGA_EMG_RMS_REACTIONS Test script to check on polling synchronously from 2 TMSi-SAGA + converting SAGA polling into emulated control commands based on EMG RMS.
+%TEST_SAGA_EMG_RMS_REACTIONS_LATCH Test script to check on polling synchronously from 2 TMSi-SAGA + converting SAGA polling into emulated control commands based on latch/toggle of single-channel RMS-driven button-press.
 clc;
 
 if exist('device', 'var')~=0
@@ -30,8 +30,8 @@ BAD_CH = [];
 %% Name output files
 SAVE_FOLDER = fullfile(pwd,'.local-tests');
 SAVE_DATA = true;
-SUBJ = "MAX";
-BLOCK = 0;
+SUBJ = "MCP01";
+BLOCK = 13;
 MAX_TIME_SECONDS = 900; % Acquisition will not last longer than this (please only set to integer values)
 BATCH_SIZE_SECONDS = 0.010; % Each acquisition cycle grabs sample batches of this duration (sample count depends on sample rate).
 TEENSY_PORT = "COM6"; % REQUIRED to have Teensy plugged in on USB COM port!
@@ -77,6 +77,7 @@ all_ch = active_channels_2_sync_channels(ch, ...
 %% Initialize filter and state buffers
 batch_samples = fs * BATCH_SIZE_SECONDS;
 batch_chunk = ones(1,batch_samples); % Pre-allocate a "chunk" of ones to multiply "stepped" values by.
+[~,buffer_samples] = get_n_sample_buffer(device,1); % How many samples per chunk are expected on device?
 ticks_per_second = round(1/BATCH_SIZE_SECONDS);
 max_clock_cycles = ticks_per_second * MAX_TIME_SECONDS;
 [b_hpf,a_hpf] = butter(3,100/(fs/2),'high');
@@ -134,14 +135,25 @@ averageTime = 0;
 uni_e_s = zeros(128,1);
 uni_prev = zeros(128, batch_samples);
 buttonData = zeros(1, batch_samples);
-required_loop_ticks = 1;
+required_loop_ticks = 10;
 teensy_state = false;
 teensy.write(char(teensy_state+48),'char');
 
 delayTic = tic();
+batch_reduced = false;
 while (toc(delayTic) < 5) % Give a few seconds for the polling to catch up after synchronization step:
-    pause(0.005);
-    sample_sync(device, batch_samples);
+    pause(0.002);
+    [~,n_samples_remaining] = sample_sync(device, batch_samples);
+    % disp(n_samples_remaining);
+    if all(n_samples_remaining < batch_samples)
+        batch_reduced = true;
+        break;
+    end
+end
+if batch_reduced
+    disp("Caught up hardware buffer!");
+else
+    fprintf(1,'Hardware buffer is still at least %d samples behind!\n', max(n_samples_remaining));
 end
 
 mainTic = tic();
@@ -163,34 +175,22 @@ while isvalid(fig) && isvalid(rms_fig)
         debounceIterations = debounceIterations + 1;
         inDebounce = debounceIterations < DEBOUNCE_LOOP_ITERATIONS;
     else
-        if buttonState % If button is pressed, check if we should un-press it.
-            if trig_val < FALLING_THRESH
-                % writeline(conn, 'a1'); % Release the button
-                % simulate_keypress('A',0); % Release the "A" key
-                vigem_gamepad(3, 0x0000); % Release all gamepad buttons
-                buttonState = false;
-                buttonData(end) = false;
-                inDebounce = true;
-                debounceIterations = 0;
+        if trig_val > RISING_THRESH
+            if buttonState
+                vigem_gamepad(3, 0x0000); % Release buttons
                 disp("Released 'A' button.");
                 set(rms_fig,'Color',[1 1 1]);
             else
-                buttonData = ones(1,batch_samples);
-            end
-        else
-            if trig_val > RISING_THRESH
-                % writeline(conn, 'a0'); % Press the button
-                % simulate_keypress('A',1); % Press the "A" key and hold
                 vigem_gamepad(3, 0x1000); % Press and hold gamepad button-index 0
-                buttonState = true;
-                buttonData(end) = 1;
-                disp("Pressed 'A' button.");
                 set(rms_fig,'Color',[0.3 0.3 0.9]);
-                inDebounce = true;
-                debounceIterations = 0;
-            else
-                buttonData = zeros(1,batch_samples);
+                disp("Pressed 'A' button.");
             end
+            buttonState = ~buttonState;
+            buttonData(end) = double(buttonState);
+            inDebounce = true;
+            debounceIterations = 0;
+        else
+            buttonData = zeros(1,batch_samples);
         end
     end
     teensyData = teensy_state.*batch_chunk;
@@ -198,7 +198,7 @@ while isvalid(fig) && isvalid(rms_fig)
         teensy_state = ~teensy_state;
         teensy.write(char(teensy_state + 48),'char'); % +48 to ascii-encode
         % fprintf(1,'Average loop: %0.3f s\n', round(averageTime,2));
-        required_loop_ticks = required_loop_ticks +1;
+        required_loop_ticks = rem(required_loop_ticks,100) + 10;
         iCount = 0;
     end
     tsData = batch_toc.*batch_chunk;

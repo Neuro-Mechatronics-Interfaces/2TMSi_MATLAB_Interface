@@ -24,7 +24,7 @@ SAGA:
    FileType: ".mat"
    Unit: "SAGAA"
    Array: 
-    Type: "Textiles"
+    Type: "Textile"
     Location: "A_PROX"
    Trigger:
     Channel: 73 # parser subtracts 1 from this value if detected ref mode is 'average'
@@ -43,7 +43,7 @@ SAGA:
    Unit: "SAGAB"
    FileType: ".mat"
    Array: 
-    Type: "Textiles"
+    Type: "Textile"
     Location: "B_DIST"
    Trigger:
     Channel: 73 # parser subtracts 1 from this value if detected ref mode is 'average'
@@ -126,10 +126,10 @@ GUI:
   B: "b"
  N_Samples: 1000
  Aux_Samples: 30000
- Aux_SAGA: "B"
- Aux_Channel: 69
- Aux_Scale: 1
- Aux_Offset: 0
+ Aux_SAGA: "A"
+ Aux_Channel: 65
+ Aux_Scale: 100
+ Aux_Offset: 50
  Offset: 100 
  Squiggles: 
   Enable: true

@@ -428,13 +428,11 @@ switch parameter_code
         command_chunks = strsplit(parameter_value,':');
         if numel(command_chunks) > 1
             saga = upper(command_chunks{1});
-            val = ~logical(str2double(parameter_value));
+            val = ~logical(str2double(command_chunks{2}));
             param.gui.squiggles.hpf_mode.(saga) = val;
             if val
-                param.i_all.(saga) = param.i_all.(sprintf('%so',saga));
                 fprintf(1,'[TMSi]\t->\t[%s]: SAGA-%s->HPF Mode Squiggles\n', parameter_code, upper(command_chunks{1}));
             else
-                param.i_all.(saga) = 1:64;
                 fprintf(1,'[TMSi]\t->\t[%s]: SAGA-%s->BPF Mode Squiggles\n', parameter_code, upper(command_chunks{1}));
             end
         else
