@@ -278,8 +278,6 @@ param.i_all.Bo = param.i_all.B;
 param.zi = struct; % Filter states
 param.zi.hpf = struct('A',zeros(3,numel(param.i_all.A)), 'B', zeros(3,numel(param.i_all.B)));
 param.zi.env = struct('A', zeros(3,param.n_total.A), 'B', zeros(3, param.n_total.B));
-hpf_data = struct('A',zeros(3,numel(param.i_all.A)), 'B', zeros(3,numel(param.i_all.B)));
-env_data = struct('A',zeros(3,numel(param.n_total.A)), 'B', zeros(3,numel(param.n_total.B)));
 zca_buf = struct('A', WhiteningBuffer(64,config.Default.ZCA_Buffer_Samples), ...
                  'B', WhiteningBuffer(64,config.Default.ZCA_Buffer_Samples));
 zca_buf.A.update(randn(64,config.Default.ZCA_Buffer_Samples).*3.5);

@@ -3,18 +3,20 @@ clear;
 close all force;
 clc;
 
-% DATA_ROOT = string(pwd);
-DATA_ROOT = "C:/MyRepos/MetaLocal/Data/MCP01_2024_04_12/Gestures GUI";
-MY_FILES = [fullfile(DATA_ROOT,"Wrist Extension","1712945861.4286742_dev2_-20240412_141741.poly5"); ...
-            fullfile(DATA_ROOT,"Wrist Flexion","1712945596.6765876_dev2_-20240412_141316.poly5")];
+DATA_ROOT = string(pwd);
+MY_FILES = "Max_2024_03_30_B_22.poly5";
+% DATA_ROOT = "C:/MyRepos/MetaLocal/Data/MCP01_2024_04_12/Gestures GUI";
+% MY_FILES = [fullfile(DATA_ROOT,"Wrist Extension","1712945861.4286742_dev2_-20240412_141741.poly5"); ...
+%             fullfile(DATA_ROOT,"Wrist Flexion","1712945596.6765876_dev2_-20240412_141316.poly5")];
 % MY_FILES = [fullfile(pwd,"MCP01_2024_04_12_A_FLX_4.poly5"); ...
             % fullfile(pwd,"MCP01_2024_04_12_A_FLX_2.poly5")];
 MY_FILES = strrep(MY_FILES,"\","/");
 UNI_CH = {2:65; 2:65};
+% UNI_CH = {};
 TRIGS_CH = [71; 71];
 COUNTER_CH = [73; 73];
 TRIGGER_BIT = 0;
-MY_TITLE = "SAGA-5 (EXT)";
+MY_TITLE = "SAGA-B (Distal Ring)";
 
 LINE_VERTICAL_OFFSET = 25; % microvolts
 HORIZONTAL_SCALE = 0.5; % seconds
@@ -33,12 +35,13 @@ all_data = [];
 first_sample = 0;
 for ii = 1:numel(MY_FILES)
     tmp = TMSiSAGA.Poly5.read(MY_FILES(ii));
-    tmp_samples = tmp.samples(UNI_CH{ii}, :);
-    tmp_samples = [tmp_samples; ii*bitand(tmp.samples(TRIGS_CH(ii),:),2^TRIGGER_BIT)/2^TRIGGER_BIT]; %#ok<*AGROW>
-    tmp_samples = [tmp_samples; tmp.samples(COUNTER_CH(ii),:)];
-    tmp_samples(end,:) = tmp_samples(end,:) + first_sample - tmp_samples(end,1) + 1;
-    first_sample = tmp_samples(end,end);
-    all_data = [all_data, tmp_samples]; 
+    all_data = [all_data; tmp.samples];
+    % tmp_samples = tmp.samples(UNI_CH{ii}, :);
+    % tmp_samples = [tmp_samples; ii*bitand(tmp.samples(TRIGS_CH(ii),:),2^TRIGGER_BIT)/2^TRIGGER_BIT]; %#ok<*AGROW>
+    % tmp_samples = [tmp_samples; tmp.samples(COUNTER_CH(ii),:)];
+    % tmp_samples(end,:) = tmp_samples(end,:) + first_sample - tmp_samples(end,1) + 1;
+    % first_sample = tmp_samples(end,end);
+    % all_data = [all_data, tmp_samples]; 
 end
 
 %% Setup graphics
@@ -106,7 +109,7 @@ zi_hpf = zeros(3,64);
 % zi_lpf = zeros(3,size(W,2));
 zi_lpf = zeros(3,64);
 [b_lpf,a_lpf] = butter(3,FC_LOW/(SAMPLE_RATE_RECORDING/2),'low');
-all_data(1:64,:) = filtfilt(b_hpf,a_hpf,all_data(1:64,:)')';
+all_data(2:65,:) = filtfilt(b_hpf,a_hpf,all_data(io.textile_8x8_uni2grid_mapping(false) + 1,:)')';
 
 %% Run loop while figure is open.
 needs_initial_ts = true;
@@ -125,8 +128,8 @@ while isvalid(fig)
     end
     time_txt.String = sprintf('T = %07.3fs', samples(end,end)/SAMPLE_RATE_RECORDING - ts0);
     iVec = rem(samples(end,:)-1,h_scale)+1;
-    [hpf_data,zi_hpf] = filter(b_hpf,a_hpf,samples(1:64,:)',zi_hpf,1);
-    hpf_data(:,i_blank) = missing;
+    [hpf_data,zi_hpf] = filter(b_hpf,a_hpf,samples(2:65,:)',zi_hpf,1);
+    % hpf_data(:,i_blank) = missing;
     hpf_data = reshape(hpf_data,[],8,8);
     % for ii = 1:size(hpf_data,1)
     %     hpf_data(ii,:,:) = fillmissing2(squeeze(hpf_data(ii,:,:)),'linear');
