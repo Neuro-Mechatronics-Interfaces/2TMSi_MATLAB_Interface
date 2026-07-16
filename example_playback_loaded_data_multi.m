@@ -4,7 +4,7 @@ clear;
 close all force;
 clc;
 
-LOAD_DATA_DIRECT = true;
+LOAD_DATA_DIRECT = false;
 LOAD_WEIGHTS = false;
 
 TAG = ["Distal Flexor"; "Distal Extensor"];
@@ -13,11 +13,14 @@ if LOAD_DATA_DIRECT
     % MY_TITLE = "MCP01 - 2024-04-12 - WRIST EXTENSION";
     load(fullfile(pwd,sprintf('%s - DATA.mat',MY_TITLE)),'data','sync','iExc');
 else
-    DATA_ROOT = "C:/MyRepos/MetaLocal/Data/MCP01_2024_04_12";
-    T = readtable(fullfile(DATA_ROOT,"MCP01_2024_04_12_Experiments.csv"),'Delimiter',',','ReadVariableNames',true);
-    TRIAL_NUMS = 23;
-    poly5_files = ["C:/Data/TMSi/MCP03/MCP03_2024_04_23/MCP03_2024_04_23_A_DISTFLX_15.poly5";
-                   "C:/Data/TMSi/MCP03/MCP03_2024_04_23/MCP03_2024_04_23_B_DISTEXT_15.poly5"];
+    % DATA_ROOT = "C:/MyRepos/MetaLocal/Data/MCP01_2024_04_12";
+    % T = readtable(fullfile(DATA_ROOT,"MCP01_2024_04_12_Experiments.csv"),'Delimiter',',','ReadVariableNames',true);
+    poly5_files = ["MCP04_2024_04_12_A_EXT_4.poly5"; ...
+                   "MCP04_2024_04_12_B_FLX_4.poly5"];
+    
+    % TRIAL_NUMS = 23;
+    % poly5_files = ["C:/Data/TMSi/MCP03/MCP03_2024_04_23/MCP03_2024_04_23_A_DISTFLX_15.poly5";
+                   % "C:/Data/TMSi/MCP03/MCP03_2024_04_23/MCP03_2024_04_23_B_DISTEXT_15.poly5"];
     % poly5_files = strings(4,numel(TRIAL_NUMS));
     % for ii = 1:numel(TRIAL_NUMS)
     %     k = find(T.Trial==TRIAL_NUMS(ii),1,'first');
@@ -38,8 +41,8 @@ else
     %     fullfile(DATA_ROOT,"Wrist Flexion","1712945596.6765876_dev1_-20240412_141316.poly5"); ...
     %     fullfile(pwd,"MCP01_2024_04_12_A_FLX_2.poly5")];
     % MY_TITLE = "MCP01 - 2024-04-12 - WRIST FLEXION";
-    % MY_TITLE = "MCP01 - 2024-04-12 - WRIST FLEX RING EXT WRIST EXT";
-    MY_TITLE = "MCP03 - 2024-04-23 - Multi-Gesture";
+    MY_TITLE = "MCP01 - 2024-04-12 - WRIST FLEX RING EXT WRIST EXT";
+    % MY_TITLE = "MCP03 - 2024-04-23 - Multi-Gesture";
     [data,sync] = io.load_align_saga_data_many(poly5_files);
     iExc = nan;
 end

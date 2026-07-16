@@ -3,17 +3,22 @@ clear;
 close all force;
 clc;
 
-SAGA_UNIT = 'SAGAB';
-MY_FILE = fullfile(pwd,'Max_2024_03_30_B_22.poly5');
-TRIGS_CH = 73;
+% SAGA_UNIT = 'SAGAB';
+% MY_FILE = fullfile(pwd,'MCP04_2025_01_23_B_DIST_4.poly5');
+SAGA_UNIT = 'SAGAA';
+MY_FILE = fullfile(pwd,'MCP04_2025_01_23_A_PROX_3.poly5');
+LAYOUT = textile_8x8_uni2grid_mapping();
+LAYOUT = LAYOUT([1:32, 57:64, 49:56, 41:48, 33:40]);
+TRIGS_CH = 68;
+TRIG_BIT = 1;
 % MY_FILE = "C:/Data/TMSi/MCP03/MCP03_2024_04_23/MCP03_2024_04_23_B_DISTEXT_15.poly5";
 % MY_FILE = "C:/Data/TMSi/MCP03/MCP03_2024_04_23/trial_15_04232024_MCP03_ExtProx-20240423T145055.DATA.poly5";
 % TRIGS_CH = 66;
 ALGORITHMIC_LATENCY_ESTIMATE = 0.010; % seconds
 SAMPLE_DELAY_LIM = [0.0025, 0.010]; % Pause will be at least this many seconds
-LINE_VERTICAL_OFFSET = 50; % microvolts
-HORIZONTAL_SCALE = 0.5; % seconds
-SAMPLE_RATE_RECORDING = 4000;
+LINE_VERTICAL_OFFSET = 10; % microvolts
+HORIZONTAL_SCALE = 0.25; % seconds
+SAMPLE_RATE_RECORDING = 2000;
 MIN_CHANNELWISE_RMS = 0.05; % microvolts
 RMS_Y_LIM = [0 5];
 MIN_PK_HEIGHT = 10;
@@ -82,7 +87,10 @@ for iH = 1:64
 end
 
 trigs_ax = nexttile(L,5,[1 1]);
-set(trigs_ax,'NextPlot','add','FontName','Tahoma','XColor','none','YColor','none');
+set(trigs_ax,'NextPlot','add','FontName','Tahoma','XColor','none', ...
+                    'YLim',[-0.1,1.1],...
+                    'YTick',[0,1],...
+                    'YTickLabel',["LOW", "HIGH"]);
 h_trigs = line(trigs_ax,(1:h_scale), ...
                     nan(1,h_scale), ...
                     'Color','m',...
@@ -91,7 +99,7 @@ h_trigs = line(trigs_ax,(1:h_scale), ...
                     'Marker', '*', ...
                     'MarkerEdgeColor', 'r', ...
                     'MarkerIndices', []);
-ylim(trigs_ax,[0,1030]);
+% ylim(trigs_ax,[0,1030]);
 title(trigs_ax,'Triggers','FontName','Tahoma','Color','k');
 
 %% Load the LSL library
@@ -138,8 +146,12 @@ lsl_outlet_obj = lsl_outlet(lsl_info_obj);
 %% Run loop while figure is open.
 needs_initial_ts = true;
 ts0 = 0;
-[b,a] = butter(3,0.25,'high');
-zi = zeros(3,64);
+% [b,a] = butter(3,0.25,'high');
+[~,g] = sgolay(2,11);
+b = g(:,2);
+a = 1;
+
+zi = zeros(numel(b)-1,64);
 
 warning('off','signal:findpeaks:largeMinPeakHeight');
 cols = jet(20);
@@ -176,9 +188,7 @@ while isvalid(fig)
         iVec(iVec == 0) = max(iVec);
     end
 
-    [data,zi] = filter(b,a,samples(2:65,:)',zi,1);
-    data(:,meta.channels.exclude_pre) = nan;
-    data = reshape(del2(reshape(data,[],8,8)),[],64);
+    [data,zi] = filter(b,a,samples(LAYOUT,:)',zi,1);
     
     for iH = 1:64
         h(iH).YData(iVec) = data(:,iH)+LINE_VERTICAL_OFFSET*rem(iH-1,8);
@@ -187,26 +197,26 @@ while isvalid(fig)
         end
     end
     % 
-    h_trigs.YData(iVec) = samples(TRIGS_CH,:);
+    h_trigs.YData(iVec) = double(bitand(samples(TRIGS_CH,:),2^TRIG_BIT)==0);
     all_locs = unique(vertcat(locs{:}));
-    [~,clus] = max(net(data(all_locs,meta.channels.keep_post)'),[],1);
-    cat_data = [cat_data; int16(data(:,squiggles_server.UserData.current_channel))*10]; %#ok<AGROW>
-    cat_locs = [cat_locs; all_locs + cat_n]; %#ok<AGROW>
-    cat_clus = [cat_clus, clus]; %#ok<AGROW>
+    % [~,clus] = max(net(data(all_locs,meta.channels.keep_post)'),[],1);
+    % cat_data = [cat_data; int16(data(:,squiggles_server.UserData.current_channel))*10]; %#ok<AGROW>
+    % cat_locs = [cat_locs; all_locs + cat_n]; %#ok<AGROW>
+    % cat_clus = [cat_clus, clus]; %#ok<AGROW>
     cat_n = cat_n + n_samples;
     drawnow();
-    if muap_server.Connected && (cat_iter == N_ITERATIONS_TARGET)
-        msgId = rem(msgId + 1,65535);
-        packet = struct('N', cat_n, 'Saga', SAGA, 'Sample', cat_locs, 'Cluster', cat_clus, 'Id', msgId);
-        writeline(muap_server, jsonencode(packet));
-    end
-    if squiggles_server.Connected && (cat_iter == N_ITERATIONS_TARGET)
-        msgId = rem(msgId + 1, 65535);
-        packet = struct('N', cat_n, 'Saga', SAGA, 'Sample', cat_data, 'Channel', squiggles_server.UserData.current_channel, 'Id', msgId);
-        % packet.Sample = mat2cell(cat_data,size(cat_data,1),ones(1,size(cat_data,2)));
-        % packet.Channel = mat2cell(squiggles_server.UserData.current_channel,1,numel(squiggles_server.UserData.current_channel));
-        writeline(squiggles_server, jsonencode(packet));
-    end
+    % if muap_server.Connected && (cat_iter == N_ITERATIONS_TARGET)
+    %     msgId = rem(msgId + 1,65535);
+    %     packet = struct('N', cat_n, 'Saga', SAGA, 'Sample', cat_locs, 'Cluster', cat_clus, 'Id', msgId);
+    %     writeline(muap_server, jsonencode(packet));
+    % end
+    % if squiggles_server.Connected && (cat_iter == N_ITERATIONS_TARGET)
+    %     msgId = rem(msgId + 1, 65535);
+    %     packet = struct('N', cat_n, 'Saga', SAGA, 'Sample', cat_data, 'Channel', squiggles_server.UserData.current_channel, 'Id', msgId);
+    %     % packet.Sample = mat2cell(cat_data,size(cat_data,1),ones(1,size(cat_data,2)));
+    %     % packet.Channel = mat2cell(squiggles_server.UserData.current_channel,1,numel(squiggles_server.UserData.current_channel));
+    %     writeline(squiggles_server, jsonencode(packet));
+    % end
     cat_iter = rem(cat_iter+1,N_ITERATIONS_CONCATENATE);
     if cat_iter == 0
         cat_n = 0;
